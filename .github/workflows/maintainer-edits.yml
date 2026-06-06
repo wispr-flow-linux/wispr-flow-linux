@@ -1,0 +1,72 @@
+name: Maintainer Edits Check
+run-name: |
+  Maintainer Edits: ${{
+    github.event_name == 'pull_request_target' && format('PR #{0} by @{1} - {2}', github.event.pull_request.number, github.actor, github.event.pull_request.title) ||
+    format('{0} triggered by @{1}', github.event_name, github.actor)
+  }}
+
+# Enforces the CONTRIBUTING.md rule: cross-fork PRs must leave "Allow edits by
+# maintainers" checked. If it's off, the PR is commented and closed; the author
+# flips the box back on and reopens, and we pick up where we left off.
+#
+# Uses pull_request_target (not pull_request) on purpose: the pull_request event
+# from a fork runs with a read-only token, so it can't comment or close. This
+# workflow never checks out or runs the PR's code — it only reads event metadata
+# and calls the API — so running in the base-repo token context is safe.
+
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: maintainer-edits-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check-maintainer-edits:
+    name: Require maintainer edits on fork PRs
+    runs-on: ubuntu-latest
+    # Only fork PRs can have maintainer edits disabled; same-repo branches are
+    # always editable, and maintainer_can_modify is reported false for them.
+    if: >-
+      github.event.pull_request.head.repo.fork &&
+      github.event.pull_request.maintainer_can_modify == false
+
+    steps:
+      - name: Comment and close
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const body = [
+              "Thanks for the PR! It looks like **Allow edits by maintainers**",
+              "is turned off on this one.",
+              "",
+              "We ask contributors to leave that box checked. It lets a",
+              "maintainer push a small mechanical fix — a typo, a rebase, an",
+              "80-col wrap — straight to your branch and merge, instead of a",
+              "day-long comment round-trip. We keep it to small edits; anything",
+              "bigger we raise in a comment first. See",
+              "[CONTRIBUTING.md](https://github.com/wispr-flow-linux/wispr-flow-linux/blob/main/CONTRIBUTING.md#letting-maintainers-edit-your-pr).",
+              "",
+              "I'm closing this for now. Flip **Allow edits by maintainers**",
+              "back on and reopen — we pick right back up where we left off.",
+            ].join("\n");
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body,
+            });
+
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              state: "closed",
+            });

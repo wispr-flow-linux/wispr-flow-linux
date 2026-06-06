@@ -1,0 +1,95 @@
+name: Test Build Script Flags (Reusable)
+
+on:
+  workflow_call: # Make this workflow reusable
+  workflow_dispatch: # Allows manual triggering for testing
+
+concurrency:
+  group: test-flags-${{ github.ref }}
+  # Matches ci.yml: queue rather than cancel, so a reusable invocation
+  # from an in-flight CI run isn't killed mid-flight on the next push.
+  cancel-in-progress: false
+
+jobs:
+  test-flags:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Make build script executable
+        run: chmod +x ./build.sh
+
+      # build.sh prints "Build format:" and "Clean:" lines under --test-flags.
+      # On ubuntu-latest (Debian family) the bare default resolves to deb;
+      # override cases assert that --build / --arch / --clean are honoured.
+
+      # Test Case 1: Defaults (deb on Debian-family runner, clean=no)
+      - name: Test Case 1 - Defaults (deb, clean=no)
+        run: |
+          echo "--- ./build.sh --test-flags ---"
+          OUTPUT=$(./build.sh --test-flags)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "Build format:   deb" || (echo "::error::Expected 'Build format: deb'" && exit 1)
+          echo "$OUTPUT" | grep -q "Clean:          no" || (echo "::error::Expected 'Clean: no'" && exit 1)
+          echo "OK Test Case 1"
+
+      # Test Case 2: --build deb --arch arm64 (cross-arch resolution)
+      - name: Test Case 2 - --build deb --arch arm64
+        run: |
+          echo "--- ./build.sh --build deb --arch arm64 --test-flags ---"
+          OUTPUT=$(./build.sh --build deb --arch arm64 --test-flags)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "Build format:   deb" || (echo "::error::Expected 'Build format: deb'" && exit 1)
+          echo "$OUTPUT" | grep -q "Arch (deb):     arm64" || (echo "::error::Expected 'Arch (deb): arm64'" && exit 1)
+          echo "$OUTPUT" | grep -q "Arch (canon):   aarch64" || (echo "::error::Expected 'Arch (canon): aarch64'" && exit 1)
+          echo "$OUTPUT" | grep -q "Arch (electron):arm64" || (echo "::error::Expected 'Arch (electron): arm64'" && exit 1)
+          echo "OK Test Case 2"
+
+      # Test Case 3: --build appimage
+      - name: Test Case 3 - --build appimage
+        run: |
+          echo "--- ./build.sh --build appimage --test-flags ---"
+          OUTPUT=$(./build.sh --build appimage --test-flags)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "Build format:   appimage" || (echo "::error::Expected 'Build format: appimage'" && exit 1)
+          echo "OK Test Case 3"
+
+      # Test Case 4: --build rpm --arch amd64
+      - name: Test Case 4 - --build rpm --arch amd64
+        run: |
+          echo "--- ./build.sh --build rpm --arch amd64 --test-flags ---"
+          OUTPUT=$(./build.sh --build rpm --arch amd64 --test-flags)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "Build format:   rpm" || (echo "::error::Expected 'Build format: rpm'" && exit 1)
+          echo "$OUTPUT" | grep -q "Arch (rpm):     x86_64" || (echo "::error::Expected 'Arch (rpm): x86_64'" && exit 1)
+          echo "OK Test Case 4"
+
+      # Test Case 5: --clean yes is honoured
+      - name: Test Case 5 - --clean yes
+        run: |
+          echo "--- ./build.sh --clean yes --test-flags ---"
+          OUTPUT=$(./build.sh --clean yes --test-flags)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "Clean:          yes" || (echo "::error::Expected 'Clean: yes'" && exit 1)
+          echo "OK Test Case 5"
+
+      # Test Case 6: --release-tag is threaded through
+      - name: Test Case 6 - --release-tag
+        run: |
+          echo "--- ./build.sh --release-tag v9.9.9 --test-flags ---"
+          OUTPUT=$(./build.sh --release-tag v9.9.9 --test-flags)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "Release tag:    v9.9.9" || (echo "::error::Expected 'Release tag: v9.9.9'" && exit 1)
+          echo "OK Test Case 6"
+
+      # Test Case 7: a v<repoVer>+wispr<wisprVer> tag derives the combined
+      # package/filename version <wisprVer>-<repoVer>.
+      - name: Test Case 7 - --release-tag derives package version
+        run: |
+          echo "--- ./build.sh --release-tag v1.0.0+wispr1.5.619 --test-flags ---"
+          OUTPUT=$(./build.sh --release-tag v1.0.0+wispr1.5.619 --test-flags)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "Package version:1.5.619-1.0.0" || (echo "::error::Expected 'Package version:1.5.619-1.0.0'" && exit 1)
+          echo "OK Test Case 7"

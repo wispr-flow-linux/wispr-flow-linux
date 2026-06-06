@@ -1,0 +1,31 @@
+name: BATS Tests
+run-name: |
+  BATS: ${{
+    github.event_name == 'pull_request' && format('PR #{0} by @{1} - {2}', github.event.pull_request.number, github.actor, github.event.pull_request.title) ||
+    github.event_name == 'push' && github.event.head_commit && format('Push by @{0} - {1}', github.actor, github.event.head_commit.message) ||
+    format('{0} triggered by @{1}', github.event_name, github.actor)
+  }}
+
+on:
+  workflow_call: # Runs as a job inside ci.yml — the single entry point.
+  workflow_dispatch: # Allows manual triggering for testing.
+
+permissions:
+  contents: read
+
+jobs:
+  bats:
+    name: BATS unit tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Install BATS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats
+
+      - name: Run BATS test suite
+        run: bats --print-output-on-failure tests/*.bats

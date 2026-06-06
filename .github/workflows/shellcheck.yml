@@ -1,0 +1,38 @@
+---
+name: Shellcheck
+run-name: |
+  Shellcheck: ${{
+    github.event_name == 'pull_request' && format('PR #{0} by @{1} - {2}', github.event.pull_request.number, github.actor, github.event.pull_request.title) ||
+    github.event_name == 'push' && github.event.head_commit && format('Push by @{0} - {1}', github.actor, github.event.head_commit.message) ||
+    format('{0} triggered by @{1}', github.event_name, github.actor)
+  }}
+
+on:
+  workflow_call: # Runs as a job inside ci.yml — the single entry point.
+  workflow_dispatch: # Allows manual triggering for testing.
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    name: Check shell scripts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Install dependencies
+        run: |
+          sudo apt update && sudo apt install -y shellcheck
+      - name: shellcheck
+        # Lint every script carrying a shebang or `# shellcheck` directive:
+        # build.sh, scripts/**, tests/*.sh. -x follows `source` directives.
+        #
+        # --severity=warning gates on real bugs (warning/error) but tolerates
+        # style-level `info` notes. The validated build engine
+        # scripts/build-linux.sh carries a few intentional `A && B || C` idioms
+        # (SC2015 info) and is treated as frozen, so a stricter level would
+        # block CI on code that isn't ours to reflow.
+        run: |
+          git grep -l '^#\( *shellcheck \|!\(/bin/\|/usr/bin/env \)\(sh\|bash\|dash\|ksh\)\)' -- '*.sh' | xargs shellcheck -x --severity=warning

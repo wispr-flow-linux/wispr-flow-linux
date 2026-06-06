@@ -1,0 +1,518 @@
+{
+ "opt": {
+  "mac": 58,
+  "linux": -1
+ },
+ "opt_r": {
+  "mac": 61,
+  "linux": -1
+ },
+ "alt": {
+  "mac": -1,
+  "linux": 164
+ },
+ "alt_r": {
+  "mac": -1,
+  "linux": 165
+ },
+ "backspace": {
+  "mac": 51,
+  "linux": 8
+ },
+ "caps_lock": {
+  "mac": 57,
+  "linux": 20
+ },
+ "cmd": {
+  "mac": 55,
+  "linux": -1
+ },
+ "cmd_r": {
+  "mac": 54,
+  "linux": -1
+ },
+ "win": {
+  "mac": -1,
+  "linux": 91
+ },
+ "win_r": {
+  "mac": -1,
+  "linux": 92
+ },
+ "ctrl": {
+  "mac": 59,
+  "linux": 162
+ },
+ "ctrl_r": {
+  "mac": 62,
+  "linux": 163
+ },
+ "delete": {
+  "mac": 117,
+  "linux": 46
+ },
+ "down": {
+  "mac": 125,
+  "linux": 40
+ },
+ "end": {
+  "mac": 119,
+  "linux": 35
+ },
+ "enter": {
+  "mac": 36,
+  "linux": 13
+ },
+ "esc": {
+  "mac": 53,
+  "linux": 27
+ },
+ "f1": {
+  "mac": 122,
+  "linux": 112
+ },
+ "f2": {
+  "mac": 120,
+  "linux": 113
+ },
+ "f3": {
+  "mac": 160,
+  "linux": 114
+ },
+ "f4": {
+  "mac": 177,
+  "linux": 115
+ },
+ "f5": {
+  "mac": 176,
+  "linux": 116
+ },
+ "f6": {
+  "mac": 178,
+  "linux": 117
+ },
+ "f7": {
+  "mac": 98,
+  "linux": 118
+ },
+ "f8": {
+  "mac": 100,
+  "linux": 119
+ },
+ "f9": {
+  "mac": 101,
+  "linux": 120
+ },
+ "f10": {
+  "mac": 109,
+  "linux": 121
+ },
+ "f11": {
+  "mac": 103,
+  "linux": 122
+ },
+ "f12": {
+  "mac": 111,
+  "linux": 123
+ },
+ "f13": {
+  "mac": 105,
+  "linux": 124
+ },
+ "f14": {
+  "mac": 107,
+  "linux": 125
+ },
+ "f15": {
+  "mac": 113,
+  "linux": 126
+ },
+ "f16": {
+  "mac": 106,
+  "linux": 127
+ },
+ "f17": {
+  "mac": 64,
+  "linux": 128
+ },
+ "f18": {
+  "mac": 79,
+  "linux": 129
+ },
+ "f19": {
+  "mac": 80,
+  "linux": 130
+ },
+ "f20": {
+  "mac": 90,
+  "linux": 131
+ },
+ "f21": {
+  "mac": -1,
+  "linux": 132
+ },
+ "f22": {
+  "mac": -1,
+  "linux": 133
+ },
+ "f23": {
+  "mac": -1,
+  "linux": 134
+ },
+ "f24": {
+  "mac": -1,
+  "linux": 135
+ },
+ "home": {
+  "mac": 115,
+  "linux": 36
+ },
+ "left": {
+  "mac": 123,
+  "linux": 37
+ },
+ "page_down": {
+  "mac": 121,
+  "linux": 34
+ },
+ "page_up": {
+  "mac": 116,
+  "linux": 33
+ },
+ "right": {
+  "mac": 124,
+  "linux": 39
+ },
+ "shift": {
+  "mac": 56,
+  "linux": 160
+ },
+ "shift_r": {
+  "mac": 60,
+  "linux": 161
+ },
+ "space": {
+  "mac": 49,
+  "linux": 32
+ },
+ "tab": {
+  "mac": 48,
+  "linux": 9
+ },
+ "up": {
+  "mac": 126,
+  "linux": 38
+ },
+ "a": {
+  "mac": 0,
+  "linux": 65
+ },
+ "b": {
+  "mac": 11,
+  "linux": 66
+ },
+ "c": {
+  "mac": 8,
+  "linux": 67
+ },
+ "d": {
+  "mac": 2,
+  "linux": 68
+ },
+ "e": {
+  "mac": 14,
+  "linux": 69
+ },
+ "f": {
+  "mac": 3,
+  "linux": 70
+ },
+ "g": {
+  "mac": 5,
+  "linux": 71
+ },
+ "h": {
+  "mac": 4,
+  "linux": 72
+ },
+ "i": {
+  "mac": 34,
+  "linux": 73
+ },
+ "j": {
+  "mac": 38,
+  "linux": 74
+ },
+ "k": {
+  "mac": 40,
+  "linux": 75
+ },
+ "l": {
+  "mac": 37,
+  "linux": 76
+ },
+ "m": {
+  "mac": 46,
+  "linux": 77
+ },
+ "n": {
+  "mac": 45,
+  "linux": 78
+ },
+ "o": {
+  "mac": 31,
+  "linux": 79
+ },
+ "p": {
+  "mac": 35,
+  "linux": 80
+ },
+ "q": {
+  "mac": 12,
+  "linux": 81
+ },
+ "r": {
+  "mac": 15,
+  "linux": 82
+ },
+ "s": {
+  "mac": 1,
+  "linux": 83
+ },
+ "t": {
+  "mac": 17,
+  "linux": 84
+ },
+ "u": {
+  "mac": 32,
+  "linux": 85
+ },
+ "v": {
+  "mac": 9,
+  "linux": 86
+ },
+ "w": {
+  "mac": 13,
+  "linux": 87
+ },
+ "x": {
+  "mac": 7,
+  "linux": 88
+ },
+ "y": {
+  "mac": 16,
+  "linux": 89
+ },
+ "z": {
+  "mac": 6,
+  "linux": 90
+ },
+ "one": {
+  "mac": 18,
+  "linux": 49
+ },
+ "two": {
+  "mac": 19,
+  "linux": 50
+ },
+ "three": {
+  "mac": 20,
+  "linux": 51
+ },
+ "four": {
+  "mac": 21,
+  "linux": 52
+ },
+ "five": {
+  "mac": 23,
+  "linux": 53
+ },
+ "six": {
+  "mac": 22,
+  "linux": 54
+ },
+ "seven": {
+  "mac": 26,
+  "linux": 55
+ },
+ "eight": {
+  "mac": 28,
+  "linux": 56
+ },
+ "nine": {
+  "mac": 25,
+  "linux": 57
+ },
+ "zero": {
+  "mac": 29,
+  "linux": 48
+ },
+ "minus": {
+  "mac": 27,
+  "linux": 189
+ },
+ "equals": {
+  "mac": 24,
+  "linux": 187
+ },
+ "squareBracketOpen": {
+  "mac": 33,
+  "linux": 219
+ },
+ "squareBracketClose": {
+  "mac": 30,
+  "linux": 221
+ },
+ "backSlash": {
+  "mac": 42,
+  "linux": 220
+ },
+ "semicolon": {
+  "mac": 41,
+  "linux": 186
+ },
+ "apostrophe": {
+  "mac": 39,
+  "linux": 222
+ },
+ "comma": {
+  "mac": 43,
+  "linux": 188
+ },
+ "period": {
+  "mac": 47,
+  "linux": 190
+ },
+ "forwardSlash": {
+  "mac": 44,
+  "linux": 191
+ },
+ "backTick": {
+  "mac": 50,
+  "linux": 192
+ },
+ "space2": {
+  "mac": 10,
+  "linux": 32
+ },
+ "fn": {
+  "mac": 63,
+  "linux": -1
+ },
+ "doubleFn": {
+  "mac": 179,
+  "linux": -1
+ },
+ "print": {
+  "mac": -1,
+  "linux": 42
+ },
+ "print_screen": {
+  "mac": -1,
+  "linux": 44
+ },
+ "insert": {
+  "mac": -1,
+  "linux": 45
+ },
+ "num_pad_one": {
+  "mac": -1,
+  "linux": 97
+ },
+ "num_pad_two": {
+  "mac": -1,
+  "linux": 98
+ },
+ "num_pad_three": {
+  "mac": -1,
+  "linux": 99
+ },
+ "num_pad_four": {
+  "mac": -1,
+  "linux": 100
+ },
+ "num_pad_five": {
+  "mac": -1,
+  "linux": 101
+ },
+ "num_pad_six": {
+  "mac": -1,
+  "linux": 102
+ },
+ "num_pad_seven": {
+  "mac": -1,
+  "linux": 103
+ },
+ "num_pad_eight": {
+  "mac": -1,
+  "linux": 104
+ },
+ "num_pad_nine": {
+  "mac": -1,
+  "linux": 105
+ },
+ "num_pad_zero": {
+  "mac": -1,
+  "linux": 96
+ },
+ "multiply": {
+  "mac": -1,
+  "linux": 106
+ },
+ "add": {
+  "mac": -1,
+  "linux": 107
+ },
+ "subtract": {
+  "mac": -1,
+  "linux": 108
+ },
+ "decimal": {
+  "mac": -1,
+  "linux": 110
+ },
+ "divide": {
+  "mac": -1,
+  "linux": 111
+ },
+ "num_lock": {
+  "mac": -1,
+  "linux": 19
+ },
+ "mouse_middle": {
+  "mac": 4098,
+  "linux": 4098
+ },
+ "mouse4": {
+  "mac": 4099,
+  "linux": 4099
+ },
+ "mouse5": {
+  "mac": 4100,
+  "linux": 4100
+ },
+ "mouse6": {
+  "mac": 4101,
+  "linux": 4101
+ },
+ "mouse7": {
+  "mac": 4102,
+  "linux": 4102
+ },
+ "mouse8": {
+  "mac": 4103,
+  "linux": 4103
+ },
+ "mouse9": {
+  "mac": 4104,
+  "linux": 4104
+ },
+ "mouse10": {
+  "mac": 4105,
+  "linux": 4105
+ },
+ "mouse_aux": {
+  "mac": 65535,
+  "linux": 65535
+ }
+}

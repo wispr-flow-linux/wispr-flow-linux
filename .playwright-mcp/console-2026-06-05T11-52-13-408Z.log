@@ -1,0 +1,5 @@
+[     503ms] [ERROR] Error: <svg> attribute height: Expected length, "auto". @ https://wisprflow.ai/:1119
+[     504ms] [LOG] Platform: Linux @ https://cdn.jsdelivr.net/npm/@tanay-wispr/webflow-package@6.6.1/dist/global.js:1
+[     506ms] [ERROR] Error: <svg> attribute height: Expected length, "auto". @ https://wisprflow.ai/:1141
+[     509ms] [ERROR] Error: <svg> attribute height: Expected length, "auto". @ https://wisprflow.ai/:1229
+[    3203ms] [LOG] Next Play User: false @ https://cdn.jsdelivr.net/npm/@tanay-wispr/webflow-package@6.6.1/dist/global.js:1

@@ -1,0 +1,44 @@
+name: CI
+run-name: |
+  CI: ${{
+    github.event_name == 'pull_request' && format('PR #{0} by @{1} - {2}', github.event.pull_request.number, github.actor, github.event.pull_request.title) ||
+    github.event_name == 'push' && github.event.head_commit && format('Push by @{0} - {1}', github.actor, github.event.head_commit.message) ||
+    format('{0} triggered by @{1}', github.event_name, github.actor)
+  }}
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # --- Gates (lint + unit tests + flag parsing) ----------------------------
+  test-flags:
+    name: Test Flags Parsing
+    uses: ./.github/workflows/test-flags.yml
+
+  shellcheck:
+    name: Shellcheck
+    uses: ./.github/workflows/shellcheck.yml
+
+  codespell:
+    name: Codespell
+    uses: ./.github/workflows/codespell.yml
+
+  tests:
+    name: BATS Tests
+    uses: ./.github/workflows/tests.yml
+
+  # NOTE: This repo intentionally ships no package-build, release, or publish
+  # CI. Packaging is local-only: a user builds a `.deb`/`.rpm`/AppImage on
+  # their own machine from a Wispr Flow installer they obtained themselves
+  # (see build.sh and scripts/packaging/).

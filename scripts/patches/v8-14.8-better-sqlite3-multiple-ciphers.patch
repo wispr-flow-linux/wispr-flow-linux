@@ -1,0 +1,100 @@
+# V8 14.8 / Node 24 (Electron 42.x) source-compat patch for
+# better-sqlite3-multiple-ciphers@12.5.0 -- clean-room equivalent of Wispr Flow’s
+# pinned yarn patch (better-sqlite3-multiple-ciphers-npm-12.5.0-d9bcdd8d70.patch).
+#
+# Fixes three V8 API breaks so the addon compiles against Electron 42’s V8 14.8:
+#   1. v8::External::New()/Value() now require a mandatory ExternalPointerTypeTag
+#      (default tag = behaviour-identical for embedders that don’t use tags).
+#   2. v8::PropertyCallbackInfo::This() was removed on V8 13+; use HolderV2().
+#   3. SetNativeDataProperty gained overloads -> a literal 0 setter is ambiguous;
+#      nullptr selects the unambiguous nullptr_t overload.
+# All edits are version-guarded (V8_MAJOR_VERSION) so older V8 still builds.
+# Apply from the package root:  patch -p1 < this.patch
+#
+diff -ru a/src/better_sqlite3.cpp b/src/better_sqlite3.cpp
+--- a/src/better_sqlite3.cpp	1985-10-26 04:15:00.000000000 -0400
++++ b/src/better_sqlite3.cpp	2026-06-04 15:05:49.721575914 -0400
+@@ -57,7 +57,7 @@
+ 
+ 	// Initialize addon instance.
+ 	Addon* addon = new Addon(isolate);
+-	v8::Local<v8::External> data = v8::External::New(isolate, addon);
++	v8::Local<v8::External> data = EXTERNAL_NEW(isolate, addon);
+ 	node::AddEnvironmentCleanupHook(isolate, Addon::Cleanup, addon);
+ 
+ 	// Create and export native-backed classes and functions.
+diff -ru a/src/objects/database.cpp b/src/objects/database.cpp
+--- a/src/objects/database.cpp	1985-10-26 04:15:00.000000000 -0400
++++ b/src/objects/database.cpp	2026-06-04 15:06:13.385715506 -0400
+@@ -448,10 +448,10 @@
+ }
+ 
+ NODE_GETTER(Database::JS_open) {
+-	info.GetReturnValue().Set(Unwrap<Database>(info.This())->open);
++	info.GetReturnValue().Set(Unwrap<Database>(PROPERTY_HOLDER(info))->open);
+ }
+ 
+ NODE_GETTER(Database::JS_inTransaction) {
+-	Database* db = Unwrap<Database>(info.This());
++	Database* db = Unwrap<Database>(PROPERTY_HOLDER(info));
+ 	info.GetReturnValue().Set(db->open && !static_cast<bool>(sqlite3_get_autocommit(db->db_handle)));
+ }
+diff -ru a/src/objects/statement.cpp b/src/objects/statement.cpp
+--- a/src/objects/statement.cpp	1985-10-26 04:15:00.000000000 -0400
++++ b/src/objects/statement.cpp	2026-06-04 15:06:21.413762863 -0400
+@@ -378,6 +378,6 @@
+ }
+ 
+ NODE_GETTER(Statement::JS_busy) {
+-	Statement* stmt = Unwrap<Statement>(info.This());
++	Statement* stmt = Unwrap<Statement>(PROPERTY_HOLDER(info));
+ 	info.GetReturnValue().Set(stmt->alive && stmt->locked);
+ }
+diff -ru a/src/util/helpers.cpp b/src/util/helpers.cpp
+--- a/src/util/helpers.cpp	1985-10-26 04:15:00.000000000 -0400
++++ b/src/util/helpers.cpp	2026-06-04 15:06:03.830659141 -0400
+@@ -89,7 +89,9 @@
+ 	recv->InstanceTemplate()->SetNativeDataProperty(
+ 		InternalizedFromLatin1(isolate, name),
+ 		func,
+-		0,
++		// nullptr (not 0) selects the unambiguous nullptr_t setter overload on
++		// V8 14+, where two setter-callback overloads otherwise make 0 ambiguous.
++		nullptr,
+ 		data
+ 	);
+ }
+diff -ru a/src/util/macros.cpp b/src/util/macros.cpp
+--- a/src/util/macros.cpp	1985-10-26 04:15:00.000000000 -0400
++++ b/src/util/macros.cpp	2026-06-04 15:05:42.387532649 -0400
+@@ -11,10 +11,29 @@
+ #define GET_PROTOTYPE(obj) ((obj)->GetPrototype())
+ #endif
+ 
++// v8::PropertyCallbackInfo::This()/Holder() were removed on V8 13+; the
++// replacement is HolderV2(). See http://crbug.com/333672197
++#if defined(V8_MAJOR_VERSION) && V8_MAJOR_VERSION >= 13
++#define PROPERTY_HOLDER(info) (info).HolderV2()
++#else
++#define PROPERTY_HOLDER(info) (info).This()
++#endif
++
++// v8::External gained mandatory type-pointer tags on V8 14 (external-pointer
++// sandboxing). Tags are optional for embedders that do not use them, so pass
++// the default tag. See v8-external.h.
++#if defined(V8_MAJOR_VERSION) && V8_MAJOR_VERSION >= 14
++#define EXTERNAL_VALUE(ext) ((ext)->Value(v8::kExternalPointerTypeTagDefault))
++#define EXTERNAL_NEW(isolate, ptr) (v8::External::New((isolate), (ptr), v8::kExternalPointerTypeTagDefault))
++#else
++#define EXTERNAL_VALUE(ext) ((ext)->Value())
++#define EXTERNAL_NEW(isolate, ptr) (v8::External::New((isolate), (ptr)))
++#endif
++
+ #define EasyIsolate v8::Isolate* isolate = v8::Isolate::GetCurrent()
+ #define OnlyIsolate info.GetIsolate()
+ #define OnlyContext isolate->GetCurrentContext()
+-#define OnlyAddon static_cast<Addon*>(info.Data().As<v8::External>()->Value())
++#define OnlyAddon static_cast<Addon*>(EXTERNAL_VALUE(info.Data().As<v8::External>()))
+ #define UseIsolate v8::Isolate* isolate = OnlyIsolate
+ #define UseContext v8::Local<v8::Context> ctx = OnlyContext
+ #define UseAddon Addon* addon = OnlyAddon

@@ -1,0 +1,35 @@
+# === Proprietary payload — NEVER commit ===
+/Wispr Flow Setup-*.exe
+*.exe
+*.nupkg
+/extract/
+/build-linux/
+# generated repacked webpack bundle (proprietary-derived)
+/index.js
+
+# === Local scratch tooling (not part of the build) ===
+/tools/
+
+# === Local prebuilt binary inputs (staged via env, never committed) ===
+/helper-bin/
+/native-modules/
+
+# === Node ===
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# === Packaging build dirs (regenerated) ===
+/build/
+/dist/
+/out/
+
+# === Editor / OS noise ===
+.DS_Store
+*.swp
+*.orig
+*.macgate.orig
+*~
+
+# === Local agent/session scratch ===
+.claude/

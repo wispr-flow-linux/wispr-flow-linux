@@ -1,0 +1,30 @@
+name: Feature Request
+description: Request a feature or improvement to the Linux port.
+title: "[feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        We're a repackager plus a clean-room helper, not Wispr Flow's product team. Requests to change the **app's** behaviour belong with [Wispr Flow](https://wisprflow.ai). Good fits here: new distro/compositor support, helper-parity with the macOS/Windows behaviour, packaging, launcher, `--doctor`, docs, tests, CI. See [CONTRIBUTING.md](https://github.com/wispr-flow-linux/wispr-flow-linux/blob/main/CONTRIBUTING.md#what-we-accept).
+  - type: textarea
+    id: request
+    attributes:
+      label: What would you like
+      description: Describe the feature or improvement.
+    validations:
+      required: true
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: Why do you need this? What problem does it solve?
+    validations:
+      required: true
+  - type: textarea
+    id: workarounds
+    attributes:
+      label: Existing workarounds
+      description: Any existing workarounds, or related surfaces already in the port.
+    validations:
+      required: false

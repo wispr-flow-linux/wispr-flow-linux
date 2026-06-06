@@ -1,0 +1,51 @@
+# CODEOWNERS — review ownership
+#
+# Rules match top-to-bottom; the LAST matching rule wins. This is a solo
+# project, so @aaddrick owns everything; the per-area lines below exist for
+# discoverability (they make the repo's logical layout visible) and so that
+# adding a collaborator later is a one-line change in the right section.
+#
+# Each listed user must be a repo collaborator with at least read access, or
+# GitHub silently ignores them.
+
+# ---- Default: aaddrick owns anything not explicitly claimed ----
+*                                       @aaddrick
+
+# ---- Build orchestration ----
+/build.sh                               @aaddrick
+/scripts/_common.sh                     @aaddrick
+/scripts/build-linux.sh                 @aaddrick
+
+# ---- Setup (host detection, dependencies, downloads) ----
+/scripts/setup/                         @aaddrick
+
+# ---- App patches ----
+/scripts/patches/                       @aaddrick
+/scripts/verify-patches.sh              @aaddrick
+
+# ---- Packaging formats + runtime launcher + doctor ----
+/scripts/packaging/                     @aaddrick
+/scripts/launcher-common.sh             @aaddrick
+/scripts/doctor.sh                      @aaddrick
+
+# ---- IPC contract (clean-room Rust helper now lives in its own repo) ----
+/docs/reference/                        @aaddrick
+
+# ---- Tests ----
+/tests/                                 @aaddrick
+
+# ---- Nix ----
+/flake.nix                              @aaddrick
+/nix/                                   @aaddrick
+
+# ---- CI / GitHub metadata ----
+/.github/                               @aaddrick
+
+# ---- Docs & governance ----
+/docs/                                  @aaddrick
+/README.md                              @aaddrick
+/CLAUDE.md                              @aaddrick
+/AGENTS.md                              @aaddrick
+/CONTRIBUTING.md                        @aaddrick
+/CHANGELOG.md                           @aaddrick
+/SECURITY.md                            @aaddrick

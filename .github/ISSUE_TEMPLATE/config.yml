@@ -1,0 +1,10 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Wispr Flow app bugs / account / billing
+    url: https://wisprflow.ai
+    about: |
+      Bugs in the Wispr Flow application itself (transcription, login, billing,
+      hotkey logic) are upstream. This repo only ports the app to Linux.
+  - name: Questions / usage help
+    url: https://github.com/wispr-flow-linux/wispr-flow-linux/discussions
+    about: General questions belong in Discussions.

@@ -1,0 +1,14 @@
+[codespell]
+# Ref: https://github.com/codespell-project/codespell#using-a-config-file
+# Skip generated/vendored/binary trees and lockfiles. build-linux/ and extract/
+# are build scratch areas, tools/ is vendored, and the proprietary installer
+# .exe must never be scanned. target/ catches any Rust build output.
+skip = .git*,.codespellrc,*/build-linux/*,build-linux,*/extract/*,extract,*/tools/*,tools,*.lock,*.exe,*/target/*,target,index.js
+check-hidden = true
+# ignore-words-list is intentionally minimal; Phase 8 may refine it.
+#   crate    — Rust keyword codespell flags toward "create".
+#   declRe   — JS identifier (declaration-regex) in scripts/patches/helper-resolver.sh.
+#   ser      — appears in vendored zvariant build-dep files (also skipped via target/).
+#   macThing — placeholder identifier in docs/learnings/platform-gates.md
+#              (the `isWindows ? winThing : macThing` gate shape); flagged as "matching".
+ignore-words-list = crate,declre,ser,macthing

@@ -1,0 +1,97 @@
+name: Bug Report
+description: Report a bug in the unofficial Wispr Flow for Linux port.
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **This is an unofficial Linux port.** Bugs in the Wispr Flow app itself (transcription quality, login, billing, hotkey logic) belong with [Wispr Flow](https://wisprflow.ai), not here. This tracker is for the Linux packaging, the launcher/doctor, the app patches, and the clean-room Rust helper (text injection). See [CONTRIBUTING.md](https://github.com/wispr-flow-linux/wispr-flow-linux/blob/main/CONTRIBUTING.md#what-goes-upstream-not-here).
+  - type: textarea
+    id: doctor
+    attributes:
+      label: "`wispr-flow --doctor` output"
+      description: |
+        Run `wispr-flow --doctor` in a terminal and paste the **full** output here. It captures session type, `/dev/uinput` access, clipboard tooling, the GNOME extension, and AT-SPI — most Linux-only bugs trace to one of these. If the app won't start, say so and paste any launcher error.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution
+      description: e.g. Fedora 43, Ubuntu 24.04, Arch
+      placeholder: Fedora 43
+    validations:
+      required: true
+  - type: dropdown
+    id: desktop
+    attributes:
+      label: Desktop environment
+      options:
+        - KDE Plasma
+        - GNOME
+        - wlroots-based (Sway, Hyprland, etc.)
+        - Other (note in description)
+    validations:
+      required: true
+  - type: dropdown
+    id: session
+    attributes:
+      label: Session type
+      options:
+        - Wayland
+        - X11
+    validations:
+      required: true
+  - type: dropdown
+    id: format
+    attributes:
+      label: Install format
+      options:
+        - .deb
+        - .rpm
+        - AppImage
+        - Built from source / staged tree
+        - Nix
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Describe the bug. What did you see?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps to reproduce the bug.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual
+      description: '"Expected X, got Y" phrasing is helpful.'
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / errors
+      description: |
+        Relevant log output or stack traces. Common locations:
+        - Launcher log: `~/.cache/wispr-flow/`
+        - App logs: under `~/.config/` (the Wispr Flow config dir)
+      render: shell
+    validations:
+      required: false
+  - type: textarea
+    id: other
+    attributes:
+      label: Anything else
+      description: Additional context, screenshots, or links.
+    validations:
+      required: false

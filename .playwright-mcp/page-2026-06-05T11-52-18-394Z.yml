@@ -1,0 +1,745 @@
+- generic [ref=e2]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - link "home" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - img "Flow Logo" [ref=e7]
+      - navigation [ref=e8]:
+        - generic [ref=e9]:
+          - button "Product" [ref=e11] [cursor=pointer]:
+            - generic [ref=e12]: Product
+          - button "Individuals" [ref=e15] [cursor=pointer]:
+            - generic [ref=e16]: Individuals
+          - link "Business" [ref=e19] [cursor=pointer]:
+            - /url: /business
+            - generic [ref=e21]:
+              - generic [ref=e22]: B
+              - generic [ref=e23]: u
+              - generic [ref=e24]: s
+              - generic [ref=e25]: i
+              - generic [ref=e26]: "n"
+              - generic [ref=e27]: e
+              - generic [ref=e28]: s
+              - generic [ref=e29]: s
+          - button "Resources" [ref=e31] [cursor=pointer]:
+            - generic [ref=e32]: Resources
+          - button "Company" [ref=e35] [cursor=pointer]:
+            - generic [ref=e36]: Company
+      - link "Download for free" [ref=e40] [cursor=pointer]:
+        - /url: https://wisprflow.onelink.me/1Nfg/website
+        - generic [ref=e41]: Download for free
+  - main [ref=e42]:
+    - generic [ref=e43]:
+      - generic [ref=e49]:
+        - heading "Don’t type, just speak" [level=1] [ref=e51]
+        - generic [ref=e53]:
+          - paragraph [ref=e54]: The voice-to-text AI that turns speech into clear, polished writing in every app.
+          - link "Download for free" [ref=e57] [cursor=pointer]:
+            - /url: https://wisprflow.onelink.me/1Nfg/website
+            - generic [ref=e58]: Download for free
+          - generic [ref=e60]: Available on Mac, Windows, iPhone, and Android
+      - generic [ref=e61]:
+        - img [ref=e63]:
+          - generic [ref=e65]: Umm, hope your week has started well…I was talking to Cheyene earlier but reception was really bad and I think their going to handle the first part of the project, but I’m not totally sure. Also, I told the team the the new timeline should be ready by Friday, although it’s probably going to slip. There’s been a lot of back and forth and honestly the the whole thing’s been kind of chaotic, like nobody really knows what’s going on so can you check in with them and see if the notes from yesterday’s meeting were sent out, or if they’re still waiting. I think Cheyene mentioned it but didn’t confirm, and now I’m a little lost.
+        - img [ref=e68]
+        - link [ref=e288] [cursor=pointer]:
+          - /url: https://wisprflow.onelink.me/1Nfg/website
+        - img [ref=e290]:
+          - generic [ref=e292]: Hope your week is off to a good start. I was talking to Cheyene earlier, but the reception was really bad. I think they’re going to handle the first part of the project, but I’m not totally sure. I also told the team the new timeline should be ready by Friday — although it might slip. There’s been a lot of back and forth, and honestly, the whole thing has been a bit chaotic. It feels like nobody really knows what’s going on. Can you check in with them and see if the notes from yesterday’s meeting were sent out, or if they’re still waiting? I think Cheyene mentioned it, but didn’t confirm — and now I’m a little lost!
+    - generic [ref=e293]:
+      - generic [ref=e299]:
+        - generic [ref=e300]:
+          - generic [ref=e301]:
+            - generic [ref=e303]: Mac
+            - generic [ref=e305]: Windows
+            - generic [ref=e307]: iPhone
+            - generic [ref=e309]: Android
+          - heading "Write faster in all your apps, on any device" [level=2] [ref=e311]
+          - paragraph [ref=e314]: Seamless speech-to-text in every application on your phone or computer.
+          - link "open lightbox" [ref=e316] [cursor=pointer]:
+            - /url: "#"
+            - generic "Watch in action" [ref=e317]:
+              - generic [ref=e318]:
+                - generic [ref=e319]:
+                  - generic [ref=e320]: W
+                  - generic [ref=e321]: a
+                  - generic [ref=e322]: t
+                  - generic [ref=e323]: c
+                  - generic [ref=e324]: h
+                - generic [ref=e325]:
+                  - generic [ref=e326]: i
+                  - generic [ref=e327]: "n"
+                - generic [ref=e328]:
+                  - generic [ref=e329]: a
+                  - generic [ref=e330]: c
+                  - generic [ref=e331]: t
+                  - generic [ref=e332]: i
+                  - generic [ref=e333]: o
+                  - generic [ref=e334]: "n"
+        - generic [ref=e335]:
+          - generic:
+            - list:
+              - listitem [ref=e336]
+              - listitem [ref=e337]
+              - listitem [ref=e338]
+              - listitem [ref=e339]
+              - listitem [ref=e340]
+              - listitem [ref=e341]
+              - listitem [ref=e342]
+              - listitem [ref=e343]
+              - listitem [ref=e344]
+              - listitem [ref=e345]
+              - listitem [ref=e346]
+              - listitem [ref=e347]
+              - listitem [ref=e348]
+              - listitem [ref=e349]
+              - listitem [ref=e350]
+              - listitem [ref=e351]
+              - listitem [ref=e352]
+              - listitem [ref=e353]
+              - listitem [ref=e354]
+              - listitem [ref=e355]
+              - listitem [ref=e356]
+              - listitem [ref=e357]
+              - listitem [ref=e358]
+              - listitem [ref=e359]
+              - listitem [ref=e360]
+              - listitem [ref=e361]
+              - listitem [ref=e362]
+              - listitem [ref=e363]
+              - listitem [ref=e364]
+              - listitem [ref=e365]
+              - listitem [ref=e366]
+              - listitem [ref=e367]
+              - listitem [ref=e368]
+              - listitem [ref=e369]
+              - listitem [ref=e370]
+              - listitem [ref=e371]
+              - listitem [ref=e372]
+              - listitem [ref=e373]
+              - listitem [ref=e374]
+              - listitem [ref=e375]
+              - listitem [ref=e376]
+              - listitem [ref=e377]
+              - listitem [ref=e378]
+          - img [ref=e379]
+        - img "Wispr Flow mobile Rive animation thumbnail" [ref=e383]
+      - generic [ref=e389]:
+        - heading "Used by professionals everywhere to speed up their thoughts" [level=3] [ref=e394]: Used by professionals everywhere to speed up their thoughts
+        - generic [ref=e396]:
+          - list [ref=e398]:
+            - listitem [ref=e399]:
+              - img "Lovable" [ref=e400]
+            - listitem [ref=e401]:
+              - img "Menlo" [ref=e402]
+            - listitem [ref=e403]:
+              - img "Clay" [ref=e404]
+            - listitem [ref=e405]:
+              - img "Mercury" [ref=e406]
+            - listitem [ref=e407]:
+              - img "Groupon" [ref=e408]
+            - listitem [ref=e409]:
+              - img "Vercel" [ref=e410]
+            - listitem [ref=e411]:
+              - img "Replit" [ref=e412]
+            - listitem [ref=e413]:
+              - img "Nuuly" [ref=e414]
+            - listitem [ref=e415]:
+              - img "Warp" [ref=e416]
+            - listitem [ref=e417]:
+              - img "Rivian" [ref=e418]
+            - listitem [ref=e419]:
+              - img "Notion" [ref=e420]
+            - listitem [ref=e421]:
+              - img "Substack" [ref=e422]
+            - listitem [ref=e423]:
+              - img "Amazon" [ref=e424]
+            - listitem [ref=e425]:
+              - img "Strava" [ref=e426]
+            - listitem [ref=e427]:
+              - img "Nvidia" [ref=e428]
+          - list [ref=e430]:
+            - listitem [ref=e431]:
+              - img "Lovable" [ref=e432]
+            - listitem [ref=e433]:
+              - img "Menlo" [ref=e434]
+            - listitem [ref=e435]:
+              - img "Clay" [ref=e436]
+            - listitem [ref=e437]:
+              - img "Mercury" [ref=e438]
+            - listitem [ref=e439]:
+              - img "Groupon" [ref=e440]
+            - listitem [ref=e441]:
+              - img "Vercel" [ref=e442]
+            - listitem [ref=e443]:
+              - img "Replit" [ref=e444]
+            - listitem [ref=e445]:
+              - img "Nuuly" [ref=e446]
+            - listitem [ref=e447]:
+              - img "Warp" [ref=e448]
+            - listitem [ref=e449]:
+              - img "Rivian" [ref=e450]
+            - listitem [ref=e451]:
+              - img "Notion" [ref=e452]
+            - listitem [ref=e453]:
+              - img "Substack" [ref=e454]
+            - listitem [ref=e455]:
+              - img "Amazon" [ref=e456]
+            - listitem [ref=e457]:
+              - img "Strava" [ref=e458]
+            - listitem [ref=e459]:
+              - img "Nvidia" [ref=e460]
+          - list [ref=e462]:
+            - listitem [ref=e463]:
+              - img "Lovable" [ref=e464]
+            - listitem [ref=e465]:
+              - img "Menlo" [ref=e466]
+            - listitem [ref=e467]:
+              - img "Clay" [ref=e468]
+            - listitem [ref=e469]:
+              - img "Mercury" [ref=e470]
+            - listitem [ref=e471]:
+              - img "Groupon" [ref=e472]
+            - listitem [ref=e473]:
+              - img "Vercel" [ref=e474]
+            - listitem [ref=e475]:
+              - img "Replit" [ref=e476]
+            - listitem [ref=e477]:
+              - img "Nuuly" [ref=e478]
+            - listitem [ref=e479]:
+              - img "Warp" [ref=e480]
+            - listitem [ref=e481]:
+              - img "Rivian" [ref=e482]
+            - listitem [ref=e483]:
+              - img "Notion" [ref=e484]
+            - listitem [ref=e485]:
+              - img "Substack" [ref=e486]
+            - listitem [ref=e487]:
+              - img "Amazon" [ref=e488]
+            - listitem [ref=e489]:
+              - img "Strava" [ref=e490]
+            - listitem [ref=e491]:
+              - img "Nvidia" [ref=e492]
+          - list [ref=e494]:
+            - listitem [ref=e495]:
+              - img "Lovable" [ref=e496]
+            - listitem [ref=e497]:
+              - img "Menlo" [ref=e498]
+            - listitem [ref=e499]:
+              - img "Clay" [ref=e500]
+            - listitem [ref=e501]:
+              - img "Mercury" [ref=e502]
+            - listitem [ref=e503]:
+              - img "Groupon" [ref=e504]
+            - listitem [ref=e505]:
+              - img "Vercel" [ref=e506]
+            - listitem [ref=e507]:
+              - img "Replit" [ref=e508]
+            - listitem [ref=e509]:
+              - img "Nuuly" [ref=e510]
+            - listitem [ref=e511]:
+              - img "Warp" [ref=e512]
+            - listitem [ref=e513]:
+              - img "Rivian" [ref=e514]
+            - listitem [ref=e515]:
+              - img "Notion" [ref=e516]
+            - listitem [ref=e517]:
+              - img "Substack" [ref=e518]
+            - listitem [ref=e519]:
+              - img "Amazon" [ref=e520]
+            - listitem [ref=e521]:
+              - img "Strava" [ref=e522]
+            - listitem [ref=e523]:
+              - img "Nvidia" [ref=e524]
+    - generic [ref=e529]:
+      - generic [ref=e536]:
+        - generic [ref=e537]:
+          - heading "4x faster than typing" [level=2] [ref=e538]:
+            - generic [ref=e539]:
+              - generic [ref=e540]: 4x faster
+              - img [ref=e541]
+            - generic [ref=e543]: than typing
+          - paragraph [ref=e547]: Voice that finally works is here. Flow lets you create, code, message, and write at the speed of thought, 4x faster than your keyboard.
+          - generic [ref=e549]:
+            - link "Try Flow" [ref=e551] [cursor=pointer]:
+              - /url: /demo
+              - generic [ref=e552]:
+                - generic [ref=e553]:
+                  - generic [ref=e554]: T
+                  - generic [ref=e555]: r
+                  - generic [ref=e556]: "y"
+                - generic [ref=e557]:
+                  - generic [ref=e558]: F
+                  - generic [ref=e559]: l
+                  - generic [ref=e560]: o
+                  - generic [ref=e561]: w
+            - link "Download for free" [ref=e562] [cursor=pointer]:
+              - /url: https://wisprflow.onelink.me/1Nfg/website
+              - generic [ref=e563]: Download for free
+        - generic [ref=e565]:
+          - generic [ref=e566]:
+            - generic [ref=e567]:
+              - generic [ref=e568]: Keyboard
+              - heading "45 wpm" [level=3] [ref=e569]
+            - img [ref=e571]:
+              - generic [ref=e572]: I’m getting started with the project, How would you like to set up the file. Here are a few options. I’m getting started with the project, How would you like to set up the file. Here are a few options. I’m getting started with the project, How would you like to set up the file. Here are a few options. I’m getting started with the project, How would you like to set up the file. Here are a few options. I’m getting started with the project, How would you like to set up the file.
+          - generic [ref=e573]:
+            - img "Wispr Flow UI frame" [ref=e574]
+            - generic [ref=e575]:
+              - generic [ref=e576]: Flow
+              - heading "220 wpm" [level=3] [ref=e577]
+            - img [ref=e579]:
+              - generic [ref=e580]: I’m getting started with the project, How would you like to set up the file. Here are a few options. I’m getting started with the project, How would you like to set up the file. Here are a few options. I’m getting started with the project, How would you like to set up the file. Here are a few options. I’m getting started with the project, How would you like to set up the file. Here are a few options. I’m getting started with the project, How would you like to set up the file. Here are a few options. I’m getting started with the project, How would you like to set up the file. Here are a few options. I’m getting started with the project, How would you like to set up the file. Here are a few options. I’m getting started with the project, How would you like to set up the file. Here are a few options.
+            - img [ref=e582]
+      - generic [ref=e666]:
+        - generic [ref=e667]:
+          - heading "Made for the way you work" [level=2] [ref=e668]:
+            - text: Made for the way
+            - generic [ref=e669]:
+              - emphasis [ref=e670]: you
+              - text: work
+          - paragraph [ref=e673]: Select one to see Flow in action.
+        - generic [ref=e676]:
+          - tablist [ref=e677]:
+            - generic [ref=e679] [cursor=pointer]: Accessibility
+            - generic [ref=e681] [cursor=pointer]: Creators
+            - generic [ref=e683] [cursor=pointer]: Customer Support
+            - generic [ref=e685] [cursor=pointer]: Developers
+            - generic [ref=e687] [cursor=pointer]: Lawyers
+            - generic [ref=e689] [cursor=pointer]: Leaders
+            - generic [ref=e691] [cursor=pointer]: Sales
+            - generic [ref=e693] [cursor=pointer]: Students
+            - generic [ref=e695] [cursor=pointer]: Teams
+          - generic [ref=e697]:
+            - img "Wispr Flow writing detection feature" [ref=e698]
+            - heading "One tool. Your workflow." [level=3] [ref=e700]
+            - paragraph [ref=e701]: Whether you're writing code, closing deals, or drafting briefs, Flow adapts to how you work.
+            - link "Download for free" [ref=e703] [cursor=pointer]:
+              - /url: https://wisprflow.onelink.me/1Nfg/website
+              - generic [ref=e704]: Download for free
+      - generic [ref=e713]:
+        - generic [ref=e714]:
+          - img "Wispr Flow UI frame" [ref=e715]
+          - img [ref=e717]:
+            - generic [ref=e718]:
+              - generic "uh yeah so I think we should probably reach out to uh Jenny from legal I think she said something about the, the NDA being like not ready yet or maybe she did send it I—I’m not sure, and um we should cc Davee maybe? also let’s make sure to update the Q2 um goals slidez before Friday’s thing, I forget the link but it’s probably in Slack somewhere…" [ref=e730]
+              - generic "Let’s reach out to Jenny from Legal—she may have mentioned the NDA isn’t finalized yet, or possibly already sent it. Let’s also CC Dave. Finally, make sure the Q2 Goals slide is updated before Friday’s review. The link should be in Slack." [ref=e1851]
+        - generic [ref=e2640]:
+          - heading "AI Auto Edits" [level=2] [ref=e2642]:
+            - generic [ref=e2643]:
+              - generic [ref=e2644]: AI
+              - img [ref=e2645]
+            - generic [ref=e2656]: Auto Edits
+          - paragraph [ref=e2658]: Speak naturally and Flow transcribes and edits your voice, instantly. Rambled thoughts become clear, perfectly formatted text, without the filler words or typos.
+          - generic [ref=e2660]:
+            - link "Try Flow" [ref=e2662] [cursor=pointer]:
+              - /url: /demo
+              - generic [ref=e2663]:
+                - generic [ref=e2664]:
+                  - generic [ref=e2665]: T
+                  - generic [ref=e2666]: r
+                  - generic [ref=e2667]: "y"
+                - generic [ref=e2668]:
+                  - generic [ref=e2669]: F
+                  - generic [ref=e2670]: l
+                  - generic [ref=e2671]: o
+                  - generic [ref=e2672]: w
+            - link "Download for free" [ref=e2673] [cursor=pointer]:
+              - /url: https://wisprflow.onelink.me/1Nfg/website
+              - generic [ref=e2674]: Download for free
+      - generic [ref=e2680]:
+        - generic [ref=e2681]:
+          - generic [ref=e2682]:
+            - heading "Personal dictionary" [level=3] [ref=e2683]
+            - paragraph [ref=e2684]: Flow automatically learns your unique words and adds them to your personal dictionary.
+            - generic [ref=e2685]:
+              - generic [ref=e2687]: Your Dictionary
+              - generic [ref=e2688]:
+                - generic [ref=e2690]: Robyn
+                - generic [ref=e2692]: Viktor
+                - generic [ref=e2694]: SaaS
+                - generic [ref=e2696]: Caltrain
+                - generic [ref=e2698]: Mackey
+                - generic [ref=e2700]: Nguyen
+                - generic [ref=e2702]: Leong
+          - generic [ref=e2703]:
+            - heading "Snippet library" [level=3] [ref=e2705]
+            - paragraph [ref=e2706]: Create voice shortcuts for the things your team says over and over. From scheduling links to FAQs, just speak a cue and get the full formatted text.
+            - generic [ref=e2707]:
+              - generic [ref=e2709]: Your Snippets
+              - generic [ref=e2710]:
+                - generic [ref=e2711]:
+                  - generic [ref=e2713]: Calendar
+                  - generic [ref=e2716]: "You can book a 30-minute call with me here: calendly.com/wisprflow"
+                - generic [ref=e2718]: Hours
+                - generic [ref=e2720]: Support intro
+                - generic [ref=e2722]: FAQ
+                - generic [ref=e2724]: Careers link
+                - generic [ref=e2726]: Elevator pitch
+                - generic [ref=e2728]: Address
+          - generic [ref=e2730]:
+            - heading "100+ languages" [level=3] [ref=e2732]
+            - paragraph [ref=e2733]: Flow automatically detects and transcribes in your language, letting you move between them—just like you do.
+            - iframe [ref=e2735]:
+              - region "Video Player" [ref=f1e2]:  
+        - link "Explore all features" [ref=e2740] [cursor=pointer]:
+          - /url: /features
+          - generic [ref=e2741]:
+            - generic [ref=e2742]: E
+            - generic [ref=e2743]: x
+            - generic [ref=e2744]: p
+            - generic [ref=e2745]: l
+            - generic [ref=e2746]: o
+            - generic [ref=e2747]: r
+            - generic [ref=e2748]: e
+          - generic [ref=e2749]:
+            - generic [ref=e2750]: a
+            - generic [ref=e2751]: l
+            - generic [ref=e2752]: l
+          - generic [ref=e2753]:
+            - generic [ref=e2754]: f
+            - generic [ref=e2755]: e
+            - generic [ref=e2756]: a
+            - generic [ref=e2757]: t
+            - generic [ref=e2758]: u
+            - generic [ref=e2759]: r
+            - generic [ref=e2760]: e
+            - generic [ref=e2761]: s
+      - generic [ref=e2770]:
+        - generic [ref=e2772]:
+          - generic [ref=e2774]: Mac
+          - generic [ref=e2776]: Windows
+          - generic [ref=e2778]: iPhone
+          - generic [ref=e2780]: Android
+        - generic [ref=e2781]:
+          - heading "Flow, wherever you work" [level=2] [ref=e2782]
+          - paragraph [ref=e2785]: Flow runs natively on Mac, Windows, iOS, and Android. Use it at your desk for deep work, and on your phone when you're on the move.
+        - link "Download" [ref=e2787] [cursor=pointer]:
+          - /url: https://wisprflow.onelink.me/1Nfg/website
+    - generic [ref=e2792]:
+      - generic [ref=e2796]:
+        - heading "Love letters to Flow" [level=2] [ref=e2797]:
+          - text: Love letters
+          - text: to Flow
+        - img [ref=e2799]
+      - region [ref=e2811]:
+        - generic [ref=e2812]:
+          - group [ref=e2813]:
+            - generic [ref=e2815]: “You're making texting actually delightful right now! Can see it becoming a can't live without product fast.”
+            - generic [ref=e2817]: Tara Tan, Founding Partner at Strange Ventures
+          - group [ref=e2818]:
+            - generic [ref=e2820]: “This is the best AI product I've used since ChatGPT.”
+            - generic [ref=e2822]: Rahul Vohra, CEO, Superhuman
+          - group [ref=e2823]:
+            - generic [ref=e2825]: “I've been using Wispr almost every day since I downloaded it. It's probably my favorite part of the day, especially at the end when I go through my inbox with Wispr.”
+            - generic [ref=e2827]: Suzanne Xie, Partner, Neo
+          - group [ref=e2828]:
+            - generic [ref=e2830]: “I can make quick edits while speaking to it because flow really understands me perfectly and can make the necessary changes. Flow's accuracy and speed make it a real game changer.”
+            - generic [ref=e2832]: Shashank Vemuri, Scout at Soma Capital
+          - group [ref=e2833]:
+            - generic [ref=e2835]: “I have Parkinson's, and this app has just made my life so much easier using my Mac. I can't even explain the change that it has provided for me.”
+            - generic [ref=e2837]: Rich Pankey, Indirect Sourcing Manager
+          - group [ref=e2838]:
+            - generic [ref=e2840]: “Hey! Flow is currently blowing my mind with how fast and useful it is!”
+            - generic [ref=e2842]: Hargun Mujral, ML Platforms at X
+          - group [ref=e2843]:
+            - generic [ref=e2845]: “I was able to dictate ~70% of our Q2 board doc with Wispr, it was a massive time saver!”
+            - generic [ref=e2847]: Jeff Seibert, CEO, Digits AI
+          - group [ref=e2848]:
+            - generic [ref=e2850]: “Flow is that extra little part of your brain that helps you formulate full sentences when you might be stuck in thought and have a jittery response.”
+            - generic [ref=e2852]: Jeannette Tan, Fiction Writer
+          - group [ref=e2853]:
+            - generic [ref=e2855]: “Stuttering and it still works really well. I think it's really quick, I love it.”
+            - generic [ref=e2857]: Agam Walia, Student, UC Berkeley
+          - group [ref=e2858]:
+            - generic [ref=e2860]: “I'm afraid I'm getting addicted to this great platform. It allows me to get into a flow state and not have autocorrect or voice dictation stop and interrupt me while I'm attempting to articulate my ideas.”
+            - generic [ref=e2862]: Greg D., Bestselling Author and Business Coach
+          - group "1 of 10" [ref=e2863]:
+            - generic [ref=e2865]: “You're making texting actually delightful right now! Can see it becoming a can't live without product fast.”
+            - generic [ref=e2867]: Tara Tan, Founding Partner at Strange Ventures
+          - group "2 of 10" [ref=e2868]:
+            - generic [ref=e2870]: “This is the best AI product I've used since ChatGPT.”
+            - generic [ref=e2872]: Rahul Vohra, CEO, Superhuman
+          - group "3 of 10" [ref=e2873]:
+            - generic [ref=e2875]: “I've been using Wispr almost every day since I downloaded it. It's probably my favorite part of the day, especially at the end when I go through my inbox with Wispr.”
+            - generic [ref=e2877]: Suzanne Xie, Partner, Neo
+          - group "4 of 10" [ref=e2878]:
+            - generic [ref=e2880]: “I can make quick edits while speaking to it because flow really understands me perfectly and can make the necessary changes. Flow's accuracy and speed make it a real game changer.”
+            - generic [ref=e2882]: Shashank Vemuri, Scout at Soma Capital
+          - group "5 of 10" [ref=e2883]:
+            - generic [ref=e2885]: “I have Parkinson's, and this app has just made my life so much easier using my Mac. I can't even explain the change that it has provided for me.”
+            - generic [ref=e2887]: Rich Pankey, Indirect Sourcing Manager
+          - group "6 of 10" [ref=e2888]:
+            - generic [ref=e2890]: “Hey! Flow is currently blowing my mind with how fast and useful it is!”
+            - generic [ref=e2892]: Hargun Mujral, ML Platforms at X
+          - group "7 of 10" [ref=e2893]:
+            - generic [ref=e2895]: “I was able to dictate ~70% of our Q2 board doc with Wispr, it was a massive time saver!”
+            - generic [ref=e2897]: Jeff Seibert, CEO, Digits AI
+          - group "8 of 10" [ref=e2898]:
+            - generic [ref=e2900]: “Flow is that extra little part of your brain that helps you formulate full sentences when you might be stuck in thought and have a jittery response.”
+            - generic [ref=e2902]: Jeannette Tan, Fiction Writer
+          - group "9 of 10" [ref=e2903]:
+            - generic [ref=e2905]: “Stuttering and it still works really well. I think it's really quick, I love it.”
+            - generic [ref=e2907]: Agam Walia, Student, UC Berkeley
+          - group "10 of 10" [ref=e2908]:
+            - generic [ref=e2910]: “I'm afraid I'm getting addicted to this great platform. It allows me to get into a flow state and not have autocorrect or voice dictation stop and interrupt me while I'm attempting to articulate my ideas.”
+            - generic [ref=e2912]: Greg D., Bestselling Author and Business Coach
+          - group "1 of 10" [ref=e2913]:
+            - generic [ref=e2915]: “You're making texting actually delightful right now! Can see it becoming a can't live without product fast.”
+            - generic [ref=e2917]: Tara Tan, Founding Partner at Strange Ventures
+          - group "2 of 10" [ref=e2918]:
+            - generic [ref=e2920]: “This is the best AI product I've used since ChatGPT.”
+            - generic [ref=e2922]: Rahul Vohra, CEO, Superhuman
+          - group "3 of 10" [ref=e2923]:
+            - generic [ref=e2925]: “I've been using Wispr almost every day since I downloaded it. It's probably my favorite part of the day, especially at the end when I go through my inbox with Wispr.”
+            - generic [ref=e2927]: Suzanne Xie, Partner, Neo
+          - group "4 of 10" [ref=e2928]:
+            - generic [ref=e2930]: “I can make quick edits while speaking to it because flow really understands me perfectly and can make the necessary changes. Flow's accuracy and speed make it a real game changer.”
+            - generic [ref=e2932]: Shashank Vemuri, Scout at Soma Capital
+          - group "5 of 10" [ref=e2933]:
+            - generic [ref=e2935]: “I have Parkinson's, and this app has just made my life so much easier using my Mac. I can't even explain the change that it has provided for me.”
+            - generic [ref=e2937]: Rich Pankey, Indirect Sourcing Manager
+          - group "6 of 10" [ref=e2938]:
+            - generic [ref=e2940]: “Hey! Flow is currently blowing my mind with how fast and useful it is!”
+            - generic [ref=e2942]: Hargun Mujral, ML Platforms at X
+          - group "7 of 10" [ref=e2943]:
+            - generic [ref=e2945]: “I was able to dictate ~70% of our Q2 board doc with Wispr, it was a massive time saver!”
+            - generic [ref=e2947]: Jeff Seibert, CEO, Digits AI
+          - group "8 of 10" [ref=e2948]:
+            - generic [ref=e2950]: “Flow is that extra little part of your brain that helps you formulate full sentences when you might be stuck in thought and have a jittery response.”
+            - generic [ref=e2952]: Jeannette Tan, Fiction Writer
+          - group "9 of 10" [ref=e2953]:
+            - generic [ref=e2955]: “Stuttering and it still works really well. I think it's really quick, I love it.”
+            - generic [ref=e2957]: Agam Walia, Student, UC Berkeley
+          - group "10 of 10" [ref=e2958]:
+            - generic [ref=e2960]: “I'm afraid I'm getting addicted to this great platform. It allows me to get into a flow state and not have autocorrect or voice dictation stop and interrupt me while I'm attempting to articulate my ideas.”
+            - generic [ref=e2962]: Greg D., Bestselling Author and Business Coach
+      - generic [ref=e2968]:
+        - link "From typing to talking \"Voice is the future of human-computer interaction.\" Person headshot Reid Hoffman Cofounder of LinkedIn, Partner at Greylock" [ref=e2969] [cursor=pointer]:
+          - /url: /case-study/reid-hoffman
+          - generic [ref=e2970]:
+            - generic [ref=e2972]: From typing to talking
+            - generic [ref=e2973]: "\"Voice is the future of human-computer interaction.\""
+          - generic [ref=e2974]:
+            - img "Person headshot" [ref=e2975]
+            - generic [ref=e2976]:
+              - generic [ref=e2977]: Reid Hoffman
+              - generic [ref=e2979]: Cofounder of LinkedIn, Partner at Greylock
+        - link "90% faster everywhere \"Flow fits into every corner of how I work.\" Steven, Wispr Flow user Steven Bartlett Host of Diary of a CEO" [ref=e2980] [cursor=pointer]:
+          - /url: /case-study/steven-bartlett
+          - generic [ref=e2981]:
+            - generic [ref=e2983]: 90% faster everywhere
+            - generic [ref=e2984]: "\"Flow fits into every corner of how I work.\""
+          - generic [ref=e2985]:
+            - img "Steven, Wispr Flow user" [ref=e2986]
+            - generic [ref=e2987]:
+              - generic [ref=e2988]: Steven Bartlett
+              - generic [ref=e2990]: Host of Diary of a CEO
+        - link "20% faster GTM execution \"Flow gave our team a shared speed advantage.\" Clay team headshot Teams at Clay 200+ employees · B2B Software" [ref=e2991] [cursor=pointer]:
+          - /url: /case-study/clay
+          - generic [ref=e2992]:
+            - generic [ref=e2994]: 20% faster GTM execution
+            - generic [ref=e2995]: "\"Flow gave our team a shared speed advantage.\""
+          - generic [ref=e2996]:
+            - img "Clay team headshot" [ref=e2997]
+            - generic [ref=e2998]:
+              - generic [ref=e2999]: Teams at Clay
+              - generic [ref=e3001]: 200+ employees · B2B Software
+        - link "4x faster responses \"Flow lets me reply in seconds, not minutes.\" Gaurav Gaurav Vohra Startup Advisor & Growth Leader" [ref=e3002] [cursor=pointer]:
+          - /url: /case-study/gaurav-vohra
+          - generic [ref=e3003]:
+            - generic [ref=e3005]: 4x faster responses
+            - generic [ref=e3006]: "\"Flow lets me reply in seconds, not minutes.\""
+          - generic [ref=e3007]:
+            - img "Gaurav" [ref=e3008]
+            - generic [ref=e3009]:
+              - generic [ref=e3010]: Gaurav Vohra
+              - generic [ref=e3012]: Startup Advisor & Growth Leader
+    - generic [ref=e3015]:
+      - img "Person headshot" [ref=e3016]
+      - generic [ref=e3022]:
+        - generic [ref=e3023]:
+          - img [ref=e3024]
+          - heading "Start flowing" [level=2] [ref=e3026]
+        - generic [ref=e3128]:
+          - paragraph [ref=e3129]:
+            - text: "Effortless voice dictation in every application:"
+            - text: 4x faster than typing, AI commands and auto-edits.
+          - generic [ref=e3131]:
+            - link "Download for free" [ref=e3132] [cursor=pointer]:
+              - /url: https://wisprflow.onelink.me/1Nfg/website
+            - link "Try Flow" [ref=e3133] [cursor=pointer]:
+              - /url: /demo
+              - generic [ref=e3134]:
+                - generic [ref=e3135]:
+                  - generic [ref=e3136]: T
+                  - generic [ref=e3137]: r
+                  - generic [ref=e3138]: "y"
+                - generic [ref=e3139]:
+                  - generic [ref=e3140]: F
+                  - generic [ref=e3141]: l
+                  - generic [ref=e3142]: o
+                  - generic [ref=e3143]: w
+          - generic [ref=e3146]:
+            - text: Available on Mac, Windows, iPhone, and Android.
+            - text: Free for 14 days.
+    - generic [ref=e3155]:
+      - heading "Still not sure that Wispr Flow is right for you?" [level=2] [ref=e3157]
+      - generic [ref=e3158]:
+        - paragraph [ref=e3160]:
+          - text: Let ChatGPT, Claude, or Perplexity do the thinking for you.
+          - text: Click a button and see what your favorite AI says about Wispr Flow.
+        - generic [ref=e3162]:
+          - link "Ask ChatGPT" [ref=e3163] [cursor=pointer]:
+            - /url: https://chat.openai.com/?q=tell+me+why+wispr+flow+is+a+great+choice+for+me
+            - generic [ref=e3164]:
+              - generic [ref=e3165]:
+                - generic [ref=e3166]: A
+                - generic [ref=e3167]: s
+                - generic [ref=e3168]: k
+              - generic [ref=e3169]:
+                - generic [ref=e3170]: C
+                - generic [ref=e3171]: h
+                - generic [ref=e3172]: a
+                - generic [ref=e3173]: t
+                - generic [ref=e3174]: G
+                - generic [ref=e3175]: P
+                - generic [ref=e3176]: T
+          - link "Ask Claude" [ref=e3177] [cursor=pointer]:
+            - /url: https://claude.ai/new?q=tell+me+why+wispr+flow+is+a+great+choice+for+me
+            - generic [ref=e3178]:
+              - generic [ref=e3179]:
+                - generic [ref=e3180]: A
+                - generic [ref=e3181]: s
+                - generic [ref=e3182]: k
+              - generic [ref=e3183]:
+                - generic [ref=e3184]: C
+                - generic [ref=e3185]: l
+                - generic [ref=e3186]: a
+                - generic [ref=e3187]: u
+                - generic [ref=e3188]: d
+                - generic [ref=e3189]: e
+          - link "Ask Perplexity" [ref=e3190] [cursor=pointer]:
+            - /url: https://www.perplexity.ai/search/new?q=tell+me+why+wispr+flow+is+a+great+choice+for+me
+            - generic [ref=e3191]:
+              - generic [ref=e3192]:
+                - generic [ref=e3193]: A
+                - generic [ref=e3194]: s
+                - generic [ref=e3195]: k
+              - generic [ref=e3196]:
+                - generic [ref=e3197]: P
+                - generic [ref=e3198]: e
+                - generic [ref=e3199]: r
+                - generic [ref=e3200]: p
+                - generic [ref=e3201]: l
+                - generic [ref=e3202]: e
+                - generic [ref=e3203]: x
+                - generic [ref=e3204]: i
+                - generic [ref=e3205]: t
+                - generic [ref=e3206]: "y"
+  - contentinfo [ref=e3208]:
+    - generic [ref=e3210]:
+      - generic [ref=e3211]:
+        - generic [ref=e3212]:
+          - heading "Company" [level=3] [ref=e3213]
+          - generic [ref=e3214]:
+            - link "About" [ref=e3215] [cursor=pointer]:
+              - /url: /about
+              - generic [ref=e3216]: About
+              - img [ref=e3218]
+            - link "Careers" [ref=e3220] [cursor=pointer]:
+              - /url: /careers
+              - generic [ref=e3221]: Careers
+              - img [ref=e3223]
+            - link "Trust Center" [ref=e3225] [cursor=pointer]:
+              - /url: https://trust.wispr.ai/
+              - generic [ref=e3226]: Trust Center
+              - img [ref=e3228]
+            - link "Become an Affiliate" [ref=e3230] [cursor=pointer]:
+              - /url: https://partners.dub.co/flow
+              - generic [ref=e3231]: Become an Affiliate
+              - img [ref=e3233]
+            - link "Media Kit" [ref=e3235] [cursor=pointer]:
+              - /url: /media-kit
+              - generic [ref=e3236]: Media Kit
+              - img [ref=e3238]
+        - generic [ref=e3240]:
+          - heading "Product" [level=3] [ref=e3241]
+          - generic [ref=e3242]:
+            - link "What’s New" [ref=e3243] [cursor=pointer]:
+              - /url: /whats-new
+              - generic [ref=e3244]: What’s New
+              - img [ref=e3246]
+            - link "Use Cases" [ref=e3248] [cursor=pointer]:
+              - /url: /use-cases
+              - generic [ref=e3249]: Use Cases
+              - img [ref=e3251]
+            - link "Flow for Students" [ref=e3253] [cursor=pointer]:
+              - /url: /students
+              - generic [ref=e3254]: Flow for Students
+              - img [ref=e3256]
+            - link "Flow for Non-Profits" [ref=e3258] [cursor=pointer]:
+              - /url: /for-non-profits
+              - generic [ref=e3259]: Flow for Non-Profits
+              - img [ref=e3261]
+            - link "Flow for Android" [ref=e3263] [cursor=pointer]:
+              - /url: /android
+              - generic [ref=e3264]: Flow for Android
+              - img [ref=e3266]
+        - generic [ref=e3268]:
+          - heading "Resources" [level=3] [ref=e3269]
+          - generic [ref=e3270]:
+            - link "Workflows" [ref=e3271] [cursor=pointer]:
+              - /url: /workflows
+              - generic [ref=e3272]: Workflows
+              - img [ref=e3274]
+            - link "Research" [ref=e3276] [cursor=pointer]:
+              - /url: /research
+              - generic [ref=e3277]: Research
+              - img [ref=e3279]
+            - link "Vibe Coding" [ref=e3281] [cursor=pointer]:
+              - /url: /vibe-coding
+              - generic [ref=e3282]: Vibe Coding
+              - img [ref=e3284]
+            - link "Talk to Support" [ref=e3286] [cursor=pointer]:
+              - /url: /support
+              - generic [ref=e3287]: Talk to Support
+              - img [ref=e3289]
+            - link "Talk to Sales" [ref=e3291] [cursor=pointer]:
+              - /url: /talk-to-sales
+              - generic [ref=e3292]: Talk to Sales
+              - img [ref=e3294]
+            - link "Help Center" [ref=e3296] [cursor=pointer]:
+              - /url: https://docs.wisprflow.ai/
+              - generic [ref=e3297]: Help Center
+              - img [ref=e3299]
+      - img [ref=e3304]
+      - generic [ref=e3310]:
+        - generic [ref=e3312]:
+          - generic [ref=e3313]: © Wispr Flow 2026
+          - generic [ref=e3314]:
+            - link "Terms" [ref=e3315] [cursor=pointer]:
+              - /url: /terms-of-service
+              - generic [ref=e3316]: Terms
+            - link "Privacy" [ref=e3317] [cursor=pointer]:
+              - /url: /privacy-policy
+              - generic [ref=e3318]: Privacy
+            - link "Data Controls" [ref=e3319] [cursor=pointer]:
+              - /url: /data-controls
+              - generic [ref=e3320]: Data Controls
+        - generic [ref=e3321]:
+          - link [ref=e3322] [cursor=pointer]:
+            - /url: https://www.youtube.com/channel/UCzaXlOt3J2_rYQT1aEJMMFQ/videos?sub_confirmation=1
+            - img [ref=e3324]
+          - link [ref=e3326] [cursor=pointer]:
+            - /url: https://www.crunchbase.com/organization/wispr-ai
+            - img [ref=e3328]
+          - link [ref=e3332] [cursor=pointer]:
+            - /url: https://www.instagram.com/wisprflow/
+            - img [ref=e3334]
+          - link [ref=e3336] [cursor=pointer]:
+            - /url: https://x.com/wisprflow
+            - img [ref=e3338]
+          - link [ref=e3340] [cursor=pointer]:
+            - /url: https://www.linkedin.com/company/wisprflow
+            - img [ref=e3342]
