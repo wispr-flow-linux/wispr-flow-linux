@@ -93,21 +93,26 @@ JS
 # =============================================================================
 
 @test "window-frame: widens the win32 hidden-titlebar predicate to include linux" {
+	# The 1.5.695 mac branch dropped "hiddenInset" -- it now sets
+	# {frame:!1,titleBarStyle:"hidden",trafficLightPosition,...}. The anchor no
+	# longer keys on the mac branch, only on the win32 predicate + hidden assign.
 	cat > "$FIX" <<'JS'
-var isMac=false,t={};
-var r=isMac?Object.assign(t,{titleBarStyle:"hiddenInset"}):"win32"===process.platform&&Object.assign(t,{titleBarStyle:"hidden",autoHideMenuBar:!0});
+var s={tD:false},t={};
+s.tD?Object.assign(t,{frame:!1,titleBarStyle:"hidden",trafficLightPosition:{x:1e4,y:10},transparent:!0,hasShadow:!0}):"win32"===process.platform&&Object.assign(t,{titleBarStyle:"hidden",autoHideMenuBar:!0});
 JS
 	run bash "$PATCH_DIR/linux-window-frame.sh" "$FIX"
 	[[ "$status" -eq 0 ]]
 	grep -q 'WISPR_LINUX_FRAMELESS' "$FIX"
 	grep -qF '"win32"===process.platform||"linux"===process.platform' "$FIX"
+	# the mac branch is left untouched
+	grep -qF 'trafficLightPosition:{x:1e4,y:10}' "$FIX"
 	node_check "$FIX"
 }
 
 @test "window-frame: idempotent on second run" {
 	cat > "$FIX" <<'JS'
-var isMac=false,t={};
-var r=isMac?Object.assign(t,{titleBarStyle:"hiddenInset"}):"win32"===process.platform&&Object.assign(t,{titleBarStyle:"hidden",autoHideMenuBar:!0});
+var s={tD:false},t={};
+s.tD?Object.assign(t,{frame:!1,titleBarStyle:"hidden",trafficLightPosition:{x:1e4,y:10},transparent:!0,hasShadow:!0}):"win32"===process.platform&&Object.assign(t,{titleBarStyle:"hidden",autoHideMenuBar:!0});
 JS
 	bash "$PATCH_DIR/linux-window-frame.sh" "$FIX"
 	assert_idempotent "$PATCH_DIR/linux-window-frame.sh" "$FIX"
