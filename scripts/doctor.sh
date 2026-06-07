@@ -353,13 +353,111 @@ _doctor_check_singleton_lock() {
 	fi
 }
 
+#------------------------------------------------------------------------------
+# Electron runtime — the renamed Electron binary the launcher exec's must exist
+# and be executable. Version is read from the sibling 'version' file rather than
+# launching Electron (which can hang).
+#------------------------------------------------------------------------------
+_doctor_electron_version() {
+	local version_file
+	version_file="$(dirname "$1")/version"
+	[[ -r $version_file ]] && printf '%s' "$(< "$version_file")"
+}
+
+_doctor_check_electron() {
+	local electron_path="${1:-}"
+	if [[ -z $electron_path ]]; then
+		_warn 'Electron runtime: path not provided to doctor'
+		return
+	fi
+	if [[ ! -x $electron_path ]]; then
+		_fail "Electron runtime: not found / not executable at $electron_path"
+		_info 'The launcher cannot start the app.'
+		_info 'Fix: reinstall the wispr-flow package'
+		return
+	fi
+	local ver
+	ver=$(_doctor_electron_version "$electron_path")
+	if [[ $ver =~ ^v?[0-9]+\.[0-9]+ ]]; then
+		_pass "Electron runtime: v${ver#v} ($electron_path)"
+	else
+		_pass "Electron runtime: present and executable ($electron_path)"
+	fi
+}
+
+#------------------------------------------------------------------------------
+# chrome-sandbox — must be setuid-root (4755, owner root) on deb/rpm so Electron
+# runs sandboxed. Absent on AppImage (which launches with --no-sandbox). A
+# sandbox that lost its setuid bit makes Electron refuse to start or run
+# unsandboxed, so a clean "all passed" without this check is misleading.
+#------------------------------------------------------------------------------
+_doctor_check_sandbox() {
+	local electron_path="${1:-}"
+	# AppImages launch with --no-sandbox (squashfs can't carry a setuid bit), so
+	# the bundled chrome-sandbox is intentionally not setuid there. The AppImage
+	# runtime exports APPIMAGE; treat that as "sandbox perms don't apply".
+	if [[ -n ${APPIMAGE:-} ]]; then
+		_info 'chrome-sandbox: AppImage runs with --no-sandbox (setuid not required)'
+		return
+	fi
+	local sandbox_path=''
+	[[ -n $electron_path ]] && sandbox_path="$(dirname "$electron_path")/chrome-sandbox"
+	if [[ -z $sandbox_path || ! -f $sandbox_path ]]; then
+		_warn 'chrome-sandbox: not found (expected for AppImage / --no-sandbox)'
+		return
+	fi
+	local perms owner
+	perms=$(stat -c '%a' "$sandbox_path" 2>/dev/null || echo '?')
+	owner=$(stat -c '%U' "$sandbox_path" 2>/dev/null || echo '?')
+	if [[ $perms == '4755' && $owner == 'root' ]]; then
+		_pass "chrome-sandbox: setuid-root OK ($sandbox_path)"
+	else
+		_fail "chrome-sandbox: perms=$perms owner=$owner (need 4755 root)"
+		_info 'Electron may refuse to start or run unsandboxed.'
+		_info "Fix: sudo chown root:root '$sandbox_path'"
+		_info "     sudo chmod 4755 '$sandbox_path'"
+	fi
+}
+
+#------------------------------------------------------------------------------
+# Desktop entry + free disk on the config partition — cheap install-integrity
+# checks. Out-of-disk is a known Chromium failure mode (blank window / profile
+# corruption) that is otherwise invisible.
+#------------------------------------------------------------------------------
+_doctor_check_desktop_entry() {
+	local desktop_file='/usr/share/applications/wispr-flow.desktop'
+	if [[ -f $desktop_file ]]; then
+		_pass "Desktop entry: $desktop_file"
+	else
+		_warn 'Desktop entry: not found (expected for AppImage installs)'
+	fi
+}
+
+_doctor_check_disk_space() {
+	local config_dir avail
+	config_dir="$(_doctor_config_dir)"
+	avail=$(df -BM --output=avail "$config_dir" 2>/dev/null \
+		| tail -1 | tr -d ' M') || true
+	[[ $avail =~ ^[0-9]+$ ]] || return 0
+	if ((avail < 100)); then
+		_fail "Disk space: ${avail}MB free on the config partition"
+		_info 'Chromium will fail to write its profile. Fix: free up disk space.'
+	elif ((avail < 500)); then
+		_warn "Disk space: ${avail}MB free on the config partition (low)"
+	else
+		_pass "Disk space: ${avail}MB free on the config partition"
+	fi
+}
+
 #===============================================================================
 # Entry point.
-# Arguments: $1 = path to the Linux helper binary (for the helper check and
-#            for deriving the install dir). Optional but recommended.
+# Arguments: $1 = path to the Linux helper binary (helper check).
+#            $2 = path to the Electron runtime binary (runtime / sandbox checks
+#                 derive the install dir from it). Both optional but recommended.
 #===============================================================================
 run_doctor() {
 	local helper_path="${1:-}"
+	local electron_path="${2:-}"
 	local _doctor_failures=0
 	_doctor_colors
 
@@ -408,6 +506,10 @@ run_doctor() {
 
 	echo -e "${_bold}Helper & Runtime${_reset}"
 	_doctor_check_helper "$helper_path"
+	_doctor_check_electron "$electron_path"
+	_doctor_check_sandbox "$electron_path"
+	_doctor_check_desktop_entry
+	_doctor_check_disk_space
 	_doctor_check_singleton_lock
 	_doctor_check_recent_crashes
 	echo

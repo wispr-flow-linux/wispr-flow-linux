@@ -21,7 +21,7 @@
 # Shared maker signature:
 #   deb.sh <dist_dir> <version> <arch>
 #     <dist_dir>  staged electron-dist tree (default: build-linux/downloads/electron-dist)
-#     <version>   package version (default: $APP_VERSION env or 1.5.619)
+#     <version>   package version (default: $APP_VERSION env or 1.5.695)
 #     <arch>      deb-native arch: amd64 | arm64 (default: derived from host)
 # PACKAGE_NAME / WM_CLASS / MAINTAINER / DESCRIPTION come from the environment
 # (exported by build.sh); sane defaults apply when run standalone.
@@ -34,7 +34,7 @@ SCRIPTS_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 #--- shared maker signature ----------------------------------------------------
 DIST="${1:-$PROJECT_ROOT/build-linux/downloads/electron-dist}"
-APP_VERSION="${2:-${APP_VERSION:-1.5.619}}"
+APP_VERSION="${2:-${APP_VERSION:-1.5.695}}"
 # Default deb arch from the host: dpkg knows the canonical name when present.
 _default_arch="amd64"
 if command -v dpkg >/dev/null 2>&1; then
@@ -106,7 +106,7 @@ source "\$app_dir/launcher-common.sh"
 
 # Handle --doctor before anything else.
 if [[ "\${1:-}" == '--doctor' ]]; then
-	run_doctor "\$helper_bin"
+	run_doctor "\$helper_bin" "\$electron_bin"
 	exit \$?
 fi
 

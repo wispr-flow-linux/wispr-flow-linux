@@ -21,7 +21,7 @@
 # Shared maker signature (see deb.sh / appimage.sh):
 #   rpm.sh <dist_dir> <version> <arch>
 #     <dist_dir>  staged electron-dist tree (default: build-linux/downloads/electron-dist)
-#     <version>   package version (default: $APP_VERSION env or 1.5.619)
+#     <version>   package version (default: $APP_VERSION env or 1.5.695)
 #     <arch>      rpm-native arch: x86_64 | aarch64 (default: host uname -m)
 # PACKAGE_NAME / WM_CLASS / MAINTAINER / DESCRIPTION come from the environment
 # (exported by build.sh); sane defaults apply when run standalone.
@@ -34,7 +34,7 @@ SCRIPTS_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 #--- shared maker signature ----------------------------------------------------
 DIST="${1:-$PROJECT_ROOT/build-linux/downloads/electron-dist}"
-APP_VERSION="${2:-${APP_VERSION:-1.5.619}}"
+APP_VERSION="${2:-${APP_VERSION:-1.5.695}}"
 ARCH="${3:-$(uname -m)}"
 
 # RPM Version: cannot contain a hyphen, so split a combined
@@ -88,6 +88,17 @@ rm -f "$APPDIR/resources/default_app.asar" "$APPDIR/electron" 2>/dev/null || tru
 rm -f "$APPDIR/resources/Release/Wispr Flow Helper.exe" 2>/dev/null || true
 chmod 0755 "$APPDIR/$NAME" "$APPDIR/resources/Release/wispr-flow-linux-helper"
 
+# Bake the chrome-sandbox setuid bit into the staging tree so the %files dir
+# walk records 4755 in the payload. Listing the file a second time under an
+# %attr(4755) entry (on top of the parent-dir listing) makes it appear twice;
+# on modern rpmbuild the "File listed twice" path can silently strip it from
+# the payload (cf. claude-desktop-debian #609), shipping an rpm whose sandbox
+# helper is missing or non-setuid. Set it here, list only the parent dir in
+# %files, and assert below that rpmbuild didn't warn.
+SANDBOX="$APPDIR/chrome-sandbox"
+[[ -f "$SANDBOX" ]] || die "chrome-sandbox not found at $SANDBOX (Electron dist incomplete)"
+chmod 4755 "$SANDBOX"
+
 say "Shared launcher library + doctor"
 cp "$SCRIPTS_DIR/launcher-common.sh" "$APPDIR/launcher-common.sh"
 cp "$SCRIPTS_DIR/doctor.sh" "$APPDIR/doctor.sh"
@@ -113,7 +124,7 @@ source "\$app_dir/launcher-common.sh"
 
 # Handle --doctor before anything else.
 if [[ "\${1:-}" == '--doctor' ]]; then
-	run_doctor "\$helper_bin"
+	run_doctor "\$helper_bin" "\$electron_bin"
 	exit \$?
 fi
 
@@ -212,6 +223,7 @@ Recommends:     xclip
 Recommends:     xsel
 
 %global __os_install_post %{nil}
+%global debug_package %{nil}
 %global _build_id_links none
 %global __brp_strip %{nil}
 %global __brp_strip_static_archive %{nil}
@@ -228,9 +240,12 @@ mkdir -p %{buildroot}
 cp -a "$PKGROOT"/. %{buildroot}/
 
 %files
+%defattr(-, root, root, -)
 /usr/bin/$NAME
+# /usr/lib/$NAME is listed once; chrome-sandbox's 4755 setuid bit was baked into
+# the FHS tree before the spec was written, so this dir walk records it (see the
+# chrome-sandbox staging note above; avoids the #609 "File listed twice" strip).
 /usr/lib/$NAME
-%attr(4755, root, root) /usr/lib/$NAME/chrome-sandbox
 /usr/share/applications/$NAME.desktop
 /usr/share/icons/hicolor/256x256/apps/$NAME.png
 /usr/share/icons/hicolor/scalable/apps/$NAME.svg
@@ -271,7 +286,24 @@ fi
 EOF
 
 say "Running rpmbuild"
-rpmbuild --define "_topdir $TOPDIR" --target "$ARCH" -bb "$SPEC"
+RPMBUILD_LOG="$WORK/rpmbuild.log"
+# Capture the build output so we can scan it for the #609 warning. set -e is
+# active, so temporarily relax it around the pipeline to read PIPESTATUS rather
+# than aborting before the diagnostic check.
+set +e
+rpmbuild --define "_topdir $TOPDIR" --target "$ARCH" -bb "$SPEC" 2>&1 \
+  | tee "$RPMBUILD_LOG"
+rpmbuild_rc=${PIPESTATUS[0]}
+set -e
+[[ $rpmbuild_rc -eq 0 ]] || die "rpmbuild failed (see $RPMBUILD_LOG)"
+
+# Guard against re-introducing the chrome-sandbox double-listing: a "File listed
+# twice" warning means %files has overlapping entries, and on modern rpmbuild
+# the silent-strip path can drop the setuid sandbox from the payload (#609).
+if grep -qF 'File listed twice' "$RPMBUILD_LOG"; then
+  grep -F 'File listed twice' "$RPMBUILD_LOG" >&2
+  die 'rpmbuild emitted "File listed twice" -- %files has overlapping listings (#609)'
+fi
 
 # rpmbuild names its output <name>-<Version>-<Release><dist>.<arch>.rpm (the
 # %{?dist} tag varies per host). Locate it by Version-Release...

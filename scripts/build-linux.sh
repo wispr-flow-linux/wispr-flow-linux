@@ -47,8 +47,10 @@ WORK_DIR="$PROJECT_ROOT/build-linux"
 STAGE="$WORK_DIR/stage"                          # becomes the app's resources/ tree
 # These honor env overrides (set by the build.sh orchestrator) but default to
 # the validated values when run standalone -- behavior is identical unless an
-# override is exported.
-APP_VERSION="${APP_VERSION:-1.5.619}"
+# override is exported. Keep APP_VERSION in lockstep with build.sh's APP_VERSION
+# so a standalone `build-linux.sh` run stages the same version the orchestrator
+# does (a divergent default silently mislabels the staged tree).
+APP_VERSION="${APP_VERSION:-1.5.695}"
 ELECTRON_MAJOR="${ELECTRON_MAJOR:-42}"
 ELECTRON_VERSION="${ELECTRON_VERSION:-42.3.0}"
 ARCH="${ARCH:-x64}"   # linux-x64; the helper + sqlite must match
@@ -110,8 +112,8 @@ step1_extract() {
   manual "This was performed by Track 1; the result lives in $EXTRACT_DIR."
   manual "To redo from a fresh installer (requires 7z):"
   cat <<'DOC'
-      7z x "Wispr Flow Setup-v1.5.619.exe" -o./extract            # -> *-full.nupkg
-      7z x "./extract/WisprFlow-1.5.619-full.nupkg" -o./extract/nupkg
+      7z x "Wispr Flow Setup-v1.5.695.exe" -o./extract            # -> *-full.nupkg
+      7z x "./extract/WisprFlow-1.5.695-full.nupkg" -o./extract/nupkg
       # Electron payload is then under extract/nupkg/lib/net45/
       # (resources/app.asar, resources/app.asar.unpacked/, resources/Release/, Wispr Flow.exe, *.pak)
 DOC

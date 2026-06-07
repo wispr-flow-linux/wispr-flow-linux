@@ -25,7 +25,10 @@
 # Usage:   verify-patches.sh <path-to-app.asar>
 # Exit 0 = all markers present; exit 1 = at least one missing (build should fail).
 #===============================================================================
-set -euo pipefail
+# No `set -e` (project styleguide): the grep probes below intentionally tolerate
+# a no-match via `|| true` and accumulate into `missing`; status is checked
+# explicitly. `set -u` + pipefail still apply.
+set -uo pipefail
 
 ASAR="${1:-}"
 if [[ -z "$ASAR" || ! -f "$ASAR" ]]; then

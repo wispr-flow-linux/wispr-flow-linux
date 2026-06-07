@@ -3,11 +3,15 @@
 [![CI](https://github.com/wispr-flow-linux/wispr-flow-linux/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/wispr-flow-linux/wispr-flow-linux/actions/workflows/ci.yml?query=branch%3Amain)
 [![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](UNLICENSE)
 
-Hey! These are build scripts to run the proprietary **Wispr Flow** voice-dictation
-app natively on Linux. I wanted Wispr Flow on my Linux machine, so this repo
-repackages the Windows installer and pairs it with a **clean-room Rust helper**.
-That helper reimplements the one native capability Wispr Flow ships only for macOS
-and Windows: injecting transcribed text into your focused application.
+This project provides build scripts to run the proprietary **Wispr Flow**
+voice-dictation app natively on Linux. It repackages the Windows installer and
+pairs it with a **clean-room Rust helper**, producing `.deb` packages
+(Debian/Ubuntu), `.rpm` packages (Fedora/RHEL), and distribution-agnostic
+AppImages for amd64 and arm64, plus an
+[AUR package](https://aur.archlinux.org/packages/wispr-flow-appimage) for Arch
+Linux and a Nix flake. The helper reimplements the one native capability Wispr
+Flow ships only for macOS and Windows: injecting transcribed text into your
+focused application.
 
 **This is an unofficial port.** I'm not affiliated with Wispr. For the official
 app and support, see [wisprflow.ai](https://wisprflow.ai). If you hit a
@@ -18,21 +22,6 @@ build-script or Linux issue,
 in [`docs/building.md`](docs/building.md). Release history in
 [`CHANGELOG.md`](CHANGELOG.md). Contributing: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 Security: [`SECURITY.md`](SECURITY.md).
-
-## Status
-
-The app **launches** on Linux with the Linux helper wired in, the UI renders, and
-text injection is validated on KDE Plasma Wayland. Packaging now ships **`.deb`,
-`.rpm`, and AppImage** for **amd64 and arm64** — signed APT/DNF repos, an AUR
-package, and GitHub Release assets all publish on each tag (see
-[Installation](#installation)). Nix is wired (`flake.nix`) but not yet a release
-target. I list the validated environments in
-[`docs/compatibility.md`](docs/compatibility.md), and the design rationale lives
-in [`docs/decisions.md`](docs/decisions.md).
-
-> [!NOTE]
-> arm64 is built and published but not hardware-validated yet — the helper's
-> VM-matrix sweep ran on x86_64 only.
 
 ## Installation
 
@@ -72,23 +61,6 @@ Grab a `.deb`, `.rpm`, or `.AppImage` from the
 > Wispr's official endpoint at build time. Wispr Flow is a trademark of its
 > owners; this is an unofficial community port. Prefer to supply the installer
 > yourself? [Build from source](#building) instead.
-
-## Supported environments
-
-I developed the Rust helper ([its own repo](https://github.com/wispr-flow-linux/helper))
-and swept it across a libvirt VM matrix. That sweep ran on x86_64 only, so arm64
-is wired through but not hardware-validated yet:
-
-| Environment | Text injection | Active window / focus | Selection |
-|---|---|---|---|
-| **KDE Plasma (Wayland)** — validated | `uinput` + `wl-clipboard` | KWin script over D-Bus | AT-SPI |
-| **GNOME (Wayland)** | shared Wayland backend | `org.gnome.Shell.Introspect` | AT-SPI |
-| **wlroots / other Wayland** | `uinput` + `wl-clipboard` | generic Wayland | AT-SPI |
-| **X11** | XTEST | `_NET_*` window properties | AT-SPI |
-
-Text injection needs write access to `/dev/uinput`. The bundled udev rule grants
-that through the logind `uaccess` ACL, with the `input` group as a cross-distro
-fallback. Push-to-talk additionally needs read access to `/dev/input/event*`.
 
 ## Building
 
