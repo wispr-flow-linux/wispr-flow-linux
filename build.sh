@@ -41,7 +41,7 @@ final_output_path=''
 readonly PACKAGE_NAME='wispr-flow'
 readonly WM_CLASS='Wispr Flow'
 export WM_CLASS
-readonly APP_VERSION='1.5.619'
+readonly APP_VERSION='1.5.695'
 readonly ELECTRON_VERSION='42.3.0'
 readonly ELECTRON_MAJOR='42'
 # Exported so packaging makers (Phase 2 deb/appimage) can read them from the
