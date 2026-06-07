@@ -133,8 +133,8 @@ Here's what the staging pipeline (`scripts/build-linux.sh`) does:
 4. **Stage native modules** for the Linux Electron 42 ABI. The app ships Windows
    `.node`; the build swaps in pinned, prebuilt linux `better_sqlite3.node` +
    `node_sqlite3.node` fetched and verified by
-   `scripts/setup/fetch-native-bin.sh` (with a local from-source rebuild
-   fallback — see below).
+   `scripts/setup/fetch-native-bin.sh` (with an opt-in local from-source rebuild
+   — see below).
 5. **Drop `win-ca`/`crypt32`** (Windows cert store; Linux uses the system CA
    bundle); keep the Jabra Linux ELF (already cross-platform).
 6. **Stage Linux Electron 42**, repack `app.asar`, and stage the full resources
@@ -155,7 +155,7 @@ The build fetches **Electron 42.3.0** for `linux-x64` (or `linux-arm64`) from
 the upstream releases. `scripts/setup/fetch-electron-binary.js` drives this, so
 you don't pick the runtime by hand.
 
-### Native sqlite modules (prebuilt, with a local rebuild fallback)
+### Native sqlite modules (prebuilt, with an opt-in local rebuild)
 
 Electron 42 ships **V8 14.8 / Node 24.15**, and that combo is where this gets
 fiddly. `better-sqlite3-multiple-ciphers` **does not compile** against V8 14.8
@@ -163,20 +163,27 @@ unpatched, and a binary's glibc floor is set by where it's built — so the port
 treats the two sqlite addons like the clean-room helper: built **once**, on an
 old-glibc base, and consumed as pinned, checksummed release assets.
 
-- **Producer:** `.github/workflows/build-native-modules.yml` rebuilds both
-  addons on `manylinux_2_28` (glibc 2.28 floor) per arch, validates each under
-  real Electron (ABI 146 + an encrypted-DB round-trip), and publishes them to
-  the tag in `native-modules-version.txt`. The actual build is
-  `scripts/rebuild-native-modules.sh` (lockfile-pinned `npm ci`, the V8 patch on
-  a pristine checkout, isolated electron-gyp headers).
+Like the helper, the build + releases live in their **own repo**
+([`wispr-flow-linux/native-modules`](https://github.com/wispr-flow-linux/native-modules)),
+split out so these CI-consumed artifacts don't inflate the main project's
+Release download counts.
+
+- **Producer:** the **Build Native Modules** workflow in the `native-modules`
+  repo rebuilds both addons on `manylinux_2_28` (glibc 2.28 floor) per arch,
+  validates each under real Electron (ABI 146 + an encrypted-DB round-trip), and
+  publishes them to the tag pinned in `native-modules-version.txt`. The actual
+  build is `scripts/rebuild-native-modules.sh` (lockfile-pinned `npm ci`, the V8
+  patch on a pristine checkout, isolated electron-gyp headers).
 - **Consumer:** the build fetches the matching pair via
   `scripts/setup/fetch-native-bin.sh`, which verifies the SHA-256 **and** the
   provenance stamp (the asset's `patch_sha256` must equal this checkout's patch;
   ABI must be 146) before staging. CI hard-fails if the fetch fails.
 
-For local hacking without a published asset, `build-linux.sh` Step 4 falls back
-to a from-source rebuild against your **host** glibc (fine for "does it launch
-here", not for distributable packages). To drive it directly:
+For local hacking without a published asset, re-run with
+`WISPR_NATIVE_REBUILD=1` and `build-linux.sh` Step 4 builds from source against
+your **host** glibc (fine for "does it launch here", not for distributable
+packages; `rebuild-native-modules.sh` is vendored here to back this). To drive
+it directly:
 
 ```bash
 ELECTRON_BIN=/path/to/electron \

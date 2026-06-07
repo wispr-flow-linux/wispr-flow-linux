@@ -251,14 +251,17 @@ elf_magic() {
 # Resolve the linux native modules into $NATIVE_MODULES_DIR, in priority order:
 #   1. already present + linux-ELF (explicit pre-drop, pre-fetch, or a re-run).
 #   2. fetch the pinned prebuilt release asset (fetch-native-bin.sh) -- the
-#      normal path; the asset is built on an old-glibc floor and is provenance-
-#      + checksum-verified before it lands.
+#      normal, supported path; the asset is built on an old-glibc floor and is
+#      provenance- + checksum-verified before it lands.
 #   3. fetch failed:
 #      - in CI: hard-fail. CI MUST ship the pinned prebuilt (correct glibc
 #        floor); a local rebuild here would bake the runner's newer glibc.
-#      - locally: fall back to a from-source rebuild (rebuild-native-modules.sh)
-#        against the HOST glibc -- fine for "does it launch here", not for
-#        distributable packages. Suppressed by WISPR_SKIP_NATIVE_REBUILD=1.
+#      - locally: by default do NOT rebuild -- the prebuilt is the supported
+#        artifact. Opt in with WISPR_NATIVE_REBUILD=1 for a from-source rebuild
+#        against the HOST glibc (fine for "does it launch here", NOT portable to
+#        other distros). The builder + producer workflow live in their own repo
+#        (github.com/wispr-flow-linux/native-modules); rebuild-native-modules.sh
+#        is vendored here only to back this opt-in.
 # The full rationale (V8 14.8 patch, the artifact model) lives in
 # docs/learnings/electron42-v8-sqlite.md and docs/decisions.md.
 resolve_native_modules() {
@@ -287,19 +290,23 @@ resolve_native_modules() {
   # 3a. CI: never rebuild on the runner (would bake the runner's glibc floor).
   if [[ -n ${GITHUB_ACTIONS:-} || -n ${CI:-} ]]; then
     warn "In CI: refusing to rebuild locally. Publish the native-modules"
-    warn "  release first (.github/workflows/build-native-modules.yml)."
+    warn "  release first (the Build Native Modules workflow in"
+    warn "  github.com/wispr-flow-linux/native-modules)."
     exit 1
   fi
 
-  # 3b. Local opt-out (offline dry-run): leave it to the Step-7 guard to fail.
-  if [[ ${WISPR_SKIP_NATIVE_REBUILD:-0} == 1 ]]; then
-    warn "WISPR_SKIP_NATIVE_REBUILD=1 -- skipping the local rebuild."
+  # 3b. Default: the prebuilt IS the supported artifact -- do not rebuild.
+  #     Opt in with WISPR_NATIVE_REBUILD=1 for a local (non-portable) build.
+  if [[ ${WISPR_NATIVE_REBUILD:-0} != 1 ]]; then
+    warn "Not rebuilding locally (the prebuilt is the supported path). To build"
+    warn "  a local, non-portable copy from source, re-run with"
+    warn "  WISPR_NATIVE_REBUILD=1 (needs node/npm + a C/C++ toolchain)."
     return 1
   fi
 
-  # 3c. Local from-source rebuild (HOST glibc -- dev convenience only).
-  warn "Falling back to a LOCAL from-source rebuild (host glibc; the result is"
-  warn "  NOT portable to other distros -- for local testing only)."
+  # 3c. Opt-in from-source rebuild (HOST glibc -- dev convenience only).
+  warn "WISPR_NATIVE_REBUILD=1 -- building native modules from source (host"
+  warn "  glibc; the result is NOT portable to other distros -- local use only)."
   if ELECTRON_VERSION="$ELECTRON_VERSION" \
       bash "$SCRIPT_DIR/rebuild-native-modules.sh" "$ARCH" \
         "$NATIVE_MODULES_DIR"; then
@@ -316,7 +323,7 @@ resolve_native_modules() {
 step4_native_modules() {
   say "Step 4: stage native modules for Linux Electron $ELECTRON_MAJOR"
 
-  # Populate $NATIVE_MODULES_DIR (pinned prebuilt, else local rebuild fallback).
+  # Populate $NATIVE_MODULES_DIR (pinned prebuilt; opt-in local rebuild only).
   resolve_native_modules
 
   # Stage whatever unpacked tree exists so paths line up for the .node swap.

@@ -29,10 +29,10 @@
 #
 # NOTE: the native sqlite addons are fetched as pinned, provenance-verified
 # prebuilt assets (scripts/setup/fetch-native-bin.sh), so no C/C++ toolchain is
-# required for the normal build. Only the OPTIONAL local from-source rebuild
-# fallback (build-linux.sh Step 4 -> rebuild-native-modules.sh) needs a compiler
-# + make; it reports any missing tool itself, so those are not forced system
-# deps here.
+# required for the normal build. Only the opt-in local from-source rebuild
+# (build-linux.sh Step 4 with WISPR_NATIVE_REBUILD=1 -> rebuild-native-modules.sh)
+# needs a compiler + make; it reports any missing tool itself, so those are not
+# forced system deps here.
 #===============================================================================
 
 check_dependencies() {

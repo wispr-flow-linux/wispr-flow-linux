@@ -10,6 +10,13 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Changed
 
+- The prebuilt native sqlite addons now build and release from their own repo
+  (`wispr-flow-linux/native-modules`) instead of this one, mirroring the helper —
+  so these CI-consumed artifacts no longer inflate the main project's Release
+  download counts. `fetch-native-bin.sh` pulls from the new repo (pin unchanged
+  in `native-modules-version.txt`); the local from-source rebuild is now opt-in
+  via `WISPR_NATIVE_REBUILD=1` (was an automatic fallback) and never runs by
+  default or in CI.
 - `build.sh` now downloads the Wispr Flow installer from Wispr's official
   endpoint by default (resolving it via `resolve-installer-url.sh`, the same path
   CI uses), so `--exe` is no longer required. Pass `--exe <path>` to build

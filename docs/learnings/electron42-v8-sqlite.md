@@ -57,10 +57,12 @@ into the main bundle, so the versions line up on both sides.
 Don't rebuild these in the packaging pipeline — a `.node`'s glibc floor is set
 by where it's built, so a CI-runner rebuild fails to load on older distros.
 Instead they're built **once** per arch on an old-glibc base
-(`manylinux_2_28`, glibc 2.28) by `.github/workflows/build-native-modules.yml`,
-validated under real Electron 42 (ABI 146 + an encrypted-DB round-trip via
-`scripts/native-modules/smoke-test.sh`), and published as pinned, checksummed
-release assets. The build consumes them through
+(`manylinux_2_28`, glibc 2.28) by the Build Native Modules workflow in the
+dedicated `wispr-flow-linux/native-modules` repo (split out, like the helper, so
+these CI-consumed assets don't inflate the main project's Release download
+counts), validated under real Electron 42 (ABI 146 + an encrypted-DB round-trip
+via `scripts/native-modules/smoke-test.sh`), and published there as pinned,
+checksummed release assets. The build consumes them through
 `scripts/setup/fetch-native-bin.sh`, which checks SHA-256 **and** a provenance
 stamp (`native-modules.lock`: the asset's `patch_sha256` must equal this
 checkout's patch, ABI must be 146) before staging — ELF magic alone can't tell a
