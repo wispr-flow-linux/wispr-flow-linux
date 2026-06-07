@@ -31,6 +31,9 @@ jobs:
     container: ${{ inputs.artifact_suffix == 'rpm' && 'fedora:42' || '' }}
     env:
       GH_TOKEN: ${{ github.token }}
+      # appimagetool is itself an AppImage; extract-and-run it instead of relying
+      # on FUSE, which is unreliable on hosted runners. No-op for the deb/rpm legs.
+      APPIMAGE_EXTRACT_AND_RUN: "1"
 
     steps:
       - name: Checkout repository
@@ -40,13 +43,20 @@ jobs:
         if: inputs.artifact_suffix == 'rpm'
         run: |
           # nodejs/npm: @electron/asar extract+repack and native-module fetch.
+          # build.sh's dependency installer (scripts/setup/dependencies.sh) pulls
+          # the rest (p7zip, python3, rpm-build, ...) once it runs.
           dnf install -y git findutils which curl nodejs npm
 
-      - name: Install FUSE for AppImageTool (Ubuntu)
-        if: inputs.artifact_suffix != 'rpm'
+      - name: Install AppImage tooling (Ubuntu)
+        if: inputs.artifact_suffix == 'appimage'
         run: |
           sudo apt-get update
           sudo apt-get install -y libfuse2
+          # appimagetool is not a distro package; fetch the arch-matched build so
+          # the appimage maker (scripts/packaging/appimage.sh) finds it on PATH.
+          curl -fSL -o /tmp/appimagetool \
+            "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage"
+          sudo install -m 0755 /tmp/appimagetool /usr/local/bin/appimagetool
 
       - name: Make scripts executable
         run: chmod +x ./build.sh scripts/setup/resolve-installer-url.sh scripts/setup/fetch-helper-bin.sh
