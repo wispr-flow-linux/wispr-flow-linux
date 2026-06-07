@@ -6,20 +6,31 @@
 #
 # WHY THIS PATCH EXISTS
 # ---------------------
-# Several BrowserWindow configs in the main bundle pick a title-bar / frame
+# Some BrowserWindow configs in the main bundle pick a title-bar / frame
 # treatment with a THREE-WAY platform switch of the shape:
 #
-#   isMac ? Object.assign(t,{titleBarStyle:"hiddenInset"})
+#   isMac ? Object.assign(t,{frame:!1,titleBarStyle:"hidden",
+#                            trafficLightPosition:{x:1e4,y:10},...})
 #         : "win32"===process.platform &&
 #             Object.assign(t,{titleBarStyle:"hidden",autoHideMenuBar:!0});
 #
-# macOS gets the inset traffic-light title bar; Windows gets a hidden title bar
-# (custom in-window chrome) with the menu bar suppressed. Linux matches NEITHER
-# predicate, so `t` is left untouched and Electron renders its platform DEFAULT:
-# a full native title bar + a visible menu bar. That clashes with the renderer
-# CSS patch that makes Linux adopt the `.win32` chrome (a custom title bar with
-# in-window minimize/maximize/close controls): those controls only render
-# correctly inside a frameless / hidden-title-bar window, exactly like Windows.
+# macOS gets a frameless window with a hidden title bar and the traffic lights
+# parked offscreen; Windows gets a hidden title bar (custom in-window chrome)
+# with the menu bar suppressed. Linux matches NEITHER predicate, so `t` is left
+# untouched and Electron renders its platform DEFAULT: a full native title bar +
+# a visible menu bar. That clashes with the renderer CSS patch that makes Linux
+# adopt the `.win32` chrome (a custom title bar with in-window
+# minimize/maximize/close controls): those controls only render correctly inside
+# a frameless / hidden-title-bar window, exactly like Windows.
+#
+# As of Wispr Flow 1.5.695 this is the meeting_recorder window. The other chrome
+# windows no longer have this gap: the Flow Hub and scratchpad windows now use a
+# TWO-WAY `isMac ? {frame:!1,...} : {frame:!1,autoHideMenuBar:!0}` switch whose
+# else branch already gives Linux a frameless window, and the overlay / status /
+# contextMenu / calendar_reminder windows set `frame:!1` unconditionally. Earlier
+# Wispr versions keyed the mac branch on `titleBarStyle:"hiddenInset"`; that
+# disappeared in the 1.5.695 refactor (which is why the old anchor no-oped and
+# verify-patches.sh failed on the absent WISPR_LINUX_FRAMELESS marker).
 #
 # THE PATCH (surgical, widen ONE predicate at the window-config site)
 # -------------------------------------------------------------------
@@ -52,12 +63,17 @@
 # Anchor (unique in the bundle), keyed on stable developer string literals --
 # NOT on minified symbols (the platform flags `tD`/`H8` and the config var churn
 # every release):
-#   titleBarStyle:"hiddenInset"})  +  "win32"===process.platform  +
-#   Object.assign(<var>,{titleBarStyle:"hidden",autoHideMenuBar:!0})
-# All three literals must be adjacent, which uniquely identifies the
-# Settings/Hub window-config ternary (the only window config of this shape;
-# the other hidden-title-bar windows are overlays that already set frame:!1
-# unconditionally and so are already frameless on Linux).
+#   "win32"===process.platform  +
+#   &&Object.assign(<var>,{titleBarStyle:"hidden",autoHideMenuBar:!0})
+# These two literals adjacent uniquely identify the meeting_recorder
+# window-config ternary -- the only window config of this shape (the Hub and
+# scratchpad windows moved to a two-way switch whose else branch already gives
+# Linux frame:!1, and the overlay/status/contextMenu/calendar_reminder windows
+# set frame:!1 unconditionally, so all of those are already frameless on Linux).
+# We no longer anchor on the mac branch: it churns (it dropped "hiddenInset" in
+# 1.5.695), and the win32-predicate + hidden-title-bar Object.assign pair is
+# already unique on its own. The EXPECTED count assertion below fails loudly if
+# upstream ever reintroduces that pair at a second site.
 #
 # Usage: patch-linux-window-frame.sh <path-to-.webpack/main/index.js>
 #===============================================================================
@@ -99,28 +115,27 @@ path, marker = sys.argv[1], sys.argv[2]
 with io.open(path, "r", encoding="utf-8", errors="surrogateescape") as f:
     data = f.read()
 
-# Anchor: isMac branch (hiddenInset) -> the inline win32 predicate -> the
-# hidden-title-bar Object.assign. Every minified id (config var, platform flag
-# symbol) churns; we anchor purely on the developer string literals and capture
-# the one minified token we must preserve verbatim: the config var in the
-# Object.assign that the win32 branch mutates.
+# Anchor: the inline win32 predicate -> the hidden-title-bar Object.assign.
+# Every minified id (config var, platform flag symbol) churns; we anchor purely
+# on the developer string literals and capture the one minified token we must
+# preserve verbatim: the config var in the Object.assign that the win32 branch
+# mutates.
 #
-# We widen ONLY the `"win32"===process.platform` that sits between the
-# `hiddenInset` mac branch and the hidden-title-bar Object.assign. The marker
-# comment is injected inside the widened predicate so the idempotency grep and
-# the per-site count both key on the same insertion.
+# We widen ONLY the `"win32"===process.platform` that sits immediately before
+# the hidden-title-bar Object.assign. The marker comment is injected inside the
+# widened predicate so the idempotency grep and the per-site count both key on
+# the same insertion.
 site = re.compile(
-    r'(titleBarStyle:"hiddenInset"\}\):)'                 # g1: mac branch end + ':'
-    r'("win32"===process\.platform)'                      # g2: win32 predicate
-    r'(&&Object\.assign\((?P<var>[\w$]+),'                # g3: &&assign( + var
+    r'("win32"===process\.platform)'                      # g1: win32 predicate
+    r'(&&Object\.assign\((?P<var>[\w$]+),'                # g2: &&assign( + var
     r'\{titleBarStyle:"hidden",autoHideMenuBar:!0\}\))'   # ...hidden cfg )
 )
 matches = list(site.finditer(data))
 
-# How many window configs of this shape SHOULD exist. The audit found exactly
-# one (the Settings/Hub window). If the bundle ever sprouts another of this
-# exact shape, EXPECTED must be bumped deliberately after re-auditing -- we do
-# not silently widen an unknown count.
+# How many window configs of this shape SHOULD exist. The 1.5.695 audit found
+# exactly one (the meeting_recorder window). If the bundle ever sprouts another
+# of this exact shape, EXPECTED must be bumped deliberately after re-auditing --
+# we do not silently widen an unknown count.
 EXPECTED = 1
 if len(matches) != EXPECTED:
     sys.exit(
@@ -135,10 +150,9 @@ if len(matches) != EXPECTED:
 # adjacency, and the marker grep short-circuits before we get here anyway).
 def widen(m):
     return (
-        m.group(1)
-        + '(/*' + marker + '*/' + m.group(2)
+        '(/*' + marker + '*/' + m.group(1)
         + '||"linux"===process.platform)'
-        + m.group(3)
+        + m.group(2)
     )
 
 site_done = bool(matches)
@@ -148,7 +162,7 @@ data = site.sub(widen, data, count=EXPECTED)
 # belt-and-braces check, but it keeps the WARNING: contract if EXPECTED grows.
 if not site_done:
     print(
-        "  WARNING: " + marker + " partial -- settingsHub=" + str(site_done)
+        "  WARNING: " + marker + " partial -- meetingRecorder=" + str(site_done)
         + "; Linux chrome windows will render with a native title bar + menu "
         + "bar (the .win32 chrome controls will be misplaced)."
     )
@@ -191,7 +205,7 @@ fi
 echo "OK: Linux frameless window-config branch widened in $BUNDLE"
 echo
 echo "Patched window config now does (conceptually):"
-echo "  isMac ? {titleBarStyle:'hiddenInset'}"
+echo "  isMac ? {frame:false,titleBarStyle:'hidden',...}"
 echo "        : (isWin32 || isLinux) && {titleBarStyle:'hidden',autoHideMenuBar:true};"
 echo
 echo "Linux now gets the same hidden-title-bar chrome as Windows; the renderer"

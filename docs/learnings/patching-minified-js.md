@@ -161,17 +161,24 @@ Two patterns from the suite:
   service"`, then captures the surrounding minified logger identifier
   (`([\w$]+)\(\)\.info\(…)`) as the actual target. Stable literal locates the
   site; the dynamic capture supplies the churning name.
-- **Literal-shape anchor + captured var.** `linux-window-frame.sh:115` pins the
-  window-config site on the `titleBarStyle:"hiddenInset"` / `"win32"===
-  process.platform` / `Object.assign(<var>,{titleBarStyle:"hidden",…})` literal
-  shape and captures only `<var>` as `[\w$]+`.
+- **Literal-shape anchor + captured var.** `linux-window-frame.sh` pins the
+  window-config site on the `"win32"===process.platform` /
+  `Object.assign(<var>,{titleBarStyle:"hidden",autoHideMenuBar:!0})` literal
+  shape and captures only `<var>` as `[\w$]+`. (It used to also anchor on a
+  `titleBarStyle:"hiddenInset"` mac branch; 1.5.695 dropped `hiddenInset`, so
+  the anchor was narrowed to the still-unique win32-predicate + hidden-assign
+  pair — see the re-audit note below.)
 
 The lesson is about finding stable points to anchor on, not about what gets
 patched. Even literal anchors aren't immortal: `linux-window-frame.sh` no-oped
-on Wispr 1.5.695 because the window-config *shape* itself moved — which is why a
-version bump means a re-audit ([platform-gates.md](platform-gates.md)), and why
-the count assertion below turns that no-op into a loud failure instead of a
-silent one.
+on Wispr 1.5.695 because the window-config *shape* itself moved — the mac branch
+dropped `titleBarStyle:"hiddenInset"`, and the lone surviving three-way win32
+site shifted from the Hub window (now a two-way switch whose else branch already
+frames Linux) to the meeting_recorder window. The re-audit narrowed the anchor
+to the win32-predicate + hidden-title-bar `Object.assign` pair (still unique).
+This is why a version bump means a re-audit ([platform-gates.md](platform-gates.md)),
+and why the count assertion below turns that no-op into a loud failure instead of
+a silent one.
 
 ## Multi-site coordinated patches: surface partial application
 
