@@ -8,209 +8,40 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
-This entry documents the parity work that brought the repo up to the
-`claude-desktop-debian` governance and tooling surface, on top of the validated
-Phase-0 build (the app launches on Linux with the clean-room Rust helper wired
-in, UI renders, and the core text-injection path is validated on KDE Plasma
-Wayland — this is the baseline).
+## [v1.0.1] - 2026-06-07
 
 ### Added
 
-- **Global key capture in the helper** (`linux-helper-app/src/capture/`): emits
-  the `KeypressEvent` IPC stream the app's keyboard service needs, so
-  **push-to-talk and the in-app shortcut recorder now work** — the app has no
-  hotkey detection of its own. Two backends, selected per session like
-  `backend::detect`: **XInput2** raw key events on a true X11 session (no device
-  access needed), and **evdev** (`/dev/input/event*`) on Wayland (and as the X11
-  fallback). Both converge on the same VK codes via `keymap::evdev_to_vk` (the
-  inverse of `vk_to_evdev`, with a roundtrip test). Adds a `CheckStaleKeys` →
-  `StaleKeysResponse` handler answered from live kernel/X state. See
-  [`docs/learnings/global-key-monitor.md`](docs/learnings/global-key-monitor.md).
-- **Input-access provisioning for push-to-talk**: the deb/rpm/Nix udev rule now
-  also grants `/dev/input/event*` read (was uinput-write only), installed and
-  triggered by the existing post-install machinery. A new
-  `wispr-flow --install-udev-rules` command installs the same rule via
-  pkexec/sudo for AppImage / non-NixOS Nix, and `wispr-flow --doctor` gains a
-  **Push-to-Talk (input monitor)** section checking `/dev/input` read access. The
-  evdev read trade-off is documented in `SECURITY.md`.
-- **Top-level `build.sh` orchestrator** dispatching the staging pipeline and the
-  per-format packaging makers, with `--build`, `--clean`, and `--doctor` flags
-  mirroring `claude-desktop-debian`.
-- **Packaging makers** under `scripts/packaging/`: `deb.sh` and `appimage.sh`
-  makers added alongside a refactored `rpm.sh`, all sharing the
-  `<maker>.sh <dist_dir> <version> <arch>` signature. Run locally to build a
-  package on your own machine, or via the gated tag-driven CI pipeline (see
-  [`RELEASING.md`](RELEASING.md)).
-- **Launcher library** `scripts/launcher-common.sh` (shared by the per-package
-  `/usr/bin/wispr-flow` launcher) and **`scripts/doctor.sh`** implementing the
-  `wispr-flow --doctor` diagnostic surface (display/session, `/dev/uinput`
-  access, clipboard tooling, GNOME extension, AT-SPI, the launcher rename).
-- **Test suites**: bats unit tests (`tests/doctor.bats`,
-  `tests/launcher-common.bats`, `tests/verify-patches.bats`), per-format artifact
-  tests (`tests/test-artifact-{deb,rpm,appimage}.sh` + shared common), and the
-  Rust helper test runner (`tests/run-rust-tests.sh`).
-- **CI workflows** under `.github/workflows/`: lint (shellcheck, codespell),
-  flag-parsing, and bats gates run on every push/PR.
-- **Tag-driven release & publish pipeline** (`ci.yml` plus reusable
-  `build-amd64.yml` / `build-arm64.yml` / `test-artifacts.yml`, and
-  `check-wispr-version.yml`, `apt-repo-heartbeat.yml`, `cleanup-runs.yml`,
-  `update-flake-lock.yml`): a `v<repoVer>+wispr<wisprVer>` tag builds
-  deb/rpm/AppImage for amd64 + arm64, attaches them to a GitHub Release, and
-  publishes to the APT/DNF `gh-pages` tree and the `wispr-flow-appimage` AUR
-  package, fronted by the `wispr-flow-linux/worker` Cloudflare Worker at
-  `pkg.wispr-flow-linux.dev`. CI resolves and downloads the proprietary
-  installer itself and stages the pinned prebuilt helper
-  (`scripts/setup/resolve-installer-url.sh`, `scripts/setup/fetch-helper-bin.sh`).
-  The chain runs on a `v*` tag push; see [`RELEASING.md`](RELEASING.md).
-- **Nix flake** (`flake.nix`, `nix/wispr-flow.nix`, `nix/fhs.nix`) packaging the
-  helper and the wrapped app.
-- **Documentation tree** under `docs/` (building, configuration, troubleshooting,
-  decisions, learnings deep-dives, and bash/docs style guides), indexed from
-  `docs/index.md`.
-- **Project governance / meta**: this `CHANGELOG.md`, `CONTRIBUTING.md`,
-  `SECURITY.md`, the synced `AGENTS.md` / `CLAUDE.md` agent guide, GitHub issue
-  templates (`.github/ISSUE_TEMPLATE/`), and `.github/CODEOWNERS`.
-- **End-user install documentation** ([`docs/installation.md`](docs/installation.md)
-  + an Installation section in the README): the APT and DNF repositories, the
-  `wispr-flow-appimage` AUR package, AppImage / manual download, plus updating and
-  uninstalling — covering the now-published `.deb` / `.rpm` / AppImage packages
-  for amd64 and arm64.
-- **AppImage auto-update metadata** (`scripts/packaging/appimage.sh` + the
-  `build-amd64` / `build-arm64` CI legs): CI builds now embed
-  `gh-releases-zsync` update information and emit a companion `.AppImage.zsync`
-  delta (the legs install `zsync` and collect the `.zsync` alongside the
-  `.AppImage`), so published AppImages self-update via AppImageUpdate /
-  appimaged. Local builds skip it (no release to update from).
-- **`wispr-flow --doctor` install-integrity checks** (`scripts/doctor.sh`):
-  a **chrome-sandbox** check (setuid-root `4755` / owner `root`, AppImage-aware
-  via `$APPIMAGE` since those run `--no-sandbox`), an **Electron runtime** check
-  (the renamed binary exists / is executable, version read from the sibling
-  `version` file without launching Electron), a **desktop entry** presence
-  check, and a **free-disk** check on the config partition. The three launchers
-  now thread the Electron binary path into `run_doctor` alongside the helper
-  path. Catches a sandbox that lost its setuid bit (Electron silently refuses to
-  start) and other partial installs that previously reported "all checks passed."
+- End-user install documentation: `docs/installation.md` plus a README
+  Installation section (APT, DNF, AUR, AppImage, manual).
+- AppImage auto-update metadata: CI embeds `gh-releases-zsync` update info and
+  emits a companion `.AppImage.zsync`.
+- `wispr-flow --doctor` install-integrity checks: chrome-sandbox setuid,
+  Electron runtime, desktop entry, and free disk.
 
 ### Changed
 
-- **`scripts/` restructured** into `setup/`, `patches/`, `packaging/`, and shared
-  `_common.sh`, separating host detection / download, the app patches
-  (`helper-resolver.sh`, `mac-gates.sh`, the V8 14.8 sqlite compat patch),
-  and the per-format packaging makers.
-- **`.codespellrc`** refined: skip list extended to cover the build scratch
-  trees (`build-linux/`, `extract/`), vendored `tools/`, lockfiles, the
-  proprietary `.exe`, `linux-helper-app/target/`, and the minified `index.js`;
-  ignore-words list extended with project false-positives.
-- **Pinned GitHub Actions bumped to Node 24 runtimes** ahead of GitHub's Node 20
-  deprecation: `actions/checkout` → v6.0.3, `actions/upload-artifact` → v6.0.0,
-  `actions/download-artifact` → v7.0.0, `softprops/action-gh-release` → v3.0.0
-  (each still pinned by commit SHA).
-- **README opening** rewritten in `claude-desktop-debian`'s declarative
-  "build scripts to run … natively on Linux" style (enumerating the `.deb` /
-  `.rpm` / AppImage / AUR / Nix outputs up front), and the **Status** and
-  **Supported environments** sections removed — the validated-environments
-  matrix and the `/dev/uinput` access notes already live in
-  [`docs/configuration.md`](docs/configuration.md).
-- **`verify-patches.sh`** dropped `set -e` (`set -euo pipefail` → `set -uo
-  pipefail`) to comply with the bash styleguide; the marker probes already
-  tolerate a no-match via `|| true` and accumulate into `missing`.
-- **rpm spec hardening made explicit** (`scripts/packaging/rpm.sh`): added a
-  `%defattr(-, root, root, -)` default and an explicit `%global debug_package
-  %{nil}`, belt-and-suspenders over the existing `__os_install_post %{nil}`
-  across rpm versions.
+- README opening rewritten in declarative style; Status and Supported-environments
+  sections removed.
+- rpm spec hardened: `%defattr` default and explicit `%global debug_package %{nil}`.
+- `verify-patches.sh` dropped `set -e` per the bash styleguide.
 
 ### Fixed
 
-- **Injected `Ctrl+V` degraded to a bare `v`** (`linux-helper-app/src/backend/uinput.rs`):
-  `UInput::chord` slept 8 ms between the modifier-down and the key-down "to let
-  the compositor observe the modifier." On KWin/Wayland that quiescent gap makes
-  the compositor *drop* the held modifier before the key arrives, so paste typed
-  a literal `v` into the focused field. The chord now emits modifier→key→release
-  as one contiguous batch with no inter-event sleep (each event still gets its
-  `SYN_REPORT`). Verified with a GTK Wayland observer: 0 ms gap → modifier
-  applied and full text pastes (5/5); ≥8 ms → dropped. See
-  [`docs/learnings/wayland-injection.md`](docs/learnings/wayland-injection.md).
-- **Text injection silently dead while recording worked** (`helper-env.sh`): the
-  app spawns the helper with a *replacement* env object (telemetry keys only),
-  not a spread of `process.env`, so the Linux helper inherited no
-  `WAYLAND_DISPLAY`/`DISPLAY`/`XDG_RUNTIME_DIR`/`DBUS_SESSION_BUS_ADDRESS` and
-  its backend detection fell through to the no-op `stub` injector —
-  `PasteText failed: no backend available (stub)`. Keypress capture (evdev,
-  needs no session env) kept push-to-talk and the recorder working, masking the
-  break. A new surgical bundle patch prepends `...process.env,` to the spawn's
-  env object; wired into `build-linux.sh` and enforced by `verify-patches.sh`
-  (`WISPR_LINUX_HELPER_ENV`). See
-  [`docs/learnings/helper-spawn-env.md`](docs/learnings/helper-spawn-env.md).
-- **Left side menu shifted right with invisible window controls**
-  (`linux-renderer-chrome.sh` + `linux-window-frame.sh`): the renderer adds the
-  OS string as an `<html>` class, but every platform CSS rule is `.darwin`/
-  `.win32` with **zero `.linux` rules**, so Linux inherited the mac-shaped base
-  geometry — a 68px phantom traffic-light inset pushed the sidebar collapse
-  toggle ~3-4 icon-widths right and rendered the min/max/close controls with no
-  artwork. Linux now adopts the `.win32` stylesheet (class remapped linux→win32)
-  and the hub/settings window is made frameless like Windows so the custom
-  controls render. Markers `WISPR_LINUX_WIN32_CHROME` / `WISPR_LINUX_FRAMELESS`.
-- **Fresh installs seeded macOS shortcut defaults; onboarding skipped permissions**
-  (`linux-renderer-treat-as-windows.sh`): renderer shortcut/PTT defaults, glyph
-  labels and the onboarding Permissions step are gated `isWindows ? … : …`, and
-  `window.electron.platform` exposed no `isLinux`, so Linux took the macOS branch
-  (unusable `fn`/⌘ combos) and skipped the permissions step. Each renderer now
-  widens the single place it binds `isWindows` into a module-local
-  (`…?.platform?.isWindows ?? false` → `(… || "linux" === …?.platform?.os)`),
-  deriving the OS from the bridge it already reads. The bridge stays honest —
-  `window.electron.platform.isWindows` still reports its real value (`false` on
-  Linux) and no preload is touched, so a future `isWindows`-gated site can't
-  silently fire. `isMacOS` is left false, keeping keycode/glyph paths on the
-  Ctrl/Windows-VK side. Marker `WISPR_LINUX_RENDERER_ISWIN`. (Replaces the
-  earlier preload-boolean flip `WISPR_LINUX_AS_WINDOWS`.)
-- **Cold-start `wispr-flow:` deep links dropped** (`linux-deeplink.sh`): the
-  argv parse that extracts the protocol URL at launch was win32-only (macOS uses
-  `open-url`); launching from a link while the app wasn't running lost the URL.
-  The guard now includes Linux (the warm-start `second-instance` path already
-  worked). Marker `WISPR_LINUX_DEEPLINK`. All four patches are documented in
-  [`docs/learnings/platform-gates.md`](docs/learnings/platform-gates.md).
-- **Release build failed staging on Wispr Flow 1.5.695** (`linux-window-frame.sh`):
-  the upstream window-config refactor dropped `titleBarStyle:"hiddenInset"` and
-  moved the lone three-way win32 site from the Hub window to the meeting_recorder
-  window, so the old anchor matched 0 sites and `verify-patches.sh` failed. Re-
-  anchored on the still-unique `"win32"===process.platform` +
-  `Object.assign(<var>,{titleBarStyle:"hidden",autoHideMenuBar:!0})` pair; marker,
-  count assertion, and idempotency preserved.
-- **`.rpm` and AppImage release legs produced no artifacts** once the staging
-  failure above was fixed: the `fedora:42` rpm container lacked `python3` (which
-  the entire patch suite requires) because `scripts/setup/dependencies.sh` never
-  listed it, and the appimage leg lacked `appimagetool`. Added `python3` as a
-  first-class build dependency and made the appimage CI leg fetch the arch-matched
-  `appimagetool` (with `APPIMAGE_EXTRACT_AND_RUN`). All three formats now build
-  and publish for amd64 and arm64.
-- **rpm could silently ship a non-setuid / missing chrome-sandbox**
-  (`scripts/packaging/rpm.sh`): `%files` listed the sandbox twice — once via the
-  `/usr/lib/wispr-flow` dir walk and again as an `%attr(4755, …)` entry — and on
-  modern rpmbuild (6.x) the "File listed twice" path can strip the file from the
-  payload, leaving Electron unable to start sandboxed. The setuid bit is now
-  baked into the FHS tree before the spec is written (so the single dir-walk
-  listing records `4755`), the rpmbuild output is captured, and the build fails
-  hard if rpmbuild emits "File listed twice" (guards against #609 regressing).
-- **`build.sh --clean yes` was a no-op** (it only printed a warning): cleanup now
-  prunes the regenerable intermediate trees (`stage`, `app.asar.contents`, the
-  per-format packaging scaffolding / AppDir) while preserving the produced
-  package and the expensive `downloads/` tree (installer + Electron runtime).
-- **Standalone `build-linux.sh` staged a stale version**
-  (`scripts/build-linux.sh` + the makers): the `APP_VERSION` default was still
-  `1.5.619` while `build.sh` targets `1.5.695`, so a direct
-  `scripts/build-linux.sh` run (outside the orchestrator) mislabeled the staged
-  tree. Aligned every default and example to `1.5.695`.
+- rpm could ship a non-setuid / missing chrome-sandbox; the setuid `4755` bit is
+  now baked into the FHS tree and the build fails on "File listed twice".
+- `build.sh --clean` was a no-op; it now prunes intermediates while keeping the
+  package and `downloads/`.
+- `build-linux.sh` staged a stale version (`APP_VERSION` default `1.5.619` →
+  `1.5.695`).
 
-### Removed
+## [v1.0.0] - 2026-06-07
 
-- **All package-hosting, release, and publish infrastructure.**
-  Deleted the `publish-apt`/`publish-dnf`/`publish-aur`, `apt-repo-heartbeat`,
-  `check-version`, `build-amd64`/`build-arm64`, and `test-artifacts` workflows
-  (and the release/publish jobs in `ci.yml`); `RELEASING.md` and the
-  package-worker learning; the remote `gh-pages` APT/DNF metadata branch; the
-  release-pipeline repo variables; and the separate `wispr-flow-linux/worker`
-  Cloudflare Worker repo (`pkg.wispr-flow-linux.dev`). Packaging is now
-  local-only — `build.sh --build …` on the user's own machine — and CI runs
-  only lint + unit-test gates.
+Initial release — unofficial Linux repackaging of Wispr Flow (1.5.695) as
+`.deb` / `.rpm` / AppImage for amd64 and arm64, with the clean-room Rust helper
+(text injection, clipboard, global key capture), the Linux platform-gate
+patches, Nix flake, docs tree, and the tag-driven release/publish pipeline.
 
-[Unreleased]: https://github.com/wispr-flow-linux/wispr-flow-linux/commits/main
+[Unreleased]: https://github.com/wispr-flow-linux/wispr-flow-linux/compare/v1.0.1+wispr1.5.695...HEAD
+[v1.0.1]: https://github.com/wispr-flow-linux/wispr-flow-linux/compare/v1.0.0+wispr1.5.695...v1.0.1+wispr1.5.695
+[v1.0.0]: https://github.com/wispr-flow-linux/wispr-flow-linux/releases/tag/v1.0.0+wispr1.5.695
