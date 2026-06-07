@@ -21,13 +21,57 @@ Security: [`SECURITY.md`](SECURITY.md).
 
 ## Status
 
-We're at Phase 0, and here's what that means in practice. The app **launches** on
-Linux with the Linux helper wired in, the UI renders, and text injection is
-validated on KDE Plasma Wayland. Packaging is partway there: **`.rpm` builds
-today**; `.deb` and AppImage are stubbed (in progress); Nix is deferred. I list
-the validated environments in
+The app **launches** on Linux with the Linux helper wired in, the UI renders, and
+text injection is validated on KDE Plasma Wayland. Packaging now ships **`.deb`,
+`.rpm`, and AppImage** for **amd64 and arm64** — signed APT/DNF repos, an AUR
+package, and GitHub Release assets all publish on each tag (see
+[Installation](#installation)). Nix is wired (`flake.nix`) but not yet a release
+target. I list the validated environments in
 [`docs/compatibility.md`](docs/compatibility.md), and the design rationale lives
 in [`docs/decisions.md`](docs/decisions.md).
+
+> [!NOTE]
+> arm64 is built and published but not hardware-validated yet — the helper's
+> VM-matrix sweep ran on x86_64 only.
+
+## Installation
+
+Prebuilt packages ship for **amd64 and arm64** with every release. Pick the
+channel for your distro; the repo channels update with your normal system
+upgrades. Full details — signature verification, uninstall, per-format notes —
+are in [`docs/installation.md`](docs/installation.md).
+
+### APT (Debian/Ubuntu)
+
+```bash
+curl -fsSL https://pkg.wispr-flow-linux.dev/KEY.gpg | sudo gpg --dearmor -o /usr/share/keyrings/wispr-flow.gpg
+echo "deb [signed-by=/usr/share/keyrings/wispr-flow.gpg arch=amd64,arm64] https://pkg.wispr-flow-linux.dev stable main" | sudo tee /etc/apt/sources.list.d/wispr-flow.list
+sudo apt update && sudo apt install wispr-flow
+```
+
+### DNF (Fedora/RHEL)
+
+```bash
+sudo curl -fsSL https://pkg.wispr-flow-linux.dev/rpm/wispr-flow.repo -o /etc/yum.repos.d/wispr-flow.repo
+sudo dnf install wispr-flow
+```
+
+### AUR (Arch Linux)
+
+```bash
+yay -S wispr-flow-appimage   # or: paru -S wispr-flow-appimage
+```
+
+### Manual download
+
+Grab a `.deb`, `.rpm`, or `.AppImage` from the
+[Releases page](https://github.com/wispr-flow-linux/wispr-flow-linux/releases).
+
+> [!NOTE]
+> These published packages bundle the proprietary Wispr Flow app, downloaded from
+> Wispr's official endpoint at build time. Wispr Flow is a trademark of its
+> owners; this is an unofficial community port. Prefer to supply the installer
+> yourself? [Build from source](#building) instead.
 
 ## Supported environments
 
@@ -53,7 +97,7 @@ Build a package with:
 
 ```bash
 # Build an .rpm from a Wispr Flow installer you obtained yourself
-./build.sh --build rpm --exe ~/Downloads/"Wispr Flow Setup-v1.5.619.exe"
+./build.sh --build rpm --exe ~/Downloads/"Wispr Flow Setup-v1.5.695.exe"
 ```
 
 `--exe` is required. The pipeline never fetches, bundles, or hosts the

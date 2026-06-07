@@ -19,6 +19,8 @@ protocol — the contract everything else hangs off — is in
 
 ## Installation & building
 
+- [**Installing**](installation.md) — prebuilt packages: the APT/DNF repos, the
+  AUR package, AppImage / manual download, updating, and uninstalling
 - [**Building from source**](building.md) — `./build.sh`, format flags, the
   Electron download, the native sqlite rebuild, the mandatory launcher rename
 - [**Configuration**](configuration.md) — env vars, where state lives, the
