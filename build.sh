@@ -68,8 +68,8 @@ source "$script_dir/scripts/setup/download.sh"
 # Package version derivation -- mirror the claude-desktop-debian scheme.
 #
 # The release tag has the shape  v<repoVer>+wispr<wisprVer>  (e.g.
-# v1.0.0+wispr1.5.619). When a parseable tag is supplied, the package/filename
-# version becomes  <wisprVer>-<repoVer>  (e.g. 1.5.619-1.0.0) so a downstream
+# v1.0.0+wispr1.5.695). When a parseable tag is supplied, the package/filename
+# version becomes  <wisprVer>-<repoVer>  (e.g. 1.5.695-1.0.0) so a downstream
 # worker can reconstruct the release tag from a package filename. For local /
 # no-tag builds the package version stays just <wisprVer> (the APP_VERSION
 # constant), and APP_VERSION itself is NEVER altered -- staging always sees the
@@ -188,10 +188,10 @@ The Nix package is built straight from the flake, not through build.sh. It
 never fetches the proprietary app -- point it at the installer .exe you
 obtained yourself via WISPR_FLOW_EXE (needs --impure):
 
-    WISPR_FLOW_EXE="/path/Wispr Flow Setup-v1.5.619.exe" \
+    WISPR_FLOW_EXE="/path/Wispr Flow Setup-v1.5.695.exe" \
       nix build .#wispr-flow-fhs --impure   # recommended (glibc FHS wrapper)
 
-    WISPR_FLOW_EXE="/path/Wispr Flow Setup-v1.5.619.exe" \
+    WISPR_FLOW_EXE="/path/Wispr Flow Setup-v1.5.695.exe" \
       nix build .#wispr-flow --impure       # bare derivation (no FHS loader)
 
 Overlay/non-flake callers can instead override:
@@ -209,6 +209,37 @@ NIXMSG
 	else
 		warn 'Could not determine final package path.'
 	fi
+}
+
+#===============================================================================
+# Cleanup -- remove regenerable intermediate trees while preserving (a) the
+# produced package and (b) the expensive downloads/ tree (installer + Electron
+# runtime). The final artifact lives nested under the per-format dir (e.g.
+# rpm/rpmbuild/RPMS), so prune scaffolding subdirs rather than the dir itself.
+#===============================================================================
+clean_intermediates() {
+	local removed=0 target
+	for target in \
+		"$work_dir/stage" \
+		"$work_dir/app.asar.contents" \
+		"$work_dir/deb/pkgroot" \
+		"$work_dir/rpm/pkgroot" \
+		"$work_dir/rpm/rpmbuild/BUILD" \
+		"$work_dir/rpm/rpmbuild/BUILDROOT" \
+		"$work_dir/rpm/rpmbuild/SOURCES" \
+		"$work_dir/rpm/rpmbuild/SPECS" \
+		"$work_dir/rpm/rpmbuild/SRPMS"
+	do
+		[[ -e $target ]] || continue
+		rm -rf "$target" && removed=$((removed + 1))
+	done
+	# AppImage AppDir scaffolding (the .AppImage artifact sits beside it, kept).
+	local appdir
+	for appdir in "$work_dir"/appimage/*.AppDir; do
+		[[ -d $appdir ]] || continue
+		rm -rf "$appdir" && removed=$((removed + 1))
+	done
+	auto "Cleanup: removed $removed intermediate tree(s); kept the package and downloads/."
 }
 
 print_resolved_flags() {
@@ -275,8 +306,7 @@ main() {
 	# Phase 5: optional cleanup of intermediate build files.
 	if [[ $clean_action == 'yes' ]]; then
 		say 'Cleanup intermediate build files'
-		# Preserve the produced package and the downloads/electron-dist tree.
-		warn 'Cleanup requested; intermediate file cleanup is conservative (no-op for now to protect downloads/).'
+		clean_intermediates
 	fi
 
 	say 'Build process finished.'

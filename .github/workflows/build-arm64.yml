@@ -52,7 +52,9 @@ jobs:
         if: inputs.artifact_suffix == 'appimage'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libfuse2
+          # zsync lets the appimage maker emit a .zsync delta for AppImage
+          # auto-updates (AppImageUpdate / appimaged).
+          sudo apt-get install -y libfuse2 zsync
           # appimagetool is not a distro package; fetch the arch-matched build so
           # the appimage maker (scripts/packaging/appimage.sh) finds it on PATH.
           curl -fSL -o /tmp/appimagetool \
@@ -90,7 +92,8 @@ jobs:
           find build-linux \
             \( -name 'wispr-flow_*.deb' \
             -o -name 'wispr-flow-*.rpm' \
-            -o -name 'wispr-flow-*.AppImage' \) \
+            -o -name 'wispr-flow-*.AppImage' \
+            -o -name 'wispr-flow-*.AppImage.zsync' \) \
             -exec cp -v {} out/ \;
 
       - name: Upload ARM64 Artifact

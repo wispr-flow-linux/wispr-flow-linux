@@ -75,6 +75,21 @@ Wayland — this is the baseline).
   `wispr-flow-appimage` AUR package, AppImage / manual download, plus updating and
   uninstalling — covering the now-published `.deb` / `.rpm` / AppImage packages
   for amd64 and arm64.
+- **AppImage auto-update metadata** (`scripts/packaging/appimage.sh` + the
+  `build-amd64` / `build-arm64` CI legs): CI builds now embed
+  `gh-releases-zsync` update information and emit a companion `.AppImage.zsync`
+  delta (the legs install `zsync` and collect the `.zsync` alongside the
+  `.AppImage`), so published AppImages self-update via AppImageUpdate /
+  appimaged. Local builds skip it (no release to update from).
+- **`wispr-flow --doctor` install-integrity checks** (`scripts/doctor.sh`):
+  a **chrome-sandbox** check (setuid-root `4755` / owner `root`, AppImage-aware
+  via `$APPIMAGE` since those run `--no-sandbox`), an **Electron runtime** check
+  (the renamed binary exists / is executable, version read from the sibling
+  `version` file without launching Electron), a **desktop entry** presence
+  check, and a **free-disk** check on the config partition. The three launchers
+  now thread the Electron binary path into `run_doctor` alongside the helper
+  path. Catches a sandbox that lost its setuid bit (Electron silently refuses to
+  start) and other partial installs that previously reported "all checks passed."
 
 ### Changed
 
@@ -90,6 +105,19 @@ Wayland — this is the baseline).
   deprecation: `actions/checkout` → v6.0.3, `actions/upload-artifact` → v6.0.0,
   `actions/download-artifact` → v7.0.0, `softprops/action-gh-release` → v3.0.0
   (each still pinned by commit SHA).
+- **README opening** rewritten in `claude-desktop-debian`'s declarative
+  "build scripts to run … natively on Linux" style (enumerating the `.deb` /
+  `.rpm` / AppImage / AUR / Nix outputs up front), and the **Status** and
+  **Supported environments** sections removed — the validated-environments
+  matrix and the `/dev/uinput` access notes already live in
+  [`docs/configuration.md`](docs/configuration.md).
+- **`verify-patches.sh`** dropped `set -e` (`set -euo pipefail` → `set -uo
+  pipefail`) to comply with the bash styleguide; the marker probes already
+  tolerate a no-match via `|| true` and accumulate into `missing`.
+- **rpm spec hardening made explicit** (`scripts/packaging/rpm.sh`): added a
+  `%defattr(-, root, root, -)` default and an explicit `%global debug_package
+  %{nil}`, belt-and-suspenders over the existing `__os_install_post %{nil}`
+  across rpm versions.
 
 ### Fixed
 
@@ -155,6 +183,23 @@ Wayland — this is the baseline).
   first-class build dependency and made the appimage CI leg fetch the arch-matched
   `appimagetool` (with `APPIMAGE_EXTRACT_AND_RUN`). All three formats now build
   and publish for amd64 and arm64.
+- **rpm could silently ship a non-setuid / missing chrome-sandbox**
+  (`scripts/packaging/rpm.sh`): `%files` listed the sandbox twice — once via the
+  `/usr/lib/wispr-flow` dir walk and again as an `%attr(4755, …)` entry — and on
+  modern rpmbuild (6.x) the "File listed twice" path can strip the file from the
+  payload, leaving Electron unable to start sandboxed. The setuid bit is now
+  baked into the FHS tree before the spec is written (so the single dir-walk
+  listing records `4755`), the rpmbuild output is captured, and the build fails
+  hard if rpmbuild emits "File listed twice" (guards against #609 regressing).
+- **`build.sh --clean yes` was a no-op** (it only printed a warning): cleanup now
+  prunes the regenerable intermediate trees (`stage`, `app.asar.contents`, the
+  per-format packaging scaffolding / AppDir) while preserving the produced
+  package and the expensive `downloads/` tree (installer + Electron runtime).
+- **Standalone `build-linux.sh` staged a stale version**
+  (`scripts/build-linux.sh` + the makers): the `APP_VERSION` default was still
+  `1.5.619` while `build.sh` targets `1.5.695`, so a direct
+  `scripts/build-linux.sh` run (outside the orchestrator) mislabeled the staged
+  tree. Aligned every default and example to `1.5.695`.
 
 ### Removed
 
