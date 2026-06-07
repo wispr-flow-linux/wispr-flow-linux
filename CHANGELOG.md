@@ -70,6 +70,11 @@ Wayland — this is the baseline).
 - **Project governance / meta**: this `CHANGELOG.md`, `CONTRIBUTING.md`,
   `SECURITY.md`, the synced `AGENTS.md` / `CLAUDE.md` agent guide, GitHub issue
   templates (`.github/ISSUE_TEMPLATE/`), and `.github/CODEOWNERS`.
+- **End-user install documentation** ([`docs/installation.md`](docs/installation.md)
+  + an Installation section in the README): the APT and DNF repositories, the
+  `wispr-flow-appimage` AUR package, AppImage / manual download, plus updating and
+  uninstalling — covering the now-published `.deb` / `.rpm` / AppImage packages
+  for amd64 and arm64.
 
 ### Changed
 
@@ -81,6 +86,10 @@ Wayland — this is the baseline).
   trees (`build-linux/`, `extract/`), vendored `tools/`, lockfiles, the
   proprietary `.exe`, `linux-helper-app/target/`, and the minified `index.js`;
   ignore-words list extended with project false-positives.
+- **Pinned GitHub Actions bumped to Node 24 runtimes** ahead of GitHub's Node 20
+  deprecation: `actions/checkout` → v6.0.3, `actions/upload-artifact` → v6.0.0,
+  `actions/download-artifact` → v7.0.0, `softprops/action-gh-release` → v3.0.0
+  (each still pinned by commit SHA).
 
 ### Fixed
 
@@ -132,6 +141,20 @@ Wayland — this is the baseline).
   The guard now includes Linux (the warm-start `second-instance` path already
   worked). Marker `WISPR_LINUX_DEEPLINK`. All four patches are documented in
   [`docs/learnings/platform-gates.md`](docs/learnings/platform-gates.md).
+- **Release build failed staging on Wispr Flow 1.5.695** (`linux-window-frame.sh`):
+  the upstream window-config refactor dropped `titleBarStyle:"hiddenInset"` and
+  moved the lone three-way win32 site from the Hub window to the meeting_recorder
+  window, so the old anchor matched 0 sites and `verify-patches.sh` failed. Re-
+  anchored on the still-unique `"win32"===process.platform` +
+  `Object.assign(<var>,{titleBarStyle:"hidden",autoHideMenuBar:!0})` pair; marker,
+  count assertion, and idempotency preserved.
+- **`.rpm` and AppImage release legs produced no artifacts** once the staging
+  failure above was fixed: the `fedora:42` rpm container lacked `python3` (which
+  the entire patch suite requires) because `scripts/setup/dependencies.sh` never
+  listed it, and the appimage leg lacked `appimagetool`. Added `python3` as a
+  first-class build dependency and made the appimage CI leg fetch the arch-matched
+  `appimagetool` (with `APPIMAGE_EXTRACT_AND_RUN`). All three formats now build
+  and publish for amd64 and arm64.
 
 ### Removed
 
