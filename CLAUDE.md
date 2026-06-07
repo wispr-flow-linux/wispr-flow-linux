@@ -160,6 +160,11 @@ when you discover something non-obvious that would save the next contributor
   `isWindows?:` lands Linux on mac defaults, `if(win32){}` no-else drops
   functionality), and beautifying the minified bundle with `prettier
   --ignore-path /dev/null` to re-audit a new Wispr version.
+- [`patching-minified-js.md`](docs/learnings/patching-minified-js.md) — the
+  rules for writing patches that survive re-minification: `[\w$]+` (not `\w`)
+  for identifiers, anchor on developer strings over churning names, assert the
+  match count, inject a marker for idempotency, and verify against shipped bytes
+  (not a beautified copy). Read before touching `scripts/patches/`.
 
 ## GitHub / CI workflow
 
