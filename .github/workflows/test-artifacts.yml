@@ -1,0 +1,84 @@
+name: Test Build Artifacts (Reusable)
+
+# Downloads the amd64 build artifacts and runs the format-specific validators in
+# tests/. Tier-1 inspection always runs; the install/smoke tier (Tier 2) runs
+# when WISPR_ARTIFACT_INSTALL=1 and the script is root with the tooling present
+# (true in the Fedora container; the deb/appimage jobs degrade to inspection +
+# headless smoke).
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test-artifact:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - format: deb
+            artifact: package-amd64-deb
+            container: ""
+          - format: rpm
+            artifact: package-amd64-rpm
+            container: "fedora:42"
+          - format: appimage
+            artifact: package-amd64-appimage
+            container: ""
+
+    name: Validate ${{ matrix.format }} package
+    runs-on: ubuntu-latest
+    container: ${{ matrix.container || '' }}
+    env:
+      WISPR_ARTIFACT_INSTALL: "1"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Download artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: artifacts/
+
+      - name: Install test dependencies (Fedora)
+        if: matrix.format == 'rpm'
+        # Electron's shared libraries must be installed explicitly: the rpm sets
+        # AutoReqProv: no, so it declares no runtime Requires and nothing pulls
+        # them in. Without them the launch smoke test dies with a missing .so.
+        run: |
+          dnf install -y findutils file nodejs npm \
+            xorg-x11-server-Xvfb dbus-daemon util-linux procps-ng \
+            nss nspr atk at-spi2-atk at-spi2-core cups-libs gtk3 \
+            libdrm mesa-libgbm alsa-lib libX11 libXcomposite libXdamage \
+            libXext libXfixes libXrandr libxcb libxkbcommon pango cairo \
+            libXScrnSaver libXtst libxshmfence wl-clipboard
+
+      - name: Install test dependencies (Ubuntu)
+        if: matrix.format != 'rpm'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y file libfuse2 nodejs npm \
+            xvfb dbus-x11 procps wl-clipboard
+
+      - name: Verify smoke-test tools are present (Ubuntu)
+        if: matrix.format != 'rpm'
+        run: |
+          for t in xvfb-run dbus-run-session setsid; do
+            command -v "$t" >/dev/null || { echo "::error::missing $t"; exit 1; }
+          done
+
+      - name: Verify smoke-test tools are present (Fedora)
+        if: matrix.format == 'rpm'
+        run: |
+          for t in xvfb-run dbus-run-session setsid runuser; do
+            command -v "$t" >/dev/null || { echo "::error::missing $t"; exit 1; }
+          done
+
+      - name: Run artifact tests
+        run: |
+          chmod +x tests/test-artifact-${{ matrix.format }}.sh
+          tests/test-artifact-${{ matrix.format }}.sh artifacts/

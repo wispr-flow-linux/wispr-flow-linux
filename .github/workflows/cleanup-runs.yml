@@ -1,0 +1,46 @@
+name: Cleanup Workflow Runs
+run-name: |
+  Cleanup: ${{
+    github.event_name == 'schedule' && 'Weekly scheduled cleanup' ||
+    format('Manual cleanup by @{0}', github.actor)
+  }}
+
+on:
+  schedule:
+    # Every Thursday at midnight UTC
+    - cron: "0 0 * * 4"
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    name: Delete Non-Release Runs
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+
+    steps:
+      - name: Delete old workflow runs not tied to release tags
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          echo "Fetching workflow runs..."
+          cutoff=$(date -u -d '3 days ago' '+%Y-%m-%dT%H:%M:%SZ')
+          echo "Deleting non-release runs older than: $cutoff"
+
+          runs_to_delete=$(gh run list --json databaseId,headBranch,createdAt --limit 1000 | \
+            jq -r --arg cutoff "$cutoff" \
+            '.[] | select((.headBranch | startswith("v") | not) and (.createdAt < $cutoff)) | .databaseId')
+
+          if [ -z "$runs_to_delete" ]; then
+            echo "No old non-release runs to delete."
+            exit 0
+          fi
+
+          count=$(echo "$runs_to_delete" | wc -l)
+          echo "Found $count runs to delete..."
+          echo "$runs_to_delete" | while read -r run_id; do
+            echo "Deleting run $run_id..."
+            gh run delete "$run_id" || echo "Failed to delete run $run_id (may already be deleted)"
+          done
+          echo "Cleanup complete!"
