@@ -9,6 +9,7 @@ run-name: |
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -22,6 +23,8 @@ permissions:
 
 jobs:
   # --- Gates (lint + unit tests + flag parsing) ----------------------------
+  # These run on every push/PR (including tag pushes) and gate the publish
+  # chain below.
   test-flags:
     name: Test Flags Parsing
     uses: ./.github/workflows/test-flags.yml
@@ -38,7 +41,573 @@ jobs:
     name: BATS Tests
     uses: ./.github/workflows/tests.yml
 
-  # NOTE: This repo intentionally ships no package-build, release, or publish
-  # CI. Packaging is local-only: a user builds a `.deb`/`.rpm`/AppImage on
-  # their own machine from a Wispr Flow installer they obtained themselves
-  # (see build.sh and scripts/packaging/).
+  # --- Gated publish chain --------------------------------------------------
+  # Everything below downloads the proprietary Wispr Flow installer and/or
+  # publishes binaries. It runs ONLY on a `v*` tag AND only when the repo
+  # variable PUBLISH_ENABLED is 'true' (held off pending Wispr Flow's ToS --
+  # see RELEASING.md). With PUBLISH_ENABLED unset, a tag push runs just the
+  # gate jobs above; flipping it to 'true' activates the whole pipeline with
+  # no code change.
+
+  build-amd64:
+    name: Build AMD64
+    needs: [test-flags, shellcheck, codespell, tests]
+    if: ${{ vars.PUBLISH_ENABLED == 'true' && startsWith(github.ref, 'refs/tags/v') }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        suffix: [deb, rpm, appimage]
+    uses: ./.github/workflows/build-amd64.yml
+    with:
+      build_flags: "--build ${{ matrix.suffix }} --clean no"
+      artifact_suffix: ${{ matrix.suffix }}
+      release_tag: ${{ github.ref_name }}
+
+  build-arm64:
+    name: Build ARM64
+    needs: [test-flags, shellcheck, codespell, tests]
+    if: ${{ vars.PUBLISH_ENABLED == 'true' && startsWith(github.ref, 'refs/tags/v') }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        suffix: [deb, rpm, appimage]
+    uses: ./.github/workflows/build-arm64.yml
+    with:
+      build_flags: "--build ${{ matrix.suffix }} --clean no"
+      artifact_suffix: ${{ matrix.suffix }}
+      release_tag: ${{ github.ref_name }}
+
+  test-artifacts:
+    name: Test Artifacts
+    needs: [build-amd64]
+    if: ${{ vars.PUBLISH_ENABLED == 'true' && startsWith(github.ref, 'refs/tags/v') }}
+    uses: ./.github/workflows/test-artifacts.yml
+
+  release:
+    name: Create Release
+    needs: [build-amd64, build-arm64, test-artifacts]
+    if: ${{ vars.PUBLISH_ENABLED == 'true' && startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout repository (for git history)
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: artifacts/
+          merge-multiple: true
+
+      - name: Generate release notes
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          wispr_ver="${tag#*+wispr}"
+          mkdir -p notes
+
+          # Previous release tag (most recent that isn't the current one).
+          prev_tag=$(gh release list --limit 20 -R "$GITHUB_REPOSITORY" \
+            --json tagName -q '.[].tagName' \
+            | grep -v "^${tag}$" | head -1 || true)
+
+          {
+            echo "## Wispr Flow for Linux ${tag}"
+            echo ""
+            echo "Unofficial Linux packages bundling Wispr Flow **${wispr_ver}**."
+            echo ""
+            if [[ -n "$prev_tag" ]]; then
+              echo "### Changes since ${prev_tag}"
+              echo ""
+              git log "${prev_tag}..${tag}" \
+                --pretty=format:"- %s (%h)" --no-merges || true
+              echo ""
+            fi
+            echo ""
+            echo "---"
+            echo ""
+            echo "## Installation"
+            echo ""
+            echo "### APT (Debian/Ubuntu)"
+            echo '```bash'
+            echo "curl -fsSL https://pkg.wispr-flow-linux.dev/KEY.gpg | sudo gpg --dearmor -o /usr/share/keyrings/wispr-flow.gpg"
+            echo 'echo "deb [signed-by=/usr/share/keyrings/wispr-flow.gpg arch=amd64,arm64] https://pkg.wispr-flow-linux.dev stable main" | sudo tee /etc/apt/sources.list.d/wispr-flow.list'
+            echo "sudo apt update && sudo apt install wispr-flow"
+            echo '```'
+            echo ""
+            echo "### DNF (Fedora/RHEL)"
+            echo '```bash'
+            echo "sudo curl -fsSL https://pkg.wispr-flow-linux.dev/rpm/wispr-flow.repo -o /etc/yum.repos.d/wispr-flow.repo"
+            echo "sudo dnf install wispr-flow"
+            echo '```'
+            echo ""
+            echo "### AUR (Arch Linux)"
+            echo '```bash'
+            echo "yay -S wispr-flow-appimage"
+            echo '```'
+            echo ""
+            echo "### Manual download"
+            echo ""
+            echo "Grab a \`.deb\`, \`.rpm\`, or \`.AppImage\` from the assets below."
+            echo ""
+            echo "> These packages bundle the proprietary Wispr Flow app, downloaded from"
+            echo "> Wispr's official endpoint at build time. Wispr Flow is a trademark of"
+            echo "> its owners; this is an unofficial community port."
+          } > notes/summary.md
+
+          echo "--- release notes ---"
+          cat notes/summary.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          files: artifacts/**/*
+          body_path: notes/summary.md
+
+  update-apt-repo:
+    name: Update APT Repository
+    needs: [release]
+    if: ${{ vars.PUBLISH_ENABLED == 'true' && startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      WORKER_DOMAIN: pkg.wispr-flow-linux.dev
+    steps:
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: gh-pages
+          path: apt-repo
+
+      - name: Download AMD64 deb artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: package-amd64-deb
+          path: incoming/
+
+      - name: Download ARM64 deb artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: package-arm64-deb
+          path: incoming/
+
+      - name: Install reprepro
+        run: sudo apt-get update && sudo apt-get install -y reprepro
+
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@e89d40939c28e39f97cf32126055eeae86ba74ec # v6
+        with:
+          gpg_private_key: ${{ secrets.REPO_GPG_PRIVATE_KEY }}
+
+      - name: Publish KEY.gpg with all public keys from keyring
+        working-directory: apt-repo
+        run: |
+          gpg --armor --export > KEY.gpg
+          echo "Keys published in KEY.gpg:"
+          gpg --show-keys < KEY.gpg
+
+      - name: Add packages to repository
+        working-directory: apt-repo
+        run: |
+          # Remove existing versions first so re-uploads / wrapper bumps don't
+          # collide (reprepro rejects same-name files with different checksums).
+          for deb in ../incoming/*.deb; do
+            pkg_name=$(dpkg-deb -f "$deb" Package)
+            if reprepro list stable "$pkg_name" 2>/dev/null | grep -q .; then
+              echo "Removing existing $pkg_name from repository..."
+              reprepro remove stable "$pkg_name"
+            fi
+          done
+          for deb in ../incoming/*.deb; do
+            echo "Adding $deb to repository..."
+            reprepro --section utils --priority optional includedeb stable "$deb"
+          done
+
+      - name: Strip binaries from pool (gated on Worker liveness)
+        working-directory: apt-repo
+        run: |
+          # When the Worker is live it 302-redirects /pool/.../*.deb to the
+          # GitHub Release asset, so the binaries are stripped from gh-pages
+          # (metadata still references the pool path; the Worker intercepts).
+          # When it isn't live, keep the .debs so fetches don't 404.
+          probe_url="https://${WORKER_DOMAIN}/dists/stable/InRelease"
+          if curl -fsI --max-time 10 "$probe_url" >/dev/null; then
+            echo "Worker live at ${WORKER_DOMAIN}; stripping binaries from pool"
+            find pool -type f -name '*.deb' -delete
+          else
+            echo "Worker not responding at ${WORKER_DOMAIN}; preserving .debs in pool"
+          fi
+
+      - name: Commit and push changes
+        working-directory: apt-repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "Update APT repository for ${{ github.ref_name }}"
+          for i in 1 2 3 4 5; do
+            git pull --rebase && git push && break
+            if [[ $i -eq 5 ]]; then
+              echo "::error::Failed to push APT repo after 5 attempts"
+              exit 1
+            fi
+            wait_time=$((2 ** i))
+            echo "Push failed, retrying in ${wait_time}s... (attempt $i/5)"
+            sleep "$wait_time"
+          done
+
+      - name: Smoke test published deb (ordered chain + size)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if ! curl -fsI --max-time 10 \
+              "https://${WORKER_DOMAIN}/dists/stable/InRelease" >/dev/null; then
+            echo "Worker not live; skipping smoke test"
+            exit 0
+          fi
+          repoVer="${TAG#v}"; repoVer="${repoVer%+wispr*}"
+          wisprVer="${TAG#*+wispr}"
+          deb_name="wispr-flow_${wisprVer}-${repoVer}_amd64.deb"
+          owner="${GITHUB_REPOSITORY%%/*}"
+          repo="${GITHUB_REPOSITORY#*/}"
+          deb_url="https://${owner}.github.io/${repo}/pool/main/w/wispr-flow/${deb_name}"
+
+          deadline=$((SECONDS + 300))
+          until curl -fsI --max-time 10 "$deb_url" -o /dev/null; do
+            [[ $SECONDS -gt $deadline ]] \
+              && { echo "::error::Reachability timeout for ${deb_url}"; exit 1; }
+            sleep 10
+          done
+
+          expected_hops=(
+            "https?://${WORKER_DOMAIN}/"
+            "https://github\\.com/${owner}/${repo}/releases/download/v${repoVer}\\+wispr${wisprVer}/"
+            "https://(objects|release-assets)\\.githubusercontent\\.com/"
+          )
+          url="$deb_url"
+          for i in "${!expected_hops[@]}"; do
+            hop_status=$(curl -s -o /dev/null -w '%{http_code}' "$url")
+            redirect_url=$(curl -s -o /dev/null -w '%{redirect_url}' "$url")
+            echo "Hop ${i}: ${hop_status} ${url} -> ${redirect_url}"
+            [[ "$hop_status" =~ ^30[12]$ ]] \
+              || { echo "::error::Hop ${i} expected 301/302, got ${hop_status}"; exit 1; }
+            [[ "$redirect_url" =~ ^${expected_hops[$i]} ]] \
+              || { echo "::error::Hop ${i} mismatch: expected ${expected_hops[$i]}, got ${redirect_url}"; exit 1; }
+            url="$redirect_url"
+          done
+
+          curl -fsSL -o /tmp/smoke.deb "$deb_url"
+          file /tmp/smoke.deb | grep -q 'Debian binary package' \
+            || { echo "::error::Not a valid Debian package"; exit 1; }
+          asset_size=$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" \
+            --json assets --jq ".assets[] | select(.name == \"${deb_name}\") | .size")
+          local_size=$(stat -c %s /tmp/smoke.deb)
+          [[ "$asset_size" == "$local_size" ]] \
+            || { echo "::error::Size mismatch: ${local_size} vs ${asset_size}"; exit 1; }
+          echo "APT smoke test passed."
+
+  update-dnf-repo:
+    name: Update DNF Repository
+    needs: [release, update-apt-repo]
+    if: ${{ vars.PUBLISH_ENABLED == 'true' && startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      WORKER_DOMAIN: pkg.wispr-flow-linux.dev
+    steps:
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: gh-pages
+          path: dnf-repo
+
+      - name: Download AMD64 rpm artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: package-amd64-rpm
+          path: incoming/
+
+      - name: Download ARM64 rpm artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: package-arm64-rpm
+          path: incoming/
+
+      - name: Install createrepo_c and rpm-sign
+        run: sudo apt-get update && sudo apt-get install -y createrepo-c rpm
+
+      - name: Import GPG key
+        id: import_gpg
+        uses: crazy-max/ghaction-import-gpg@e89d40939c28e39f97cf32126055eeae86ba74ec # v6
+        with:
+          gpg_private_key: ${{ secrets.REPO_GPG_PRIVATE_KEY }}
+
+      - name: Configure RPM signing
+        run: |
+          cat > ~/.rpmmacros << EOF
+          %_signature gpg
+          %_gpg_name ${{ steps.import_gpg.outputs.keyid }}
+          %__gpg /usr/bin/gpg
+          %__gpg_sign_cmd %{__gpg} gpg --batch --no-verbose --no-armor --no-secmem-warning -u "%{_gpg_name}" -sbo %{__signature_filename} %{__plaintext_filename}
+          EOF
+
+      - name: Update DNF repository
+        working-directory: dnf-repo
+        run: |
+          mkdir -p rpm/x86_64 rpm/aarch64
+          rm -f rpm/x86_64/*.rpm rpm/aarch64/*.rpm
+          for rpm_file in ../incoming/*.rpm; do
+            filename=$(basename "$rpm_file")
+            if [[ "$filename" == *"x86_64"* ]]; then
+              cp "$rpm_file" rpm/x86_64/
+            elif [[ "$filename" == *"aarch64"* ]]; then
+              cp "$rpm_file" rpm/aarch64/
+            fi
+          done
+          for arch in x86_64 aarch64; do
+            if ls "rpm/$arch/"*.rpm 1> /dev/null 2>&1; then
+              for rpm_file in "rpm/$arch/"*.rpm; do
+                echo "Signing $rpm_file..."
+                rpmsign --addsign "$rpm_file"
+              done
+              echo "Generating repodata for $arch..."
+              createrepo_c --update "rpm/$arch/"
+              # Trailing '!' on the keyid forces gpg to use the PRIMARY key;
+              # rpm 4.20+/zypper reject repomd.xml signed by a subkey.
+              gpg --batch --yes --default-key "${{ steps.import_gpg.outputs.keyid }}!" \
+                --detach-sign --armor "rpm/$arch/repodata/repomd.xml"
+            fi
+          done
+          # shellcheck disable=SC2016  # $basearch is a DNF variable, not shell
+          printf '%s\n' \
+            '[wispr-flow]' \
+            'name=Wispr Flow for Fedora/RHEL (unofficial)' \
+            'baseurl=https://pkg.wispr-flow-linux.dev/rpm/$basearch' \
+            'enabled=1' \
+            'gpgcheck=1' \
+            'repo_gpgcheck=1' \
+            'gpgkey=https://pkg.wispr-flow-linux.dev/KEY.gpg' \
+            'metadata_expire=1h' \
+            > rpm/wispr-flow.repo
+
+      - name: Re-upload signed RPMs to GitHub Release
+        # rpmsign --addsign mutates the RPM in place, so the build artifact the
+        # release job uploaded is now stale. Clobber it with the signed copy so
+        # the sha256 in repodata matches the binary the Worker redirects to.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: dnf-repo
+        run: |
+          for arch in x86_64 aarch64; do
+            if ls "rpm/$arch/"*.rpm 1> /dev/null 2>&1; then
+              gh release upload "${{ github.ref_name }}" "rpm/$arch/"*.rpm \
+                -R "$GITHUB_REPOSITORY" --clobber
+            fi
+          done
+
+      - name: Strip RPMs from pool (gated on Worker liveness)
+        working-directory: dnf-repo
+        run: |
+          probe_url="https://${WORKER_DOMAIN}/dists/stable/InRelease"
+          if curl -fsI --max-time 10 "$probe_url" >/dev/null; then
+            echo "Worker live; stripping RPMs from pool (repodata retained)"
+            find rpm -type f -name '*.rpm' -delete
+          else
+            echo "Worker not responding; preserving .rpms in pool"
+          fi
+
+      - name: Commit and push changes
+        working-directory: dnf-repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "Update DNF repository for ${{ github.ref_name }}"
+          for i in 1 2 3 4 5; do
+            git pull --rebase && git push && break
+            if [[ $i -eq 5 ]]; then
+              echo "::error::Failed to push DNF repo after 5 attempts"
+              exit 1
+            fi
+            wait_time=$((2 ** i))
+            echo "Push failed, retrying in ${wait_time}s... (attempt $i/5)"
+            sleep "$wait_time"
+          done
+
+      - name: Smoke test published rpm (ordered chain + size)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if ! curl -fsI --max-time 10 \
+              "https://${WORKER_DOMAIN}/dists/stable/InRelease" >/dev/null; then
+            echo "Worker not live; skipping smoke test"
+            exit 0
+          fi
+          repoVer="${TAG#v}"; repoVer="${repoVer%+wispr*}"
+          wisprVer="${TAG#*+wispr}"
+          rpm_name="wispr-flow-${wisprVer}-${repoVer}-1.x86_64.rpm"
+          owner="${GITHUB_REPOSITORY%%/*}"
+          repo="${GITHUB_REPOSITORY#*/}"
+          rpm_url="https://${owner}.github.io/${repo}/rpm/x86_64/${rpm_name}"
+
+          deadline=$((SECONDS + 300))
+          until curl -fsI --max-time 10 "$rpm_url" -o /dev/null; do
+            [[ $SECONDS -gt $deadline ]] \
+              && { echo "::error::Reachability timeout for ${rpm_url}"; exit 1; }
+            sleep 10
+          done
+
+          expected_hops=(
+            "https?://${WORKER_DOMAIN}/"
+            "https://github\\.com/${owner}/${repo}/releases/download/v${repoVer}\\+wispr${wisprVer}/"
+            "https://(objects|release-assets)\\.githubusercontent\\.com/"
+          )
+          url="$rpm_url"
+          for i in "${!expected_hops[@]}"; do
+            hop_status=$(curl -s -o /dev/null -w '%{http_code}' "$url")
+            redirect_url=$(curl -s -o /dev/null -w '%{redirect_url}' "$url")
+            echo "Hop ${i}: ${hop_status} ${url} -> ${redirect_url}"
+            [[ "$hop_status" =~ ^30[12]$ ]] \
+              || { echo "::error::Hop ${i} expected 301/302, got ${hop_status}"; exit 1; }
+            [[ "$redirect_url" =~ ^${expected_hops[$i]} ]] \
+              || { echo "::error::Hop ${i} mismatch: expected ${expected_hops[$i]}, got ${redirect_url}"; exit 1; }
+            url="$redirect_url"
+          done
+
+          curl -fsSL -o /tmp/smoke.rpm "$rpm_url"
+          rpm -qpi /tmp/smoke.rpm >/dev/null \
+            || { echo "::error::Not a valid RPM"; exit 1; }
+          asset_size=$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" \
+            --json assets --jq ".assets[] | select(.name == \"${rpm_name}\") | .size")
+          local_size=$(stat -c %s /tmp/smoke.rpm)
+          [[ "$asset_size" == "$local_size" ]] \
+            || { echo "::error::Size mismatch: ${local_size} vs ${asset_size}"; exit 1; }
+          echo "DNF smoke test passed."
+
+  update-aur-repo:
+    name: Update AUR Package
+    needs: [release]
+    if: ${{ vars.PUBLISH_ENABLED == 'true' && startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository (for PKGBUILD template)
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Download AMD64 AppImage artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: package-amd64-appimage
+          path: artifacts/
+
+      - name: Extract version components from tag
+        id: version
+        run: |
+          tag="${GITHUB_REF_NAME}"          # v1.0.0+wispr1.5.695
+          pkgver="${tag#v}"                  # 1.0.0+wispr1.5.695
+          repo_ver="${pkgver%%+wispr*}"     # 1.0.0
+          wispr_ver="${pkgver#*+wispr}"      # 1.5.695
+          appimage_name="wispr-flow-${wispr_ver}-${repo_ver}-x86_64.AppImage"
+          echo "pkgver=$pkgver" >> "$GITHUB_OUTPUT"
+          echo "appimage_name=$appimage_name" >> "$GITHUB_OUTPUT"
+
+      - name: Compute AppImage checksum
+        id: checksum
+        env:
+          APPIMAGE_NAME: ${{ steps.version.outputs.appimage_name }}
+        run: |
+          appimage="artifacts/${APPIMAGE_NAME}"
+          if [[ ! -f "$appimage" ]]; then
+            echo "::error::Expected AppImage not found: ${APPIMAGE_NAME}"
+            ls -la artifacts/
+            exit 1
+          fi
+          echo "sha256=$(sha256sum "$appimage" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Configure SSH for AUR
+        env:
+          AUR_SSH_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        run: |
+          if [[ -z "$AUR_SSH_KEY" ]]; then
+            echo "::error::AUR_SSH_PRIVATE_KEY secret is not configured"
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          echo "$AUR_SSH_KEY" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          # Pin the AUR host key: scan, then verify its fingerprint against the
+          # published Ed25519 value before trusting it (no blind TOFU).
+          # Ref: https://wiki.archlinux.org/title/AUR_submission_guidelines
+          aur_ed25519_fp="SHA256:RFzBCUItH9LZS0cKB5UE6ceAYhBD5C8GeOBip8Z11+4"
+          ssh-keyscan -t ed25519 aur.archlinux.org > ~/.ssh/aur_hostkey 2>/dev/null
+          got_fp=$(ssh-keygen -lf ~/.ssh/aur_hostkey | awk '{print $2}')
+          if [[ "$got_fp" != "$aur_ed25519_fp" ]]; then
+            echo "::error::AUR host key fingerprint mismatch:"
+            echo "::error::  expected ${aur_ed25519_fp}"
+            echo "::error::  got      ${got_fp}"
+            exit 1
+          fi
+          cat ~/.ssh/aur_hostkey >> ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<-'EOF'
+          Host aur.archlinux.org
+            IdentityFile ~/.ssh/aur
+            User aur
+          EOF
+          chmod 600 ~/.ssh/config
+
+      - name: Clone AUR repository
+        run: git clone ssh://aur@aur.archlinux.org/wispr-flow-appimage.git aur-repo
+
+      - name: Generate PKGBUILD from template
+        working-directory: aur-repo
+        env:
+          PKGVER: ${{ steps.version.outputs.pkgver }}
+          APPIMAGE_NAME: ${{ steps.version.outputs.appimage_name }}
+          SHA256: ${{ steps.checksum.outputs.sha256 }}
+        run: |
+          # The in-repo template is the source of truth; copy it into the AUR
+          # checkout each release so the two never drift.
+          cp "$GITHUB_WORKSPACE/scripts/aur/PKGBUILD.template" PKGBUILD.template
+          sed \
+            -e "s/%%PKGVER%%/${PKGVER}/" \
+            -e "s/%%APPIMAGE_NAME%%/${APPIMAGE_NAME}/" \
+            -e "s/%%SHA256_APPIMAGE%%/${SHA256}/" \
+            PKGBUILD.template > PKGBUILD
+
+      - name: Generate .SRCINFO
+        working-directory: aur-repo
+        run: |
+          docker run --rm -v "$PWD":/pkg -w /pkg archlinux:base bash -c "
+            useradd -m builder
+            chown -R builder:builder /pkg
+            su builder -c 'makepkg --printsrcinfo > .SRCINFO'
+          "
+          sudo chown -R "$(id -u):$(id -g)" .
+
+      - name: Commit and push to AUR
+        working-directory: aur-repo
+        env:
+          PKGVER: ${{ steps.version.outputs.pkgver }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add PKGBUILD PKGBUILD.template .SRCINFO
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Update to v${PKGVER}"
+          git push

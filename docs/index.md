@@ -28,6 +28,14 @@ protocol — the contract everything else hangs off — is in
 - [**Compatibility**](compatibility.md) — validated compositors / display
   servers and the access requirements per backend
 
+## Releasing & distribution
+
+- [**Releasing**](../RELEASING.md) — the tag scheme, the `PUBLISH_ENABLED` gate,
+  the one-time prerequisites (vars, secrets, `gh-pages`, AUR, Worker), and what
+  CI does on a tag push
+- [**APT/DNF + redirect Worker**](learnings/apt-worker-architecture.md) — how
+  binaries reach users without hitting GitHub's 100 MB push cap
+
 ## Project direction
 
 - [**Decision log**](decisions.md) — ADR-format record of what we ship and why

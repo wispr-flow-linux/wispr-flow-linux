@@ -1,0 +1,113 @@
+name: Build Package AMD64 (Reusable)
+
+# Builds one package format for x86_64. CI downloads the proprietary Wispr Flow
+# installer (the sensitive action gated by vars.PUBLISH_ENABLED in the caller)
+# and the pinned prebuilt clean-room helper, then runs build.sh. The .exe and
+# helper never live in the repo.
+
+on:
+  workflow_call:
+    inputs:
+      build_flags:
+        description: 'Flags to pass to build.sh (e.g., "--build deb --clean no")'
+        required: false
+        type: string
+        default: ""
+      artifact_suffix:
+        description: "Suffix for the artifact name (deb, rpm, appimage)"
+        required: true
+        type: string
+      release_tag:
+        description: "Release tag (e.g., v1.0.0+wispr1.5.695) to derive package version"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ${{ inputs.artifact_suffix == 'rpm' && 'fedora:42' || '' }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install dependencies (Fedora)
+        if: inputs.artifact_suffix == 'rpm'
+        run: |
+          dnf install -y git findutils which curl
+
+      - name: Install FUSE for AppImageTool (Ubuntu)
+        if: inputs.artifact_suffix != 'rpm'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2
+
+      - name: Make scripts executable
+        run: chmod +x ./build.sh scripts/setup/resolve-installer-url.sh scripts/setup/fetch-helper-bin.sh
+
+      - name: Resolve and download Wispr Flow installer
+        run: |
+          scripts/setup/resolve-installer-url.sh > resolved.txt
+          url=$(grep '^URL=' resolved.txt | cut -d= -f2-)
+          [[ -n "$url" ]] || { echo "::error::no installer URL resolved"; exit 1; }
+          echo "Downloading installer: $url"
+          curl -fSL -o wispr-flow-setup.exe "$url"
+
+      - name: Fetch pinned helper binary (x86_64)
+        run: |
+          echo "HELPER_BIN=$(scripts/setup/fetch-helper-bin.sh x86_64)" >> "$GITHUB_ENV"
+
+      - name: Run build script
+        run: |
+          TAG_FLAG=""
+          if [[ -n "${{ inputs.release_tag }}" ]]; then
+            TAG_FLAG="--release-tag ${{ inputs.release_tag }}"
+          fi
+          # shellcheck disable=SC2086  # build_flags / TAG_FLAG are multi-word
+          # flag strings that MUST word-split into separate argv entries.
+          ./build.sh ${{ inputs.build_flags }} --exe wispr-flow-setup.exe $TAG_FLAG
+
+      - name: Collect built artifacts
+        # build.sh writes outputs under the build-linux/ work dir: deb/ and
+        # appimage/ are shallow, but rpmbuild nests the rpm several levels deep,
+        # so search the whole work tree rather than a fixed maxdepth.
+        run: |
+          mkdir -p out
+          find build-linux \
+            \( -name 'wispr-flow_*.deb' \
+            -o -name 'wispr-flow-*.rpm' \
+            -o -name 'wispr-flow-*.AppImage' \) \
+            -exec cp -v {} out/ \;
+
+      # Static-grep the shipped app.asar for the Linux patch markers. Pinned to
+      # the deb job because the patched JS is identical across formats, so one
+      # verification per CI run is sufficient.
+      - name: Verify Linux patches in shipped asar
+        if: inputs.artifact_suffix == 'deb'
+        run: |
+          deb_file=$(find out -name 'wispr-flow_*_amd64.deb' -print -quit)
+          if [[ -z "$deb_file" ]]; then
+            echo "verify-patches: no .deb artifact found" >&2
+            exit 1
+          fi
+          extract_dir=$(mktemp -d)
+          dpkg-deb -x "$deb_file" "$extract_dir"
+          asar_path=$(find "$extract_dir" -name app.asar -print -quit)
+          if [[ -z "$asar_path" ]]; then
+            echo "verify-patches: app.asar not found in deb" >&2
+            exit 1
+          fi
+          ./scripts/verify-patches.sh "$asar_path"
+
+      - name: Upload AMD64 Artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: package-amd64-${{ inputs.artifact_suffix }}
+          path: out/*
+          if-no-files-found: error

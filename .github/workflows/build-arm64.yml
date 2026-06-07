@@ -1,0 +1,90 @@
+name: Build Package ARM64 (Reusable)
+
+# Builds one package format for aarch64. Wispr publishes only a Windows x64
+# installer, so this extracts the SAME x64 .exe (the app bundle is arch-neutral
+# JS/asar) and pairs it with the arm64 Electron runtime, arm64-rebuilt native
+# modules, and the aarch64 helper.
+
+on:
+  workflow_call:
+    inputs:
+      build_flags:
+        description: 'Flags to pass to build.sh (e.g., "--build deb --clean no")'
+        required: false
+        type: string
+        default: ""
+      artifact_suffix:
+        description: "Suffix for the artifact name (deb, rpm, appimage)"
+        required: true
+        type: string
+      release_tag:
+        description: "Release tag (e.g., v1.0.0+wispr1.5.695) to derive package version"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04-arm
+    container: ${{ inputs.artifact_suffix == 'rpm' && 'fedora:42' || '' }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install dependencies (Fedora)
+        if: inputs.artifact_suffix == 'rpm'
+        run: |
+          dnf install -y git findutils which curl
+
+      - name: Install FUSE for AppImageTool (Ubuntu)
+        if: inputs.artifact_suffix != 'rpm'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2
+
+      - name: Make scripts executable
+        run: chmod +x ./build.sh scripts/setup/resolve-installer-url.sh scripts/setup/fetch-helper-bin.sh
+
+      - name: Resolve and download Wispr Flow installer
+        run: |
+          scripts/setup/resolve-installer-url.sh > resolved.txt
+          url=$(grep '^URL=' resolved.txt | cut -d= -f2-)
+          [[ -n "$url" ]] || { echo "::error::no installer URL resolved"; exit 1; }
+          echo "Downloading installer: $url"
+          curl -fSL -o wispr-flow-setup.exe "$url"
+
+      - name: Fetch pinned helper binary (aarch64)
+        run: |
+          echo "HELPER_BIN=$(scripts/setup/fetch-helper-bin.sh aarch64)" >> "$GITHUB_ENV"
+
+      - name: Run build script
+        run: |
+          TAG_FLAG=""
+          if [[ -n "${{ inputs.release_tag }}" ]]; then
+            TAG_FLAG="--release-tag ${{ inputs.release_tag }}"
+          fi
+          # shellcheck disable=SC2086  # build_flags / TAG_FLAG are multi-word
+          # flag strings that MUST word-split into separate argv entries.
+          ./build.sh ${{ inputs.build_flags }} --exe wispr-flow-setup.exe $TAG_FLAG
+
+      - name: Collect built artifacts
+        run: |
+          mkdir -p out
+          find build-linux \
+            \( -name 'wispr-flow_*.deb' \
+            -o -name 'wispr-flow-*.rpm' \
+            -o -name 'wispr-flow-*.AppImage' \) \
+            -exec cp -v {} out/ \;
+
+      - name: Upload ARM64 Artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: package-arm64-${{ inputs.artifact_suffix }}
+          path: out/*
+          if-no-files-found: error

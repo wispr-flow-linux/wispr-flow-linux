@@ -42,13 +42,25 @@ Windows installer). It is two things:
 2. A **clean-room Rust helper** that reimplements the one native capability Wispr
    Flow ships only for macOS (Swift) and Windows (C#): injecting transcribed text
    into the focused application. It is built from the documented IPC contract
-   (`docs/reference/`) and contains **no Wispr Flow code**. The helper
-   lives in its own repo
-   ([github.com/wispr-flow-linux/helper](https://github.com/wispr-flow-linux/helper));
-   this repo consumes its prebuilt binary, pinned in `helper-version.txt` and
-   staged via the `HELPER_BIN` env var.
+   (`docs/reference/`) and contains **no Wispr Flow code**. It now lives
+   in its own repo (`wispr-flow-linux/helper`); see the Repo layout below.
 
 ## Repo layout
+
+The project spans **two repositories** under the `wispr-flow-linux` org:
+
+- **`wispr-flow-linux/wispr-flow-linux` (this repo)** — the public-domain build
+  scripts and the local packaging makers.
+- **`wispr-flow-linux/helper`** — the clean-room Rust helper. It was extracted
+  from this repo and no longer lives here as a local source tree. The helper is
+  consumed as a **prebuilt binary** pinned in `helper-version.txt` and staged
+  via the `HELPER_BIN` env var (build-linux.sh resolves it).
+
+> The hosted distribution layer — the `gh-pages` APT/DNF tree, the `v*` tag
+> Releases, the gated publish/heartbeat workflows, and a `wispr-flow-linux/worker`
+> Cloudflare Worker fronting `pkg.wispr-flow-linux.dev`
+
+This repo's tree:
 
 - `build.sh` — top-level orchestrator: dispatches the staging pipeline and the
   per-format packaging makers (`--build deb|rpm|appimage`, `--clean`,
@@ -65,20 +77,23 @@ Windows installer). It is two things:
   - `launcher-common.sh` — the runtime `/usr/bin/wispr-flow` launcher library.
   - `doctor.sh` — the `wispr-flow --doctor` diagnostic surface.
   - `build-linux.sh` — the Phase-0 staging pipeline (see safety rules below).
-- the clean-room Rust helper now lives in a separate repo
-  ([github.com/wispr-flow-linux/helper](https://github.com/wispr-flow-linux/helper));
-  this repo consumes its prebuilt binary, pinned in `helper-version.txt` and
-  staged via the `HELPER_BIN` env var.
+- `helper-version.txt` — the pinned helper release tag fetched from the helper
+  repo and staged via `HELPER_BIN`.
 - `docs/reference/` — the documented stdin/fd-3 IPC protocol (`ipc-contract.md`
   + `keycodes.json` / `commands.json`).
-- `tests/` — bats unit tests, per-format artifact tests, the Rust test runner,
-  and the manual VM-matrix validators.
+- `tests/` — bats unit tests, per-format artifact tests, and the manual
+  VM-matrix validators.
 - `docs/` — building / configuration / troubleshooting / decisions / learnings /
   style guides.
 - `nix/`, `flake.nix` — Nix packaging.
-- `.github/workflows/` — CI gates only (shellcheck, codespell, test-flags,
-  bats). No package-build, release, or publish workflows; packaging is
-  local-only and hosting/publishing infra was removed.
+- `.github/workflows/` — CI gates (`shellcheck`, `codespell`, `test-flags`,
+  `tests`) that run on every push/PR, plus the **tag-driven release/publish
+  pipeline** (`ci.yml` build→test→release→APT→DNF→AUR, reusable
+  `build-amd64`/`build-arm64`/`test-artifacts`, `check-wispr-version`,
+  `apt-repo-heartbeat`, `cleanup-runs`, `update-flake-lock`). The whole publish
+  chain is gated behind the `PUBLISH_ENABLED` repo variable (pending Wispr
+  Flow's ToS); see [`RELEASING.md`](RELEASING.md). The worker lives in its own
+  repo (`wispr-flow-linux/worker`).
 
 ## Code style
 
@@ -102,8 +117,7 @@ the last resort.
 ### Rust
 
 The helper's code and its `cargo fmt` / `cargo clippy --all-targets -- -D
-warnings` / `cargo test` gates live in its own repo
-([github.com/wispr-flow-linux/helper](https://github.com/wispr-flow-linux/helper)).
+warnings` / `cargo test` gates live in its own repo (`wispr-flow-linux/helper`).
 This repo consumes the prebuilt binary pinned in `helper-version.txt`.
 
 ### Docs / CHANGELOG
@@ -115,17 +129,6 @@ This repo consumes the prebuilt binary pinned in `helper-version.txt`.
 - `CHANGELOG.md` follows [Keep a Changelog
   1.1.0](https://keepachangelog.com/en/1.1.0/): bullets under
   Added/Fixed/Changed/etc.
-
-## ⚠️ Safety rules — read before running anything
-
-- **NEVER run `scripts/build-linux.sh` blindly.** Its step 2 does
-  `rm -rf build-linux/`, which **destroys the validated staged tree**. Use
-  `build.sh` with the appropriate flags, or scope to a single step, when you
-  just want to inspect or rebuild part of the pipeline.
-- **NEVER commit the proprietary payload.** The Wispr Flow installer `.exe`, the
-  extracted `index.js`, and the `build-linux/` / `extract/` scratch trees are
-  gitignored. This pipeline repackages a binary **you** supplied — it never
-  fetches, bundles, commits, or uploads any proprietary Wispr Flow binary.
 
 ## Learnings
 
@@ -145,6 +148,19 @@ when you discover something non-obvious that would save the next contributor
   `electron`-named launcher silently breaks DB migrations ("no such table").
 - [`wayland-injection.md`](docs/learnings/wayland-injection.md) — in-process
   `/dev/uinput` virtual keyboard + `ext-data-control` clipboard.
+- [`global-key-monitor.md`](docs/learnings/global-key-monitor.md) — push-to-talk
+  and the shortcut recorder are fed by helper `KeypressEvent`s (XInput2 on X11,
+  evdev `/dev/input` on Wayland); the app has no hotkey detection of its own.
+- [`helper-spawn-env.md`](docs/learnings/helper-spawn-env.md) — the app spawns
+  the helper with a replacement env (no `process.env`), starving it of
+  `WAYLAND_DISPLAY`/`DISPLAY` so injection silently falls to the no-op `stub`
+  while recording/shortcuts keep working; `helper-env.sh` restores the env.
+- [`platform-gates.md`](docs/learnings/platform-gates.md) — the darwin/win32
+  carve-outs Linux falls through: the `.linux`-matches-no-CSS-rule bug behind the
+  shifted side menu, the three gate-shape rules (`isMac?:` is usually fine,
+  `isWindows?:` lands Linux on mac defaults, `if(win32){}` no-else drops
+  functionality), and beautifying the minified bundle with `prettier
+  --ignore-path /dev/null` to re-audit a new Wispr version.
 
 ## GitHub / CI workflow
 
@@ -152,9 +168,9 @@ when you discover something non-obvious that would save the next contributor
 - Branch off issue numbers: `fix/123-description` or `feature/123-description`.
 - Reference issues in commits/PRs with `#123` or `Fixes #123`.
 - CI gates (`.github/workflows/ci.yml`): shellcheck, codespell, flag-parsing,
-  and bats. That is the whole of CI — there are **no** package-build, release,
-  or publish workflows. Packaging is local-only (`build.sh --build …`); hosting
-  and publishing infra must not be reintroduced.
+  and bats, run on every push/PR. On a `v*` tag, and only when the
+  `PUBLISH_ENABLED` repo variable is `true`, the same workflow runs the
+  build→test→release→APT/DNF/AUR publish chain. See [`RELEASING.md`](RELEASING.md).
 
 ### Attribution
 

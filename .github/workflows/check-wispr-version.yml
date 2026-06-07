@@ -1,0 +1,100 @@
+name: Check Wispr Flow Version
+
+# Tracks upstream Wispr Flow releases. Daily, it resolves the latest Windows
+# installer version from Wispr's "latest" redirect; when it differs from the
+# stored WISPR_FLOW_VERSION it bumps APP_VERSION (build.sh) and the Nix package
+# version, updates the variable, and pushes a v<REPO_VERSION>+wispr<VERSION> tag
+# that triggers the gated publish chain in ci.yml.
+#
+# Gated behind vars.PUBLISH_ENABLED: until Wispr Flow's ToS clears, this stays
+# dormant (no upstream download, no tag). Needs GH_PAT (the default GITHUB_TOKEN
+# cannot push a tag that re-triggers tag-driven workflows).
+
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: main-branch-auto-update
+  cancel-in-progress: false
+
+jobs:
+  check-version:
+    if: ${{ vars.PUBLISH_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Resolve latest Wispr Flow version
+        id: resolve
+        run: |
+          chmod +x scripts/setup/resolve-installer-url.sh
+          scripts/setup/resolve-installer-url.sh > resolved.txt
+          version=$(grep '^VERSION=' resolved.txt | cut -d= -f2-)
+          [[ -n "$version" ]] || { echo "::error::no version resolved"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Resolved upstream version: $version"
+
+      - name: Check if update needed
+        id: check
+        run: |
+          new="${{ steps.resolve.outputs.version }}"
+          stored="${{ vars.WISPR_FLOW_VERSION }}"
+          repo_ver="${{ vars.REPO_VERSION }}"
+          echo "stored=$stored new=$new repo_ver=$repo_ver"
+          if [[ -z "$repo_ver" ]]; then
+            echo "::error::REPO_VERSION variable is not set"
+            exit 1
+          fi
+          if [[ "$new" == "$stored" ]]; then
+            echo "Up to date; nothing to do."
+            echo "update_needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "update_needed=true" >> "$GITHUB_OUTPUT"
+            echo "new_tag=v${repo_ver}+wispr${new}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump APP_VERSION and Nix version
+        if: steps.check.outputs.update_needed == 'true'
+        run: |
+          new="${{ steps.resolve.outputs.version }}"
+          # build.sh: the hardcoded upstream version constant.
+          sed -i "s/^readonly APP_VERSION='[^']*'/readonly APP_VERSION='$new'/" build.sh
+          # nix/wispr-flow.nix: only the FIRST `version = "..."` (the app's;
+          # the helper's version line comes later and must NOT be touched).
+          sed -i "0,/version = \"[^\"]*\";/ s//version = \"$new\";/" nix/wispr-flow.nix
+          echo "--- build.sh ---"; grep "APP_VERSION='" build.sh
+          echo "--- nix ---"; grep -n 'version = "' nix/wispr-flow.nix
+
+      - name: Commit, set variable, and push tag
+        if: steps.check.outputs.update_needed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          new="${{ steps.resolve.outputs.version }}"
+          new_tag="${{ steps.check.outputs.new_tag }}"
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo "::error::GH_PAT secret is not configured"
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet build.sh nix/wispr-flow.nix; then
+            echo "No file changes (version constants already current)."
+          else
+            git add build.sh nix/wispr-flow.nix
+            git commit -m "chore: bump Wispr Flow to ${new}"
+            git push
+          fi
+          gh variable set WISPR_FLOW_VERSION --body "$new"
+          echo "Creating and pushing tag: $new_tag"
+          git tag -a "$new_tag" -m "Wispr Flow ${new}"
+          git push origin "$new_tag"

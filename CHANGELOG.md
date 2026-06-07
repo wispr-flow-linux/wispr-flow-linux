@@ -39,7 +39,8 @@ Wayland — this is the baseline).
 - **Packaging makers** under `scripts/packaging/`: `deb.sh` and `appimage.sh`
   makers added alongside a refactored `rpm.sh`, all sharing the
   `<maker>.sh <dist_dir> <version> <arch>` signature. Run locally to build a
-  package on your own machine; there is no CI build/release pipeline.
+  package on your own machine, or via the gated tag-driven CI pipeline (see
+  [`RELEASING.md`](RELEASING.md)).
 - **Launcher library** `scripts/launcher-common.sh` (shared by the per-package
   `/usr/bin/wispr-flow` launcher) and **`scripts/doctor.sh`** implementing the
   `wispr-flow --doctor` diagnostic surface (display/session, `/dev/uinput`
@@ -49,8 +50,19 @@ Wayland — this is the baseline).
   tests (`tests/test-artifact-{deb,rpm,appimage}.sh` + shared common), and the
   Rust helper test runner (`tests/run-rust-tests.sh`).
 - **CI workflows** under `.github/workflows/`: lint (shellcheck, codespell),
-  flag-parsing, and bats gates. These are the whole of CI — no package builds,
-  releases, or publishing run in CI.
+  flag-parsing, and bats gates run on every push/PR.
+- **Tag-driven release & publish pipeline** (`ci.yml` plus reusable
+  `build-amd64.yml` / `build-arm64.yml` / `test-artifacts.yml`, and
+  `check-wispr-version.yml`, `apt-repo-heartbeat.yml`, `cleanup-runs.yml`,
+  `update-flake-lock.yml`): a `v<repoVer>+wispr<wisprVer>` tag builds
+  deb/rpm/AppImage for amd64 + arm64, attaches them to a GitHub Release, and
+  publishes to the APT/DNF `gh-pages` tree and the `wispr-flow-appimage` AUR
+  package, fronted by the `wispr-flow-linux/worker` Cloudflare Worker at
+  `pkg.wispr-flow-linux.dev`. CI resolves and downloads the proprietary
+  installer itself and stages the pinned prebuilt helper
+  (`scripts/setup/resolve-installer-url.sh`, `scripts/setup/fetch-helper-bin.sh`).
+  The whole chain is **gated behind the `PUBLISH_ENABLED` repo variable** (held
+  off pending Wispr Flow's ToS); see [`RELEASING.md`](RELEASING.md).
 - **Nix flake** (`flake.nix`, `nix/wispr-flow.nix`, `nix/fhs.nix`) packaging the
   helper and the wrapped app.
 - **Documentation tree** under `docs/` (building, configuration, troubleshooting,

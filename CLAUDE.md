@@ -50,10 +50,7 @@ Windows installer). It is two things:
 The project spans **two repositories** under the `wispr-flow-linux` org:
 
 - **`wispr-flow-linux/wispr-flow-linux` (this repo)** — the public-domain build
-  scripts and the local packaging makers. It hosts **no** built packages, no
-  Releases, and no APT/DNF metadata: packaging is local-only (a user builds on
-  their own machine from a Wispr Flow installer they supplied). The CI here runs
-  only lint + unit-test gates.
+  scripts and the local packaging makers.
 - **`wispr-flow-linux/helper`** — the clean-room Rust helper. It was extracted
   from this repo and no longer lives here as a local source tree. The helper is
   consumed as a **prebuilt binary** pinned in `helper-version.txt` and staged
@@ -61,8 +58,7 @@ The project spans **two repositories** under the `wispr-flow-linux` org:
 
 > The hosted distribution layer — the `gh-pages` APT/DNF tree, the `v*` tag
 > Releases, the gated publish/heartbeat workflows, and a `wispr-flow-linux/worker`
-> Cloudflare Worker fronting `pkg.wispr-flow-linux.dev` — was **removed**. Do not
-> reintroduce package hosting/publishing infrastructure.
+> Cloudflare Worker fronting `pkg.wispr-flow-linux.dev`
 
 This repo's tree:
 
@@ -90,8 +86,14 @@ This repo's tree:
 - `docs/` — building / configuration / troubleshooting / decisions / learnings /
   style guides.
 - `nix/`, `flake.nix` — Nix packaging.
-- `.github/workflows/` — CI gates only (`shellcheck`, `codespell`,
-  `test-flags`, `tests`). No package-build, release, or publish workflows.
+- `.github/workflows/` — CI gates (`shellcheck`, `codespell`, `test-flags`,
+  `tests`) that run on every push/PR, plus the **tag-driven release/publish
+  pipeline** (`ci.yml` build→test→release→APT→DNF→AUR, reusable
+  `build-amd64`/`build-arm64`/`test-artifacts`, `check-wispr-version`,
+  `apt-repo-heartbeat`, `cleanup-runs`, `update-flake-lock`). The whole publish
+  chain is gated behind the `PUBLISH_ENABLED` repo variable (pending Wispr
+  Flow's ToS); see [`RELEASING.md`](RELEASING.md). The worker lives in its own
+  repo (`wispr-flow-linux/worker`).
 
 ## Code style
 
@@ -127,13 +129,6 @@ This repo consumes the prebuilt binary pinned in `helper-version.txt`.
 - `CHANGELOG.md` follows [Keep a Changelog
   1.1.0](https://keepachangelog.com/en/1.1.0/): bullets under
   Added/Fixed/Changed/etc.
-
-## ⚠️ Safety rules — read before running anything
-
-- **NEVER commit the proprietary payload.** The Wispr Flow installer `.exe`, the
-  extracted `index.js`, and the `build-linux/` / `extract/` scratch trees are
-  gitignored. This pipeline repackages a binary **you** supplied — it never
-  fetches, bundles, commits, or uploads any proprietary Wispr Flow binary.
 
 ## Learnings
 
@@ -173,9 +168,9 @@ when you discover something non-obvious that would save the next contributor
 - Branch off issue numbers: `fix/123-description` or `feature/123-description`.
 - Reference issues in commits/PRs with `#123` or `Fixes #123`.
 - CI gates (`.github/workflows/ci.yml`): shellcheck, codespell, flag-parsing,
-  and bats. That is the whole of CI — there are **no** package-build, release,
-  or publish workflows. Packaging is local-only (`build.sh --build …`) and
-  hosting/publishing infra must not be reintroduced.
+  and bats, run on every push/PR. On a `v*` tag, and only when the
+  `PUBLISH_ENABLED` repo variable is `true`, the same workflow runs the
+  build→test→release→APT/DNF/AUR publish chain. See [`RELEASING.md`](RELEASING.md).
 
 ### Attribution
 
