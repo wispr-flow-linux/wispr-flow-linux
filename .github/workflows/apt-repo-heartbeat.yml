@@ -45,18 +45,16 @@ jobs:
         if: steps.gate.outputs.live == 'true'
         id: latest
         run: |
-          owner="${GITHUB_REPOSITORY%%/*}"
-          repo="${GITHUB_REPOSITORY#*/}"
           tag=$(gh release list --limit 1 --json tagName \
                   --jq '.[0].tagName' -R "$GITHUB_REPOSITORY")
           repoVer="${tag#v}"; repoVer="${repoVer%+wispr*}"
           wisprVer="${tag#*+wispr}"
           if [[ "${{ matrix.format }}" == "deb" ]]; then
             asset="wispr-flow_${wisprVer}-${repoVer}_amd64.deb"
-            url="https://${owner}.github.io/${repo}/pool/main/w/wispr-flow/${asset}"
+            url="https://${WORKER_DOMAIN}/pool/main/w/wispr-flow/${asset}"
           else
             asset="wispr-flow-${wisprVer}-${repoVer}-1.x86_64.rpm"
-            url="https://${owner}.github.io/${repo}/rpm/x86_64/${asset}"
+            url="https://${WORKER_DOMAIN}/rpm/x86_64/${asset}"
           fi
           {
             echo "tag=${tag}"
@@ -86,7 +84,6 @@ jobs:
           done
 
           expected_hops=(
-            "https?://${WORKER_DOMAIN}/"
             "https://github\\.com/${owner}/${repo}/releases/download/"
             "https://(objects|release-assets)\\.githubusercontent\\.com/"
           )

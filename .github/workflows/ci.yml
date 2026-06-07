@@ -281,7 +281,10 @@ jobs:
           deb_name="wispr-flow_${wisprVer}-${repoVer}_amd64.deb"
           owner="${GITHUB_REPOSITORY%%/*}"
           repo="${GITHUB_REPOSITORY#*/}"
-          deb_url="https://${owner}.github.io/${repo}/pool/main/w/wispr-flow/${deb_name}"
+          # Hit the Worker domain directly -- the canonical apt/dnf endpoint.
+          # No GitHub Pages / github.io hop (the Worker reads metadata from
+          # gh-pages via raw.githubusercontent and 302s binaries to Releases).
+          deb_url="https://${WORKER_DOMAIN}/pool/main/w/wispr-flow/${deb_name}"
 
           deadline=$((SECONDS + 300))
           until curl -fsI --max-time 10 "$deb_url" -o /dev/null; do
@@ -291,7 +294,6 @@ jobs:
           done
 
           expected_hops=(
-            "https?://${WORKER_DOMAIN}/"
             "https://github\\.com/${owner}/${repo}/releases/download/v${repoVer}\\+wispr${wisprVer}/"
             "https://(objects|release-assets)\\.githubusercontent\\.com/"
           )
@@ -462,7 +464,8 @@ jobs:
           rpm_name="wispr-flow-${wisprVer}-${repoVer}-1.x86_64.rpm"
           owner="${GITHUB_REPOSITORY%%/*}"
           repo="${GITHUB_REPOSITORY#*/}"
-          rpm_url="https://${owner}.github.io/${repo}/rpm/x86_64/${rpm_name}"
+          # Hit the Worker domain directly (see the APT smoke test note above).
+          rpm_url="https://${WORKER_DOMAIN}/rpm/x86_64/${rpm_name}"
 
           deadline=$((SECONDS + 300))
           until curl -fsI --max-time 10 "$rpm_url" -o /dev/null; do
@@ -472,7 +475,6 @@ jobs:
           done
 
           expected_hops=(
-            "https?://${WORKER_DOMAIN}/"
             "https://github\\.com/${owner}/${repo}/releases/download/v${repoVer}\\+wispr${wisprVer}/"
             "https://(objects|release-assets)\\.githubusercontent\\.com/"
           )
