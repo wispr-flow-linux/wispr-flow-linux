@@ -88,8 +88,11 @@ jobs:
       # package/filename version <wisprVer>-<repoVer>.
       - name: Test Case 7 - --release-tag derives package version
         run: |
-          echo "--- ./build.sh --release-tag v1.0.0+wispr1.5.619 --test-flags ---"
-          OUTPUT=$(./build.sh --release-tag v1.0.0+wispr1.5.619 --test-flags)
+          # Derive the expected version from build.sh so this stays correct
+          # across upstream bumps (APP_VERSION changes over time).
+          ver=$(grep -oP "readonly APP_VERSION='\K[^']+" build.sh)
+          echo "--- ./build.sh --release-tag v1.0.0+wispr${ver} --test-flags ---"
+          OUTPUT=$(./build.sh --release-tag "v1.0.0+wispr${ver}" --test-flags)
           echo "$OUTPUT"
-          echo "$OUTPUT" | grep -q "Package version:1.5.619-1.0.0" || (echo "::error::Expected 'Package version:1.5.619-1.0.0'" && exit 1)
+          echo "$OUTPUT" | grep -q "Package version:${ver}-1.0.0" || (echo "::error::Expected 'Package version:${ver}-1.0.0'" && exit 1)
           echo "OK Test Case 7"
