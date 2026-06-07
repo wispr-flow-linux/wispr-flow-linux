@@ -15,16 +15,24 @@
 #   rsync                     -- stage resource trees
 #   node, npx                 -- @electron/asar pack/unpack + helpers
 #   cargo                     -- build the clean-room Rust helper (release)
+#   python3                   -- run the bundle patch suite (scripts/patches/*)
 # Format-specific:
 #   rpmbuild   (rpm-build)    -- only for --build rpm
 #   dpkg-deb   (dpkg-dev/dpkg)-- only for --build deb
+#
+# python3 is REQUIRED: every patch under scripts/patches/ (helper-resolver,
+# mac-gates, linux-window-frame, ...) drives its `re`-based rewrite through
+# python3, and build-linux.sh Step 3 runs them unconditionally. Debian/Ubuntu
+# ship python3 in the base image so it is silently present there, but minimal
+# images (e.g. the fedora:42 rpm container) do not -- without it every patch
+# fails `python3: command not found` and verify-patches.sh then fails the build.
 #
 # NOTE: the native sqlite addons are fetched as pinned, provenance-verified
 # prebuilt assets (scripts/setup/fetch-native-bin.sh), so no C/C++ toolchain is
 # required for the normal build. Only the OPTIONAL local from-source rebuild
 # fallback (build-linux.sh Step 4 -> rebuild-native-modules.sh) needs a compiler
-# + make + python3; it reports any missing tool itself, so they are not forced
-# system deps here.
+# + make; it reports any missing tool itself, so those are not forced system
+# deps here.
 #===============================================================================
 
 check_dependencies() {
@@ -32,7 +40,7 @@ check_dependencies() {
 
 	# Logical commands the build needs. wget/curl is satisfied by EITHER, so we
 	# check that pair specially below rather than listing both here.
-	local common_deps='7z wrestool icotool convert rsync node npx cargo'
+	local common_deps='7z wrestool icotool convert rsync node npx cargo python3'
 	local all_deps="$common_deps"
 
 	case "$build_format" in
@@ -45,13 +53,13 @@ check_dependencies() {
 		[7z]='p7zip-full' [wrestool]='icoutils' [icotool]='icoutils'
 		[convert]='imagemagick' [rsync]='rsync' [node]='nodejs' [npx]='npm'
 		[cargo]='cargo' [dpkg-deb]='dpkg-dev' [rpmbuild]='rpm'
-		[wget]='wget' [curl]='curl'
+		[python3]='python3' [wget]='wget' [curl]='curl'
 	)
 	declare -A rpm_pkgs=(
 		[7z]='p7zip p7zip-plugins' [wrestool]='icoutils' [icotool]='icoutils'
 		[convert]='ImageMagick' [rsync]='rsync' [node]='nodejs' [npx]='npm'
 		[cargo]='cargo' [dpkg-deb]='dpkg' [rpmbuild]='rpm-build'
-		[wget]='wget' [curl]='curl'
+		[python3]='python3' [wget]='wget' [curl]='curl'
 	)
 
 	local deps_to_install=''
