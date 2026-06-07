@@ -73,6 +73,12 @@ rsync -a \
   "$DIST/"/ "$APP_LIBDIR/" 2>/dev/null || cp -a "$DIST/." "$APP_LIBDIR/"
 rm -f "$APP_LIBDIR/resources/default_app.asar" "$APP_LIBDIR/electron" 2>/dev/null || true
 rm -f "$APP_LIBDIR/resources/Release/Wispr Flow Helper.exe" 2>/dev/null || true
+# Normalize directory modes. The staged dist carries restrictive dirs (asar
+# extraction leaves resources/ subtrees 0700) and rsync -a preserves them, so
+# a non-root user can't traverse into resources/ to reach app.asar or the
+# helper -- Electron then fails to launch. Files keep their copied modes; only
+# directories are forced world-traversable.
+find "$APP_LIBDIR" -type d -exec chmod 0755 {} +
 chmod 0755 "$APP_LIBDIR/$NAME" "$APP_LIBDIR/resources/Release/wispr-flow-linux-helper"
 
 say "Shared launcher library + doctor"

@@ -51,6 +51,20 @@ assert_setuid() {
 	fi
 }
 
+# Assert $1 is traversable by "other" (o+rx). The test runs as root, for whom
+# -r/-x always pass, so check the mode bits directly. Guards the regression
+# where resources/ shipped 0700 and non-root users couldn't reach app.asar.
+assert_dir_traversable() {
+	local mode other
+	mode=$(stat -c '%a' "$1" 2>/dev/null)
+	other=$(( 0${mode: -1} ))
+	if (( (other & 5) == 5 )); then
+		pass "Directory other-traversable ($mode): $1"
+	else
+		fail "Directory not other-traversable ($mode): $1"
+	fi
+}
+
 # Assert $1 is a linux ELF (magic 7f 45 4c 46). Catches a Windows PE .node that
 # would dlopen-fail at startup ("invalid ELF header") -- the exact regression the
 # native-module staging guards against.
@@ -106,6 +120,12 @@ validate_app_contents() {
 
 	assert_file_exists "$resources_dir/app.asar"
 	assert_dir_exists "$resources_dir/app.asar.unpacked"
+
+	# resources/ and resources/Release/ must be traversable by non-root users:
+	# Electron runs as the user and reads app.asar / the helper from here. A
+	# 0700 dir here crashes launch even though the files inside are readable.
+	assert_dir_traversable "$resources_dir"
+	assert_dir_traversable "$resources_dir/Release"
 
 	# Unpacked native modules: better-sqlite3 + sqlite3 (rebuilt for Electron
 	# 42's V8 14.8) live under the unpacked .webpack tree and must ship as real

@@ -8,6 +8,14 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+### Fixed
+
+- Package shipped `resources/` and its subdirectories as `0700` root-only, so a
+  non-root user couldn't traverse them to reach `app.asar` or the helper and the
+  app crashed on launch. All three makers now force directories to `0755` after
+  staging; artifact tests assert `resources/` is other-traversable. (Regression
+  from the `%defattr(-, root, root, -)` change in v1.0.1.)
+
 ## [v1.0.1] - 2026-06-07
 
 ### Added
