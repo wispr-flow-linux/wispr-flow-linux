@@ -90,10 +90,9 @@ This repo's tree:
   `tests`) that run on every push/PR, plus the **tag-driven release/publish
   pipeline** (`ci.yml` build→test→release→APT→DNF→AUR, reusable
   `build-amd64`/`build-arm64`/`test-artifacts`, `check-wispr-version`,
-  `apt-repo-heartbeat`, `cleanup-runs`, `update-flake-lock`). The whole publish
-  chain is gated behind the `PUBLISH_ENABLED` repo variable (pending Wispr
-  Flow's ToS); see [`RELEASING.md`](RELEASING.md). The worker lives in its own
-  repo (`wispr-flow-linux/worker`).
+  `apt-repo-heartbeat`, `cleanup-runs`, `update-flake-lock`). The publish chain
+  runs on a `v*` tag push; see [`RELEASING.md`](RELEASING.md). The worker lives
+  in its own repo (`wispr-flow-linux/worker`).
 
 ## Code style
 
@@ -168,8 +167,7 @@ when you discover something non-obvious that would save the next contributor
 - Branch off issue numbers: `fix/123-description` or `feature/123-description`.
 - Reference issues in commits/PRs with `#123` or `Fixes #123`.
 - CI gates (`.github/workflows/ci.yml`): shellcheck, codespell, flag-parsing,
-  and bats, run on every push/PR. On a `v*` tag, and only when the
-  `PUBLISH_ENABLED` repo variable is `true`, the same workflow runs the
+  and bats, run on every push/PR. On a `v*` tag, the same workflow runs the
   build→test→release→APT/DNF/AUR publish chain. See [`RELEASING.md`](RELEASING.md).
 
 ### Attribution

@@ -61,8 +61,7 @@ Wayland — this is the baseline).
   `pkg.wispr-flow-linux.dev`. CI resolves and downloads the proprietary
   installer itself and stages the pinned prebuilt helper
   (`scripts/setup/resolve-installer-url.sh`, `scripts/setup/fetch-helper-bin.sh`).
-  The whole chain is **gated behind the `PUBLISH_ENABLED` repo variable** (held
-  off pending Wispr Flow's ToS); see [`RELEASING.md`](RELEASING.md).
+  The chain runs on a `v*` tag push; see [`RELEASING.md`](RELEASING.md).
 - **Nix flake** (`flake.nix`, `nix/wispr-flow.nix`, `nix/fhs.nix`) packaging the
   helper and the wrapped app.
 - **Documentation tree** under `docs/` (building, configuration, troubleshooting,

@@ -41,18 +41,15 @@ jobs:
     name: BATS Tests
     uses: ./.github/workflows/tests.yml
 
-  # --- Gated publish chain --------------------------------------------------
-  # Everything below downloads the proprietary Wispr Flow installer and/or
-  # publishes binaries. It runs ONLY on a `v*` tag AND only when the repo
-  # variable PUBLISH_ENABLED is 'true' (held off pending Wispr Flow's ToS --
-  # see RELEASING.md). With PUBLISH_ENABLED unset, a tag push runs just the
-  # gate jobs above; flipping it to 'true' activates the whole pipeline with
-  # no code change.
+  # --- Publish chain --------------------------------------------------------
+  # Everything below downloads the proprietary Wispr Flow installer and
+  # publishes binaries. It runs on a `v*` tag push (after the gate jobs above
+  # pass); pushes to branches / PRs run only the gates. See RELEASING.md.
 
   build-amd64:
     name: Build AMD64
     needs: [test-flags, shellcheck, codespell, tests]
-    if: ${{ vars.PUBLISH_ENABLED == 'true' && startsWith(github.ref, 'refs/tags/v') }}
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     permissions:
       contents: read
     strategy:
@@ -68,7 +65,7 @@ jobs:
   build-arm64:
     name: Build ARM64
     needs: [test-flags, shellcheck, codespell, tests]
-    if: ${{ vars.PUBLISH_ENABLED == 'true' && startsWith(github.ref, 'refs/tags/v') }}
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     permissions:
       contents: read
     strategy:
@@ -84,13 +81,13 @@ jobs:
   test-artifacts:
     name: Test Artifacts
     needs: [build-amd64]
-    if: ${{ vars.PUBLISH_ENABLED == 'true' && startsWith(github.ref, 'refs/tags/v') }}
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     uses: ./.github/workflows/test-artifacts.yml
 
   release:
     name: Create Release
     needs: [build-amd64, build-arm64, test-artifacts]
-    if: ${{ vars.PUBLISH_ENABLED == 'true' && startsWith(github.ref, 'refs/tags/v') }}
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -175,7 +172,7 @@ jobs:
   update-apt-repo:
     name: Update APT Repository
     needs: [release]
-    if: ${{ vars.PUBLISH_ENABLED == 'true' && startsWith(github.ref, 'refs/tags/v') }}
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -239,7 +236,7 @@ jobs:
           # GitHub Release asset, so the binaries are stripped from gh-pages
           # (metadata still references the pool path; the Worker intercepts).
           # When it isn't live, keep the .debs so fetches don't 404.
-          probe_url="https://${WORKER_DOMAIN}/dists/stable/InRelease"
+          probe_url="https://${WORKER_DOMAIN}/conf/distributions"
           if curl -fsI --max-time 10 "$probe_url" >/dev/null; then
             echo "Worker live at ${WORKER_DOMAIN}; stripping binaries from pool"
             find pool -type f -name '*.deb' -delete
@@ -272,7 +269,7 @@ jobs:
         run: |
           set -euo pipefail
           if ! curl -fsI --max-time 10 \
-              "https://${WORKER_DOMAIN}/dists/stable/InRelease" >/dev/null; then
+              "https://${WORKER_DOMAIN}/conf/distributions" >/dev/null; then
             echo "Worker not live; skipping smoke test"
             exit 0
           fi
@@ -322,7 +319,7 @@ jobs:
   update-dnf-repo:
     name: Update DNF Repository
     needs: [release, update-apt-repo]
-    if: ${{ vars.PUBLISH_ENABLED == 'true' && startsWith(github.ref, 'refs/tags/v') }}
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -422,7 +419,7 @@ jobs:
       - name: Strip RPMs from pool (gated on Worker liveness)
         working-directory: dnf-repo
         run: |
-          probe_url="https://${WORKER_DOMAIN}/dists/stable/InRelease"
+          probe_url="https://${WORKER_DOMAIN}/conf/distributions"
           if curl -fsI --max-time 10 "$probe_url" >/dev/null; then
             echo "Worker live; stripping RPMs from pool (repodata retained)"
             find rpm -type f -name '*.rpm' -delete
@@ -455,7 +452,7 @@ jobs:
         run: |
           set -euo pipefail
           if ! curl -fsI --max-time 10 \
-              "https://${WORKER_DOMAIN}/dists/stable/InRelease" >/dev/null; then
+              "https://${WORKER_DOMAIN}/conf/distributions" >/dev/null; then
             echo "Worker not live; skipping smoke test"
             exit 0
           fi
@@ -503,7 +500,7 @@ jobs:
   update-aur-repo:
     name: Update AUR Package
     needs: [release]
-    if: ${{ vars.PUBLISH_ENABLED == 'true' && startsWith(github.ref, 'refs/tags/v') }}
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository (for PKGBUILD template)

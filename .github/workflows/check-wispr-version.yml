@@ -4,11 +4,10 @@ name: Check Wispr Flow Version
 # installer version from Wispr's "latest" redirect; when it differs from the
 # stored WISPR_FLOW_VERSION it bumps APP_VERSION (build.sh) and the Nix package
 # version, updates the variable, and pushes a v<REPO_VERSION>+wispr<VERSION> tag
-# that triggers the gated publish chain in ci.yml.
+# that triggers the publish chain in ci.yml.
 #
-# Gated behind vars.PUBLISH_ENABLED: until Wispr Flow's ToS clears, this stays
-# dormant (no upstream download, no tag). Needs GH_PAT (the default GITHUB_TOKEN
-# cannot push a tag that re-triggers tag-driven workflows).
+# Needs GH_PAT (the default GITHUB_TOKEN cannot push a tag that re-triggers
+# tag-driven workflows).
 
 on:
   schedule:
@@ -24,7 +23,6 @@ concurrency:
 
 jobs:
   check-version:
-    if: ${{ vars.PUBLISH_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
