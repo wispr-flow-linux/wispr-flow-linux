@@ -40,7 +40,8 @@ jobs:
       - name: Install dependencies (Fedora)
         if: inputs.artifact_suffix == 'rpm'
         run: |
-          dnf install -y git findutils which curl
+          # nodejs/npm: @electron/asar extract+repack and native-module fetch.
+          dnf install -y git findutils which curl nodejs npm
 
       - name: Install FUSE for AppImageTool (Ubuntu)
         if: inputs.artifact_suffix != 'rpm'

@@ -19,8 +19,12 @@
 #   rpmbuild   (rpm-build)    -- only for --build rpm
 #   dpkg-deb   (dpkg-dev/dpkg)-- only for --build deb
 #
-# NOTE: node-pty / electron-rebuild devDeps are NOT system packages here; the
-# native rebuild is handled inside build-linux.sh's documented flow.
+# NOTE: the native sqlite addons are fetched as pinned, provenance-verified
+# prebuilt assets (scripts/setup/fetch-native-bin.sh), so no C/C++ toolchain is
+# required for the normal build. Only the OPTIONAL local from-source rebuild
+# fallback (build-linux.sh Step 4 -> rebuild-native-modules.sh) needs a compiler
+# + make + python3; it reports any missing tool itself, so they are not forced
+# system deps here.
 #===============================================================================
 
 check_dependencies() {

@@ -241,36 +241,81 @@ step3_patch_bundle() {
   fi
 }
 
+# Return the 4-byte ELF magic of $1 as lowercase hex (empty on read failure).
+elf_magic() {
+  LC_ALL=C od -An -j0 -N4 -tx1 "$1" 2>/dev/null | tr -d ' \n'
+}
+
+# Resolve the linux native modules into $NATIVE_MODULES_DIR, in priority order:
+#   1. already present + linux-ELF (explicit pre-drop, pre-fetch, or a re-run).
+#   2. fetch the pinned prebuilt release asset (fetch-native-bin.sh) -- the
+#      normal path; the asset is built on an old-glibc floor and is provenance-
+#      + checksum-verified before it lands.
+#   3. fetch failed:
+#      - in CI: hard-fail. CI MUST ship the pinned prebuilt (correct glibc
+#        floor); a local rebuild here would bake the runner's newer glibc.
+#      - locally: fall back to a from-source rebuild (rebuild-native-modules.sh)
+#        against the HOST glibc -- fine for "does it launch here", not for
+#        distributable packages. Suppressed by WISPR_SKIP_NATIVE_REBUILD=1.
+# The full rationale (V8 14.8 patch, the artifact model) lives in
+# docs/learnings/electron42-v8-sqlite.md and docs/decisions.md.
+resolve_native_modules() {
+  local bsc="$NATIVE_MODULES_DIR/better_sqlite3.node"
+  local sql="$NATIVE_MODULES_DIR/node_sqlite3.node"
+
+  # 1. Already present + linux-ELF?
+  if [[ -f $bsc && -f $sql \
+        && $(elf_magic "$bsc") == '7f454c46' \
+        && $(elf_magic "$sql") == '7f454c46' ]]; then
+    auto "Using native modules already in $NATIVE_MODULES_DIR"
+    return 0
+  fi
+
+  # 2. Fetch the pinned prebuilt (the normal path).
+  auto "Fetching pinned prebuilt native modules ($ARCH)..."
+  if EXPECT_ELECTRON_VERSION="$ELECTRON_VERSION" \
+      bash "$SCRIPT_DIR/setup/fetch-native-bin.sh" "$ARCH" \
+        "$NATIVE_MODULES_DIR" >/dev/null; then
+    auto "Fetched + verified native modules into $NATIVE_MODULES_DIR"
+    return 0
+  fi
+  warn "Could not fetch pinned native modules (network? unpublished tag in"
+  warn "  native-modules-version.txt?)."
+
+  # 3a. CI: never rebuild on the runner (would bake the runner's glibc floor).
+  if [[ -n ${GITHUB_ACTIONS:-} || -n ${CI:-} ]]; then
+    warn "In CI: refusing to rebuild locally. Publish the native-modules"
+    warn "  release first (.github/workflows/build-native-modules.yml)."
+    exit 1
+  fi
+
+  # 3b. Local opt-out (offline dry-run): leave it to the Step-7 guard to fail.
+  if [[ ${WISPR_SKIP_NATIVE_REBUILD:-0} == 1 ]]; then
+    warn "WISPR_SKIP_NATIVE_REBUILD=1 -- skipping the local rebuild."
+    return 1
+  fi
+
+  # 3c. Local from-source rebuild (HOST glibc -- dev convenience only).
+  warn "Falling back to a LOCAL from-source rebuild (host glibc; the result is"
+  warn "  NOT portable to other distros -- for local testing only)."
+  if ELECTRON_VERSION="$ELECTRON_VERSION" \
+      bash "$SCRIPT_DIR/rebuild-native-modules.sh" "$ARCH" \
+        "$NATIVE_MODULES_DIR"; then
+    auto "Local rebuild produced native modules in $NATIVE_MODULES_DIR"
+    return 0
+  fi
+  warn "Local rebuild failed (missing toolchain? see rebuild-native-modules.sh)"
+  return 1
+}
+
 #===============================================================================
-# Step 4: rebuild native node modules for Linux Electron 42 ABI  [MANUAL]
+# Step 4: stage linux native node modules for the Electron 42 ABI  [AUTO]
 #===============================================================================
 step4_native_modules() {
-  say "Step 4: rebuild native modules for Linux Electron $ELECTRON_MAJOR"
-  manual "better-sqlite3-multiple-ciphers + sqlite3 ship as Windows .node binaries:"
-  echo "      $RESOURCES_SRC/app.asar.unpacked/.webpack/main/native_modules/build/Release/{better_sqlite3,node_sqlite3}.node"
-  manual "These are PE/Windows ABI; they MUST be rebuilt for linux-$ARCH against the"
-  manual "Electron $ELECTRON_VERSION ABI. Recommended approach (needs network + toolchain):"
-  cat <<DOC
-      # In a checkout that has these deps (or a temp project pinning them):
-      npx @electron/rebuild -v $ELECTRON_VERSION -f \\
-          -w better-sqlite3-multiple-ciphers -w sqlite3 --arch=$ARCH
-      # then copy the resulting *.node into the staged unpacked tree:
-      cp .../better_sqlite3.node \\
-         "$STAGE/app.asar.unpacked/.webpack/main/native_modules/build/Release/"
-      cp .../node_sqlite3.node \\
-         "$STAGE/app.asar.unpacked/.webpack/main/native_modules/build/Release/"
-DOC
-  warn "NOTE: better-sqlite3-multiple-ciphers is pinned to a yarn PATCH in package.json"
-  warn "      ('patch:better-sqlite3-multiple-ciphers@npm:12.5.0#...'). That patch is a"
-  warn "      V8 14.8 source-compat fix -- WITHOUT it the rebuild FAILS to compile against"
-  warn "      Electron $ELECTRON_VERSION (V8 14.8 / Node 24): External::Value()/New() gained"
-  warn "      mandatory pointer tags, PropertyCallbackInfo::This() was removed, and"
-  warn "      SetNativeDataProperty became ambiguous. A clean-room equivalent of the patch"
-  warn "      lives at scripts/patches/v8-14.8-better-sqlite3-multiple-ciphers.patch (replicate"
-  warn "      Wispr's yarn patch; default pointer tags = behaviour-identical). Apply it to"
-  warn "      node_modules/better-sqlite3-multiple-ciphers/src BEFORE @electron/rebuild."
-  warn "      Validated 2026-06-04: patched 12.5.0 builds + opens an encrypted DB + passes"
-  warn "      92 app migrations under Electron $ELECTRON_VERSION. sqlite3 5.1.7 builds clean (no patch)."
+  say "Step 4: stage native modules for Linux Electron $ELECTRON_MAJOR"
+
+  # Populate $NATIVE_MODULES_DIR (pinned prebuilt, else local rebuild fallback).
+  resolve_native_modules
 
   # Stage whatever unpacked tree exists so paths line up for the .node swap.
   if [[ -d "$RESOURCES_SRC/app.asar.unpacked" ]]; then
@@ -397,20 +442,58 @@ step7_helper_and_repack() {
   # Remove the Windows helper from the staged tree if it slipped in.
   rm -f "$STAGE/Release/Wispr Flow Helper.exe" 2>/dev/null || true
 
-  # 7a.5 Guard: never repack a Windows PE .node into the asar -- it would
-  #      dlopen-fail at startup ("invalid ELF header"). The native modules MUST
-  #      be linux ELF (magic = 0x7f 45 4c 46). Step 4 swaps them in; this fails
-  #      loud if that did not happen, instead of shipping a crashing package.
+  # 7a.5 Guard: never ship a Windows PE (or wrong-arch) .node -- it would
+  #      dlopen-fail at startup ("invalid ELF header"). The authoritative load
+  #      path is the staged app.asar.unpacked tree (Electron loads the addons
+  #      from there); app.asar.contents is also checked when a copy was packed.
+  #      Step 4 swaps in the linux build; this fails LOUD if that did not happen
+  #      -- including the silent case where the dir was empty and the original
+  #      Windows .node (or no .node) remained -- instead of shipping a crash.
   local nm_rel=".webpack/main/native_modules/build/Release"
-  local mod nodef magic
+  local want_machine
+  case "$ARCH" in
+    x64)   want_machine='3e00' ;;   # ELF e_machine EM_X86_64
+    arm64) want_machine='b700' ;;   # ELF e_machine EM_AARCH64
+    *)     want_machine='' ;;
+  esac
+  local mod nodef magic machine
+  # The unpacked tree is what ships + dlopens: both .node MUST be present and be
+  # a linux ELF of the target arch. Only enforced once the tree is staged (an
+  # offline dry-run that never staged resources has nothing to ship).
+  if [[ -d "$STAGE/app.asar.unpacked" ]]; then
+    for mod in better_sqlite3 node_sqlite3; do
+      nodef="$STAGE/app.asar.unpacked/$nm_rel/$mod.node"
+      if [[ ! -f "$nodef" ]]; then
+        warn "$mod.node missing from the staged app.asar.unpacked tree."
+        warn "  Step 4 did not stage a linux native module. Refusing to ship a"
+        warn "  package without it (it would crash at startup)."
+        warn "  Provide it via NATIVE_MODULES_DIR / native-modules-version.txt."
+        exit 1
+      fi
+      magic=$(elf_magic "$nodef")
+      if [[ "$magic" != '7f454c46' ]]; then
+        warn "$mod.node (app.asar.unpacked) is NOT linux ELF (magic=$magic)."
+        warn "  Refusing to ship a Windows .node that crashes at startup."
+        exit 1
+      fi
+      machine=$(LC_ALL=C od -An -j18 -N2 -tx1 "$nodef" 2>/dev/null \
+        | tr -d ' \n')
+      if [[ -n $want_machine && $machine != "$want_machine" ]]; then
+        warn "$mod.node (app.asar.unpacked) is the wrong arch (e_machine="
+        warn "  $machine, want $want_machine for $ARCH). Refusing to ship."
+        exit 1
+      fi
+    done
+  fi
+  # Defense in depth: if a .node copy was also packed into app.asar.contents,
+  # it must be a linux ELF too (absence there is fine -- .node are unpacked).
   for mod in better_sqlite3 node_sqlite3; do
     nodef="$WORK_DIR/app.asar.contents/$nm_rel/$mod.node"
     [[ -f "$nodef" ]] || continue
-    magic=$(LC_ALL=C od -An -N4 -tx1 "$nodef" 2>/dev/null | tr -d ' \n')
-    if [[ "$magic" != "7f454c46" ]]; then
+    magic=$(elf_magic "$nodef")
+    if [[ "$magic" != '7f454c46' ]]; then
       warn "$mod.node in app.asar.contents is NOT linux ELF (magic=$magic)."
       warn "  Refusing to repack a Windows .node that crashes at startup."
-      warn "  Provide linux builds via NATIVE_MODULES_DIR (see Step 4)."
       exit 1
     fi
   done

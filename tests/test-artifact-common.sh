@@ -51,6 +51,23 @@ assert_setuid() {
 	fi
 }
 
+# Assert $1 is a linux ELF (magic 7f 45 4c 46). Catches a Windows PE .node that
+# would dlopen-fail at startup ("invalid ELF header") -- the exact regression the
+# native-module staging guards against.
+assert_linux_elf() {
+	local f="$1" magic
+	if [[ ! -f $f ]]; then
+		fail "Not an ELF (missing): $f"
+		return
+	fi
+	magic=$(LC_ALL=C od -An -j0 -N4 -tx1 "$f" 2>/dev/null | tr -d ' \n')
+	if [[ $magic == '7f454c46' ]]; then
+		pass "Linux ELF: $f"
+	else
+		fail "Not a linux ELF (magic=$magic, want 7f454c46): $f"
+	fi
+}
+
 assert_contains() {
 	local file="$1" pattern="$2" desc="${3:-}"
 	if grep -q "$pattern" "$file" 2>/dev/null; then
@@ -90,11 +107,15 @@ validate_app_contents() {
 	assert_file_exists "$resources_dir/app.asar"
 	assert_dir_exists "$resources_dir/app.asar.unpacked"
 
-	# Unpacked native modules: better-sqlite3 (rebuilt for Electron 42's
-	# V8 14.8) lives under the unpacked .webpack tree and must ship as a
-	# real file (asar can't load a native .node from inside the archive).
-	assert_file_exists \
-		"$resources_dir/app.asar.unpacked/.webpack/main/native_modules/build/Release/better_sqlite3.node"
+	# Unpacked native modules: better-sqlite3 + sqlite3 (rebuilt for Electron
+	# 42's V8 14.8) live under the unpacked .webpack tree and must ship as real
+	# files (asar can't load a native .node from inside the archive) AND as linux
+	# ELF -- the shipped app dlopens them at startup, so a Windows .node here
+	# crashes before any window opens.
+	local nm_rel
+	nm_rel="app.asar.unpacked/.webpack/main/native_modules/build/Release"
+	assert_linux_elf "$resources_dir/$nm_rel/better_sqlite3.node"
+	assert_linux_elf "$resources_dir/$nm_rel/node_sqlite3.node"
 
 	# The clean-room Rust Linux helper the patched resolver points at.
 	local helper="$resources_dir/Release/wispr-flow-linux-helper"

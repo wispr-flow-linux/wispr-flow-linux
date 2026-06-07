@@ -1,0 +1,202 @@
+name: Build Native Modules
+
+# Produces the Linux native sqlite addons (better_sqlite3.node + node_sqlite3.node)
+# that the packaging pipeline swaps in for the app's Windows PE .node. They are
+# rebuilt from public npm + the in-repo V8 patch (NO Wispr Flow code) and shipped
+# as pinned, checksummed release assets -- mirroring the clean-room helper.
+#
+#   build    -> compile on an OLD-glibc container (manylinux_2_28, glibc 2.28
+#               floor) so the .node load on older-but-supported distros.
+#   validate -> on a normal runner, load each .node under real Electron 42 and
+#               run the encrypted-DB smoke test (ABI + round-trip + wrong-key).
+#   publish  -> only on a manual dispatch with publish=true: attach the four
+#               .node + checksums + provenance to the release named by release_tag
+#               (the tag the consumer pins in native-modules-version.txt).
+#
+# A pull_request touching the rebuild script, the pinned project, or the patch
+# runs build+validate WITHOUT publishing, so changes are proven before release.
+
+on:
+  workflow_dispatch:
+    inputs:
+      electron_version:
+        description: "Electron version to target (ABI must be 146)"
+        required: false
+        type: string
+        default: "42.3.0"
+      release_tag:
+        description: "Release tag to publish assets to (e.g. native-v1)"
+        required: false
+        type: string
+        default: ""
+      publish:
+        description: "Publish the assets to release_tag"
+        required: false
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - scripts/rebuild-native-modules.sh
+      - scripts/native-modules/**
+      - scripts/patches/v8-14.8-better-sqlite3-multiple-ciphers.patch
+      - .github/workflows/build-native-modules.yml
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "22.22.0"
+  ELECTRON_VERSION: ${{ inputs.electron_version || '42.3.0' }}
+
+jobs:
+  #=============================================================================
+  # build -- compile on the oldest supported glibc (manylinux_2_28).
+  #=============================================================================
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+            container: quay.io/pypa/manylinux_2_28_x86_64
+            node_arch: x64
+          - arch: aarch64
+            runner: ubuntu-22.04-arm
+            container: quay.io/pypa/manylinux_2_28_aarch64
+            node_arch: arm64
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install build prerequisites (patch + node)
+        run: |
+          # manylinux is AlmaLinux 8 with gcc-toolset on PATH; add patch and a
+          # pinned Node (the image ships neither npm nor a system node).
+          dnf install -y patch >/dev/null
+          curl -fsSL -o /tmp/node.tar.xz \
+            "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${{ matrix.node_arch }}.tar.xz"
+          mkdir -p /opt/node
+          tar -xJf /tmp/node.tar.xz -C /opt/node --strip-components=1
+          echo "/opt/node/bin" >> "$GITHUB_PATH"
+
+      - name: Record toolchain (glibc floor + compiler)
+        run: |
+          export PATH="/opt/node/bin:$PATH"
+          echo "node    $(node --version)"
+          echo "npm     $(npm --version)"
+          echo "glibc   $(getconf GNU_LIBC_VERSION)"
+          { c++ --version || g++ --version; } | head -1
+
+      - name: Rebuild native modules
+        run: |
+          export PATH="/opt/node/bin:$PATH"
+          chmod +x scripts/rebuild-native-modules.sh
+          # ELECTRON_BIN intentionally unset -- Electron may not start on this
+          # minimal container; the validate job runs the smoke test instead.
+          ELECTRON_VERSION="$ELECTRON_VERSION" \
+            scripts/rebuild-native-modules.sh "${{ matrix.arch }}" native-out
+
+      - name: Upload arch artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-modules-${{ matrix.arch }}
+          path: native-out/
+          if-no-files-found: error
+
+  #=============================================================================
+  # validate -- load under real Electron 42 + encrypted-DB smoke, on a full
+  # runner (the old-glibc container can't reliably start Electron).
+  #=============================================================================
+  validate:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+            electron_arch: x64
+          - arch: aarch64
+            runner: ubuntu-22.04-arm
+            electron_arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Download arch artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: native-modules-${{ matrix.arch }}
+          path: native-out
+
+      - name: Fetch Electron ${{ env.ELECTRON_VERSION }}
+        run: |
+          zip="electron-v${ELECTRON_VERSION}-linux-${{ matrix.electron_arch }}.zip"
+          url="https://github.com/electron/electron/releases/download/v${ELECTRON_VERSION}/${zip}"
+          curl -fsSL -o electron.zip "$url"
+          mkdir -p electron-dist
+          unzip -oq electron.zip -d electron-dist
+
+      - name: Verify checksums
+        run: |
+          cd native-out
+          sha256sum -c SHA256SUMS
+
+      - name: Smoke test under Electron
+        run: |
+          chmod +x scripts/native-modules/smoke-test.sh
+          scripts/native-modules/smoke-test.sh \
+            native-out "$PWD/electron-dist/electron" 146
+
+  #=============================================================================
+  # publish -- attach the four .node + checksums + provenance to release_tag.
+  # Manual dispatch with publish=true only.
+  #=============================================================================
+  publish:
+    needs: validate
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Guard -- release_tag required
+        run: |
+          [[ -n "${{ inputs.release_tag }}" ]] \
+            || { echo "::error::release_tag is required to publish"; exit 1; }
+
+      - name: Download all arch artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: artifacts
+
+      - name: Assemble arch-suffixed release assets
+        run: |
+          mkdir -p assets
+          for arch in x86_64 aarch64; do
+            src="artifacts/native-modules-${arch}"
+            [[ -d "$src" ]] || { echo "::error::missing $src"; exit 1; }
+            cp "$src/better_sqlite3.node" "assets/better_sqlite3-${arch}.node"
+            cp "$src/node_sqlite3.node"   "assets/node_sqlite3-${arch}.node"
+            cp "$src/native-modules.lock" "assets/native-modules-${arch}.lock"
+          done
+          # One combined SHA256SUMS over the arch-suffixed asset names, which is
+          # what fetch-native-bin.sh verifies the download against.
+          ( cd assets && sha256sum ./*.node > SHA256SUMS )
+          echo "--- assets ---"; ls -l assets
+
+      - name: Publish to release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          files: assets/*
+          fail_on_unmatched_files: true
+          body: |
+            Prebuilt Linux native sqlite addons for Wispr Flow, rebuilt from
+            public npm + the in-repo V8 14.8 patch against Electron
+            ${{ env.ELECTRON_VERSION }} (ABI 146). Built on glibc 2.28
+            (manylinux_2_28). Consumed via scripts/setup/fetch-native-bin.sh,
+            pinned in native-modules-version.txt. Verify against SHA256SUMS.
