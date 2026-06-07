@@ -64,22 +64,27 @@ Grab a `.deb`, `.rpm`, or `.AppImage` from the
 
 ## Building
 
-You supply the Wispr Flow installer, and the repo never bundles or commits it.
-Build a package with:
+By default `build.sh` downloads the Wispr Flow installer from Wispr's official
+endpoint at build time (the same source our [published releases](#installation)
+use); the repo never bundles or commits it. Build a package with:
 
 ```bash
-# Build an .rpm from a Wispr Flow installer you obtained yourself
+# Build an .rpm (downloads the installer automatically)
+./build.sh --build rpm
+
+# ...or point it at an installer you already have
 ./build.sh --build rpm --exe ~/Downloads/"Wispr Flow Setup-v1.5.695.exe"
 ```
 
-`--exe` is required. The pipeline never fetches, bundles, or hosts the
-proprietary installer.
+`--exe` is optional: without it, `build.sh` fetches the latest installer and
+verifies it matches the pinned version; with it, the build uses your local `.exe`
+and never fetches the proprietary app.
 
 Here are the common options (`./build.sh --help` lists all):
 
 - `-b, --build <deb|rpm|appimage|nix>` — package format (default: auto-detected)
 - `--arch <amd64|arm64>` — target architecture (default: host)
-- `-e, --exe <path>` — path to the installer .exe you supply (required)
+- `-e, --exe <path>` — installer .exe to use (optional; default: fetch latest)
 - `-c, --clean <yes|no>` — remove intermediate build files when done
 
 I cover prerequisites, the Linux Electron download, the native sqlite rebuild, and

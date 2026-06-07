@@ -8,6 +8,14 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+### Changed
+
+- `build.sh` now downloads the Wispr Flow installer from Wispr's official
+  endpoint by default (resolving it via `resolve-installer-url.sh`, the same path
+  CI uses), so `--exe` is no longer required. Pass `--exe <path>` to build
+  against a local installer instead. The auto-download verifies the resolved
+  version matches the pinned `APP_VERSION` and aborts on a mismatch.
+
 ## [v1.0.2] - 2026-06-07
 
 ### Fixed

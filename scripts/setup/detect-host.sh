@@ -191,8 +191,9 @@ Options:
                          (default: auto-detected from distro -> '$build_format')
       --arch <arch>      Target architecture: amd64 | arm64
                          (default: detected host arch -> '$arch')
-  -e, --exe <path>       Path to the Wispr Flow installer .exe you obtained
-                         yourself (REQUIRED -- the build never fetches it)
+  -e, --exe <path>       Path to a Wispr Flow installer .exe you obtained
+                         yourself (optional; default: fetch the latest installer
+                         from Wispr's official endpoint)
   -c, --clean <yes|no>   Remove intermediate build files when done (default: no)
   -r, --release-tag <t>  Optional release tag to embed in the package version
       --test-flags       Parse + print resolved flags, then exit WITHOUT building

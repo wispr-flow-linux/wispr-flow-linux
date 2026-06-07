@@ -21,7 +21,7 @@ Before the first real release:
 
   ```bash
   gh variable set REPO_VERSION         --body "1.0.0"   # wrapper version
-  gh variable set WISPR_FLOW_VERSION   --body "1.5.619"  # tracked upstream version
+  gh variable set WISPR_FLOW_VERSION   --body "1.5.695"  # tracked upstream version
   ```
 
 - **Secrets**
