@@ -389,12 +389,16 @@ Treat the addons like the clean-room helper: build them **once**, per arch, on a
 old-glibc base, and consume them as pinned, checksummed, provenance-stamped
 release assets.
 
-- Producer: `.github/workflows/build-native-modules.yml` builds on
-  `manylinux_2_28` (glibc 2.28 floor) via `scripts/rebuild-native-modules.sh`
-  (lockfile-pinned `npm ci`, the V8 patch on a pristine checkout, isolated
-  electron-gyp headers), validates under real Electron 42 (ABI 146 + encrypted-DB
-  round-trip), and publishes to the tag in `native-modules-version.txt`.
-- Consumer: `scripts/setup/fetch-native-bin.sh` verifies SHA-256 + the
+- Producer: the **Build Native Modules** workflow in the dedicated
+  `wispr-flow-linux/native-modules` repo builds on `manylinux_2_28` (glibc 2.28
+  floor) via `scripts/rebuild-native-modules.sh` (lockfile-pinned `npm ci`, the
+  V8 patch on a pristine checkout, isolated electron-gyp headers), validates
+  under real Electron 42 (ABI 146 + encrypted-DB round-trip), and publishes to
+  the tag pinned in `native-modules-version.txt`. The build lives in its own repo
+  (like the helper) so these CI-consumed assets don't inflate the main project's
+  Release download counts.
+- Consumer: `scripts/setup/fetch-native-bin.sh` (`NATIVE_REPO` →
+  `wispr-flow-linux/native-modules`) verifies SHA-256 + the
   `native-modules.lock` provenance (asset `patch_sha256` == this checkout's
   patch; ABI 146) before staging. CI hard-fails on fetch failure.
 
@@ -410,10 +414,13 @@ release assets.
 
 - A new Electron/package bump means re-running the producer workflow and bumping
   `native-modules-version.txt` — a deliberate, reviewable step.
-- `build-linux.sh` keeps a local from-source rebuild fallback (host glibc) for
-  dev convenience only; it is never used in CI.
+- `build-linux.sh` keeps an **opt-in** local from-source rebuild (host glibc,
+  `WISPR_NATIVE_REBUILD=1`) for dev convenience only; the default never rebuilds
+  and CI never does. `rebuild-native-modules.sh` + `scripts/native-modules/` +
+  the V8 patch stay vendored here (the patch is also the consumer's provenance
+  anchor) and are kept in sync with the `native-modules` repo's canonical copy.
 
 ### References
 
 - [learnings/electron42-v8-sqlite.md](learnings/electron42-v8-sqlite.md),
-  [building.md](building.md#native-sqlite-modules-prebuilt-with-a-local-rebuild-fallback).
+  [building.md](building.md#native-sqlite-modules-prebuilt-with-an-opt-in-local-rebuild).

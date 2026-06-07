@@ -203,5 +203,9 @@ Notes:
   * deb / appimage are stubbed until Phase 2; nix is deferred to Phase 6.
   * The build wraps scripts/build-linux.sh (staging) and
     scripts/packaging/<fmt>.sh (packaging); it never rewrites them.
+  * Native sqlite addons are fetched as a pinned prebuilt from the
+    wispr-flow-linux/native-modules repo (pinned in native-modules-version.txt).
+    Set WISPR_NATIVE_REBUILD=1 to build a local, non-portable copy from source
+    instead (dev only; needs node/npm + a C/C++ toolchain).
 EOF
 }

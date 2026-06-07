@@ -11,9 +11,12 @@
 # better-sqlite3-multiple-ciphers does NOT compile against V8 14.8 unpatched;
 # the clean-room patch in scripts/patches/ is applied to a pristine checkout.
 #
-# This is the single source of rebuild truth, shared by:
-#   - .github/workflows/build-native-modules.yml (the producer -> release asset)
-#   - scripts/build-linux.sh step4               (local-dev fallback)
+# The canonical producer of the published release assets is the Build Native
+# Modules workflow in the dedicated github.com/wispr-flow-linux/native-modules
+# repo (where this script also lives, kept in sync). This vendored copy backs
+# only the opt-in local rebuild:
+#   - scripts/build-linux.sh step4, behind WISPR_NATIVE_REBUILD=1 (dev-only,
+#     HOST glibc -- NOT the portable artifact CI ships).
 #
 # It builds a throwaway, lockfile-pinned npm project (npm ci against committed
 # scripts/native-modules/package-lock.json), patches, rebuilds with an isolated

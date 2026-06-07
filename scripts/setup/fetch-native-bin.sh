@@ -5,8 +5,10 @@
 # NATIVE_MODULES_DIR env var build-linux.sh consumes).
 #
 # The addons (better_sqlite3.node + node_sqlite3.node) are rebuilt from public
-# npm + the in-repo V8 patch by .github/workflows/build-native-modules.yml and
-# published as release assets pinned in native-modules-version.txt. Each release
+# npm + the V8 patch by the Build Native Modules workflow in the dedicated
+# github.com/wispr-flow-linux/native-modules repo and published there as release
+# assets pinned in native-modules-version.txt (split out so these CI-consumed
+# artifacts don't inflate the main repo's Release download counts). Each release
 # ships, per arch:
 #   better_sqlite3-x86_64.node   node_sqlite3-x86_64.node
 #   better_sqlite3-aarch64.node  node_sqlite3-aarch64.node
@@ -32,7 +34,7 @@
 #===============================================================================
 set -uo pipefail
 
-readonly NATIVE_REPO='wispr-flow-linux/wispr-flow-linux'
+readonly NATIVE_REPO='wispr-flow-linux/native-modules'
 readonly EXPECT_ABI='146'
 
 log() { printf '%s\n' "$*" >&2; }
