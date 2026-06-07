@@ -1,9 +1,8 @@
 name: Build Package AMD64 (Reusable)
 
 # Builds one package format for x86_64. CI downloads the proprietary Wispr Flow
-# installer (the sensitive action gated by vars.PUBLISH_ENABLED in the caller)
-# and the pinned prebuilt clean-room helper, then runs build.sh. The .exe and
-# helper never live in the repo.
+# installer and the pinned prebuilt clean-room helper, then runs build.sh. The
+# .exe and helper never live in the repo.
 
 on:
   workflow_call:

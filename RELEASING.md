@@ -1,28 +1,16 @@
 # Releasing
 
-This project ships through tag-driven CI, gated behind the `PUBLISH_ENABLED`
-repo variable. A tag of the form `v{REPO_VERSION}+wispr{WISPR_FLOW_VERSION}` on
-`main` triggers the publish chain in [`.github/workflows/ci.yml`](.github/workflows/ci.yml),
-which builds both architectures, attaches the artifacts to a GitHub Release, and
-updates the APT, DNF, and AUR repositories.
+This project ships through tag-driven CI. A tag of the form
+`v{REPO_VERSION}+wispr{WISPR_FLOW_VERSION}` on `main` triggers the publish chain
+in [`.github/workflows/ci.yml`](.github/workflows/ci.yml), which builds both
+architectures, attaches the artifacts to a GitHub Release, and updates the APT,
+DNF, and AUR repositories. Pushes to branches/PRs run only the lint/unit gates.
 
 ```bash
 # Cut a project release once the prerequisites below are in place:
 gh variable set REPO_VERSION --body "1.0.1"
 git tag "v1.0.1+wispr$(gh variable get WISPR_FLOW_VERSION)"
 git push origin "v1.0.1+wispr$(gh variable get WISPR_FLOW_VERSION)"
-```
-
-## The gate
-
-Until Wispr Flow's ToS is settled, the publish layer is **off**. With
-`PUBLISH_ENABLED` unset (or not `true`), a `v*` tag runs only the lint/unit
-gates; the build, release, APT/DNF/AUR, and `check-wispr-version` jobs are
-skipped. Flipping `PUBLISH_ENABLED` to `true` activates the whole pipeline with
-no code change.
-
-```bash
-gh variable set PUBLISH_ENABLED --body "true"
 ```
 
 ## One-time prerequisites
@@ -33,8 +21,7 @@ Before the first real release:
 
   ```bash
   gh variable set REPO_VERSION         --body "1.0.0"   # wrapper version
-  gh variable set WISPR_FLOW_VERSION   --body "1.5.695"  # tracked upstream version
-  # PUBLISH_ENABLED stays unset until you're ready to publish.
+  gh variable set WISPR_FLOW_VERSION   --body "1.5.619"  # tracked upstream version
   ```
 
 - **Secrets**
@@ -111,8 +98,7 @@ Before the first real release:
 
 ## What CI does on a tag push
 
-After the gate jobs pass, and only when `PUBLISH_ENABLED == 'true'`, the
-[`ci.yml`](.github/workflows/ci.yml) chain:
+After the gate jobs pass, the [`ci.yml`](.github/workflows/ci.yml) chain:
 
 1. Builds deb/rpm/AppImage for amd64 and arm64 — each build resolves and
    downloads the proprietary installer and stages the pinned prebuilt helper.
