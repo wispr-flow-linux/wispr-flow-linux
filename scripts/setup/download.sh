@@ -11,9 +11,10 @@
 # Sets globals:
 #   installer_exe_path   (path to the .exe used for this build)
 #
-# Network note: fetch_electron() performs real downloads. download_installer()
-# only resolves the --exe you supplied -- this pipeline never fetches the
-# proprietary app. Neither is exercised by --test-flags (build.sh exits first).
+# Network note: fetch_electron() and download_installer() perform real
+# downloads. download_installer() fetches the proprietary app from Wispr's
+# official endpoint unless you point it at a local --exe. Neither is exercised
+# by --test-flags (build.sh exits first).
 #===============================================================================
 
 # Pick an available downloader. Echoes "wget" or "curl"; dies if neither.
@@ -39,21 +40,24 @@ _fetch() {
 }
 
 #-------------------------------------------------------------------------------
-# download_installer -- resolve the user-supplied Wispr Flow Windows installer.
-#   * --exe is REQUIRED: this pipeline repackages an installer YOU obtained; it
-#     never fetches, bundles, or hosts the proprietary app. Build aborts if it
-#     is absent.
+# download_installer -- obtain the Wispr Flow Windows installer for this build.
+#   * --exe <path> supplied: repackage that local installer; no network fetch.
+#   * --exe absent (default): resolve the latest upstream URL and download it
+#     (see fetch_installer). The proprietary app is never bundled or committed
+#     to the repo -- it is fetched/supplied fresh each build.
 # A SHA-256 is verified IF one is known (WISPR_EXE_SHA256 env or installer.sha256
 # file). Upstream publishes no stable hash, so absence only warns.
 #-------------------------------------------------------------------------------
 download_installer() {
 	say 'Locate Wispr Flow installer'
 
-	[[ -n ${local_exe_path:-} ]] || die \
-		'No installer supplied. Pass --exe <path> with the Wispr Flow Setup .exe you obtained yourself.'
-	[[ -f $local_exe_path ]] || die "Local installer not found: $local_exe_path"
-	installer_exe_path="$local_exe_path"
-	auto "Using local installer: $installer_exe_path"
+	if [[ -n ${local_exe_path:-} ]]; then
+		[[ -f $local_exe_path ]] || die "Local installer not found: $local_exe_path"
+		installer_exe_path="$local_exe_path"
+		auto "Using local installer: $installer_exe_path"
+	else
+		fetch_installer
+	fi
 
 	# Optional SHA-256 verification.
 	local expected_sha=''
@@ -64,6 +68,44 @@ download_installer() {
 	fi
 	verify_sha256 "$installer_exe_path" "$expected_sha" 'Wispr Flow installer' \
 		|| die 'Installer checksum verification failed'
+}
+
+#-------------------------------------------------------------------------------
+# fetch_installer -- resolve the latest upstream installer URL and download it.
+# Used when --exe is not supplied. Mirrors what CI does, via the same
+# resolve-installer-url.sh helper. Guards that the resolved version matches the
+# pinned APP_VERSION (the version the Linux patches were verified against), so a
+# fetched build can't silently mislabel or run against an un-audited bundle; on
+# mismatch it aborts with guidance to pass --exe. The download is cached under
+# downloads/ and reused on re-runs.
+#-------------------------------------------------------------------------------
+fetch_installer() {
+	local resolver="$project_root/scripts/setup/resolve-installer-url.sh"
+	[[ -x $resolver ]] || die "installer resolver not found: $resolver"
+
+	auto 'No --exe supplied; resolving the latest Wispr Flow installer'
+	local resolved url version
+	resolved=$("$resolver") \
+		|| die 'Failed to resolve the Wispr Flow installer URL (pass --exe to use a local installer)'
+	url=$(printf '%s\n' "$resolved" | sed -nE 's/^URL=//p')
+	version=$(printf '%s\n' "$resolved" | sed -nE 's/^VERSION=//p')
+	[[ -n $url ]] || die 'installer resolver returned no URL'
+
+	if [[ -n $version && $version != "${APP_VERSION:-}" ]]; then
+		die "upstream latest is ${version} but this build is pinned to ${APP_VERSION}.
+Pass --exe with a ${APP_VERSION} installer, or update the pinned version first."
+	fi
+
+	local download_dir="$work_dir/downloads"
+	mkdir -p "$download_dir"
+	installer_exe_path="$download_dir/wispr-flow-setup-${APP_VERSION}.exe"
+	if [[ -f $installer_exe_path ]]; then
+		auto "Reusing cached installer: $installer_exe_path"
+	else
+		auto "Downloading installer: $url"
+		_fetch "$url" "$installer_exe_path" \
+			|| die "Failed to download installer from ${url}"
+	fi
 }
 
 #-------------------------------------------------------------------------------

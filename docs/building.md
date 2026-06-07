@@ -2,12 +2,16 @@
 
 # Building from Source
 
-You build a local Wispr Flow for Linux package from a Wispr Flow Windows
-installer you supply yourself.
+You build a local Wispr Flow for Linux package from the Wispr Flow Windows
+installer. By default `build.sh` downloads it for you; pass `--exe` to use one
+you supply.
 
 ```bash
-# Build for your distro's native format (you supply the installer):
-./build.sh --build rpm --exe "/path/to/Wispr Flow Setup-v1.5.619.exe"
+# Build for your distro's native format (downloads the installer):
+./build.sh --build rpm
+
+# ...or supply your own installer:
+./build.sh --build rpm --exe "/path/to/Wispr Flow Setup-v1.5.695.exe"
 ```
 
 ## Prerequisites
@@ -39,27 +43,33 @@ that one isn't a system package you install ahead of time.
 
 ## Obtaining the installer
 
-This repo never downloads or commits the proprietary installer. You grab
+By default `build.sh` resolves and downloads the installer from Wispr's official
+endpoint (`scripts/setup/resolve-installer-url.sh`) — the same path CI uses. The
+proprietary installer is never committed to the repo.
+
+To build against a specific installer instead, grab
 `Wispr Flow Setup-v<version>.exe` from [wisprflow.ai](https://wisprflow.ai) and
-pass it with `--exe`. The pinned version is **1.5.619** (set in `build.sh` as
-`APP_VERSION`). I'd start there. A different installer version can drift the
-patch anchors, so it may need updates before it builds clean.
+pass it with `--exe`. The pinned version is **1.5.695** (set in `build.sh` as
+`APP_VERSION`); the auto-download verifies the upstream latest matches it and
+aborts on a mismatch, since a different installer version can drift the patch
+anchors.
 
 ## Building
 
-`--exe` is required. The build never fetches the proprietary installer, so you
-always point it at the one you supplied.
+By default `build.sh` fetches the latest installer; pass `--exe` to use your own.
 
 ```bash
-# Auto-detect format from your distro:
-./build.sh --exe "/path/to/Wispr Flow Setup-v1.5.619.exe"
+# Auto-detect format from your distro (downloads the installer):
+./build.sh
 
-# Or specify the format explicitly (still pass --exe):
-EXE="/path/to/Wispr Flow Setup-v1.5.619.exe"
-./build.sh --build deb      --exe "$EXE"   # Debian/Ubuntu .deb
-./build.sh --build rpm      --exe "$EXE"   # Fedora/RHEL .rpm
-./build.sh --build appimage --exe "$EXE"   # distribution-agnostic AppImage
-./build.sh --build nix                     # prints flake instructions (built via flake, not build.sh)
+# Supply your own installer:
+./build.sh --exe "/path/to/Wispr Flow Setup-v1.5.695.exe"
+
+# Or specify the format explicitly:
+./build.sh --build deb        # Debian/Ubuntu .deb
+./build.sh --build rpm        # Fedora/RHEL .rpm
+./build.sh --build appimage   # distribution-agnostic AppImage
+./build.sh --build nix        # prints flake instructions (built via flake, not build.sh)
 ```
 
 `build.sh` is a thin orchestrator over the validated staging engine
@@ -75,7 +85,7 @@ problem, the real work lives in those two layers underneath.
 |---|---|---|
 | `-b`, `--build` | `deb` `rpm` `appimage` `nix` | Output format. Defaults to your distro's native format. |
 | `--arch` | `amd64` `arm64` | Target architecture (overrides host detection). |
-| `-e`, `--exe` | path | Path to the Wispr Flow installer .exe you supply (**required**). |
+| `-e`, `--exe` | path | Installer .exe to use. Optional; default: fetch the latest from Wispr's endpoint. |
 | `-c`, `--clean` | `yes` `no` | Remove intermediate build files when done (default `no`). |
 | `-r`, `--release-tag` | string | Optional tag embedded in the package version. |
 | `--test-flags` | — | Parse + print the resolved flags, then exit **without** building. |
