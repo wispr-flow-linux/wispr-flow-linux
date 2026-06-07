@@ -41,10 +41,13 @@ filename lacks the `-<repoVer>` segment the Worker's regex needs.
 
 ## The full redirect chain (and the heartbeat)
 
-A package URL walks: Pages `301` → Worker `302` → GitHub Releases `302` → CDN
-`200`. The `apt-repo-heartbeat` workflow asserts each hop in order daily and
-checks the fetched file's size against the Release asset, opening a tracking
-issue on failure and closing it on recovery.
+A binary URL walks: `pkg.wispr-flow-linux.dev` Worker `302` → GitHub Releases
+`302` → CDN `200`. GitHub Pages is not involved — the canonical endpoint is the
+Cloudflare-fronted domain, and the Worker reads metadata from `gh-pages` via
+`raw.githubusercontent` (so the Pages feature need not be enabled). The
+`apt-repo-heartbeat` workflow asserts each hop in order daily and checks the
+fetched file's size against the Release asset, opening a tracking issue on
+failure and closing it on recovery.
 
 ## Worker-liveness gating
 

@@ -47,25 +47,33 @@ Before the first real release:
     `update-flake-lock` use it; a tag pushed with the default `GITHUB_TOKEN`
     would **not** re-trigger the tag-driven workflow.
 
-- **`gh-pages` branch** — an orphan branch holding the published repo tree.
-  Seed it with reprepro config:
+- **`gh-pages` branch** — an orphan branch holding the published repo metadata.
+  GitHub Pages does **not** need to be enabled: the Worker reads metadata from
+  this branch via `raw.githubusercontent.com` and the smoke tests/heartbeat hit
+  `pkg.wispr-flow-linux.dev` directly. Seed it from a throwaway clone so your
+  working tree is untouched (a plain `git switch --orphan` would stage the whole
+  repo into the branch):
 
   ```bash
-  git switch --orphan gh-pages
-  mkdir -p conf
-  cat > conf/distributions <<'EOF'
+  wt=$(mktemp -d)
+  git clone -q "$(git remote get-url origin)" "$wt/ghp"
+  git -C "$wt/ghp" switch --orphan gh-pages
+  git -C "$wt/ghp" rm -rf . >/dev/null 2>&1 || true
+  mkdir -p "$wt/ghp/conf"
+  cat > "$wt/ghp/conf/distributions" <<'EOF'
   Origin: wispr-flow-linux
   Label: Wispr Flow for Linux (unofficial)
   Codename: stable
   Architectures: amd64 arm64
   Components: main
   Description: Unofficial Wispr Flow Linux packages
-  SignWith: <YOUR_GPG_KEYID>
+  SignWith: 087A3E441F1EBABFD1EBC2A21EBFB09D261977F9
   EOF
-  touch .nojekyll
-  echo "pkg.wispr-flow-linux.dev" > CNAME
-  git add -A && git commit -m "Bootstrap gh-pages repo tree" && git push -u origin gh-pages
-  git switch main
+  touch "$wt/ghp/.nojekyll"
+  git -C "$wt/ghp" add -A
+  git -C "$wt/ghp" commit -m "Bootstrap gh-pages repo tree"
+  git -C "$wt/ghp" push -u origin gh-pages
+  rm -rf "$wt"
   ```
 
 - **AUR package** — create `wispr-flow-appimage` on aur.archlinux.org. The CI
