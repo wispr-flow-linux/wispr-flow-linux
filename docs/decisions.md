@@ -362,3 +362,58 @@ runtime. **Never** use `zbus::blocking` for a service in this codebase.
 ### References
 
 - [learnings/kwin-zbus-tokio.md](learnings/kwin-zbus-tokio.md).
+
+---
+
+## D-009 — Native sqlite addons as pinned prebuilt assets, not a build-time rebuild
+
+- **Status:** Accepted
+- **Decided:** 2026-06-06
+- **Owner:** @aaddrick
+
+### Context
+
+The app ships Windows `.node` for `better-sqlite3-multiple-ciphers` + `sqlite3`;
+Linux needs them rebuilt for the Electron 42 ABI (the V8 14.8 patch from
+[D-007](#d-007--clean-room-v8-148-patch-for-better-sqlite3-multiple-ciphers)).
+The first cut only *documented* the rebuild and swapped in `.node` from a
+gitignored dir — empty in CI, so the build shipped Windows `.node` and crashed
+at startup. The obvious fix (rebuild inside each package job) is non-reproducible
+(no lockfile), a per-build supply-chain + network surface, and — decisively —
+bakes the **build runner's glibc** into the binary, so a `.node` built on a new
+CI image fails to load on older-but-supported distros.
+
+### Decision
+
+Treat the addons like the clean-room helper: build them **once**, per arch, on an
+old-glibc base, and consume them as pinned, checksummed, provenance-stamped
+release assets.
+
+- Producer: `.github/workflows/build-native-modules.yml` builds on
+  `manylinux_2_28` (glibc 2.28 floor) via `scripts/rebuild-native-modules.sh`
+  (lockfile-pinned `npm ci`, the V8 patch on a pristine checkout, isolated
+  electron-gyp headers), validates under real Electron 42 (ABI 146 + encrypted-DB
+  round-trip), and publishes to the tag in `native-modules-version.txt`.
+- Consumer: `scripts/setup/fetch-native-bin.sh` verifies SHA-256 + the
+  `native-modules.lock` provenance (asset `patch_sha256` == this checkout's
+  patch; ABI 146) before staging. CI hard-fails on fetch failure.
+
+### Rationale
+
+- Reproducible (committed `package-lock.json`, `npm ci`), and the glibc floor is
+  a deliberate choice (the build image) instead of an accident (the CI runner).
+- The provenance stamp — not ELF magic — is the trust anchor: a stale or
+  wrong-ABI `.node` is ELF-valid but provenance-mismatched, and is rejected.
+- Mirrors the established `HELPER_BIN` / `helper-version.txt` pattern.
+
+### Consequences
+
+- A new Electron/package bump means re-running the producer workflow and bumping
+  `native-modules-version.txt` — a deliberate, reviewable step.
+- `build-linux.sh` keeps a local from-source rebuild fallback (host glibc) for
+  dev convenience only; it is never used in CI.
+
+### References
+
+- [learnings/electron42-v8-sqlite.md](learnings/electron42-v8-sqlite.md),
+  [building.md](building.md#native-sqlite-modules-prebuilt-with-a-local-rebuild-fallback).

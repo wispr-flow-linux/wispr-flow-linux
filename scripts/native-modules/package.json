@@ -1,0 +1,14 @@
+{
+  "name": "wispr-flow-linux-native-modules",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pinned scratch project to rebuild Wispr Flow's native sqlite addons for the Linux Electron 42 ABI. Not published; see scripts/rebuild-native-modules.sh.",
+  "license": "Unlicense",
+  "dependencies": {
+    "better-sqlite3-multiple-ciphers": "12.5.0",
+    "sqlite3": "5.1.7"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "4.0.4"
+  }
+}

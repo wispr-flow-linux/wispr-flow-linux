@@ -35,6 +35,11 @@ need it:
 
 ## Rebuild recipe
 
+This is now automated — `scripts/rebuild-native-modules.sh` does exactly the
+steps below (lockfile-pinned `npm ci`, the patch on a pristine checkout,
+isolated electron-gyp headers so node-gyp can't grab system Node headers, then
+verifies the output). The manual equivalent:
+
 ```bash
 npm i better-sqlite3-multiple-ciphers@12.5.0 sqlite3@5.1.7 @electron/rebuild@4.0.4
 ( cd node_modules/better-sqlite3-multiple-ciphers \
@@ -46,6 +51,22 @@ npx @electron/rebuild -v 42.3.0 -f \
 The rebuilt `.node` files are staged into `app.asar.unpacked`. The patched
 12.5.0 native pairs ABI-correctly with the 12.5.0 JS wrapper that's webpacked
 into the main bundle, so the versions line up on both sides.
+
+## How it's shipped (the artifact model)
+
+Don't rebuild these in the packaging pipeline — a `.node`'s glibc floor is set
+by where it's built, so a CI-runner rebuild fails to load on older distros.
+Instead they're built **once** per arch on an old-glibc base
+(`manylinux_2_28`, glibc 2.28) by `.github/workflows/build-native-modules.yml`,
+validated under real Electron 42 (ABI 146 + an encrypted-DB round-trip via
+`scripts/native-modules/smoke-test.sh`), and published as pinned, checksummed
+release assets. The build consumes them through
+`scripts/setup/fetch-native-bin.sh`, which checks SHA-256 **and** a provenance
+stamp (`native-modules.lock`: the asset's `patch_sha256` must equal this
+checkout's patch, ABI must be 146) before staging — ELF magic alone can't tell a
+stale wrong-ABI binary from a correct one. Pinned tag:
+`native-modules-version.txt`. See
+[decisions.md D-009](../decisions.md#d-009--native-sqlite-addons-as-pinned-prebuilt-assets-not-a-build-time-rebuild).
 
 ## Validation
 
