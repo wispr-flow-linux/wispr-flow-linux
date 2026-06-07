@@ -250,9 +250,10 @@ main() {
 
 	check_dependencies
 
-	# Phase 2: resolve + extract installer (extraction lives in build-linux.sh
-	# step1/step2; download_installer just resolves the --exe path).
+	# Phase 2: resolve the --exe path, then 7z-extract it into the extract/
+	# tree that staging consumes (idempotent -- reuses a hand-prepared tree).
 	download_installer
+	extract_installer
 
 	# Phase 3: patch + native rebuild + stage the app tree.
 	run_staging

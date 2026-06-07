@@ -67,6 +67,49 @@ download_installer() {
 }
 
 #-------------------------------------------------------------------------------
+# extract_installer -- turn the resolved Squirrel .exe into the extract/ tree
+# that build-linux.sh consumes (extract/nupkg/lib/net45/resources/app.asar).
+# Mirrors the documented manual 7z steps. Idempotent: a hand-prepared local
+# extract/ tree is reused instead of re-extracted, so this is a no-op for devs
+# who already extracted by hand -- and it's what lets CI build from a freshly
+# downloaded installer (the extract/ tree is gitignored / never committed).
+#-------------------------------------------------------------------------------
+extract_installer() {
+	local extract_dir="$project_root/extract"
+	local app_asar="$extract_dir/nupkg/lib/net45/resources/app.asar"
+
+	if [[ -f $app_asar ]]; then
+		auto "Reusing existing extracted tree at $extract_dir"
+		return 0
+	fi
+
+	say 'Extract Squirrel installer (.exe -> nupkg -> app payload)'
+	command -v 7z >/dev/null 2>&1 \
+		|| die '7z (p7zip) is required to extract the installer'
+
+	rm -rf "$extract_dir"
+	mkdir -p "$extract_dir"
+
+	# .exe -> *-full.nupkg (plus other Squirrel files)
+	7z x -y -o"$extract_dir" "$installer_exe_path" >/dev/null \
+		|| die "7z extraction failed for $installer_exe_path"
+
+	local nupkg
+	nupkg=$(find "$extract_dir" -maxdepth 1 -iname '*-full.nupkg' | head -1)
+	[[ -n $nupkg ]] \
+		|| nupkg=$(find "$extract_dir" -maxdepth 1 -iname '*.nupkg' | head -1)
+	[[ -n $nupkg ]] || die "no .nupkg found after extracting $installer_exe_path"
+	auto "Found package: $(basename "$nupkg")"
+
+	# *-full.nupkg -> nupkg/lib/net45/... (the Electron payload)
+	7z x -y -o"$extract_dir/nupkg" "$nupkg" >/dev/null \
+		|| die "7z extraction failed for $nupkg"
+
+	[[ -f $app_asar ]] || die "app.asar missing after extraction ($app_asar)"
+	auto 'Extracted app payload (app.asar present)'
+}
+
+#-------------------------------------------------------------------------------
 # fetch_electron -- download + stage the Linux Electron runtime, then RENAME the
 # 'electron' binary to 'wispr-flow'.
 #
