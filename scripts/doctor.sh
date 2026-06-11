@@ -12,7 +12,7 @@
 # Scoped to Wispr Flow's load-bearing runtime requirements: /dev/uinput
 # write access (keystroke injection), input-group fallback, wl-clipboard /
 # xclip-xsel, AT-SPI accessibility, the GNOME Shell window-bridge extension
-# (relogin caveat), helper-binary perms, and recent crashes.
+# (relogin caveat), the helper-binary launch probe, and recent crashes.
 #
 # To add a check: define `_check_<name>`, call it from run_doctor, and use
 # _pass / _fail / _warn / _info. _fail increments _doctor_failures (local to
@@ -285,7 +285,17 @@ _doctor_check_gnome_extension() {
 }
 
 #------------------------------------------------------------------------------
-# Helper binary — present at the expected resources path, executable.
+# Helper binary — present, executable, and actually launches. Stat checks
+# alone green-lit a helper that aborted at exec with `GLIBC_2.39 not found`
+# (wispr-flow-linux/helper#1, #16), so probe by running `--version` with
+# stdin at EOF:
+#   * helper >= v0.1.2 prints its version and exits 0
+#   * older helpers ignore argv, hit stdin EOF, and exit 0 silently
+#   * a binary that cannot start exits non-zero with the loader's
+#     message on stderr — surfaced below
+# fd 3 (the helper's IPC return channel) is redirected to /dev/null so a
+# probed helper can never write frames into a descriptor the launcher
+# happens to have open.
 #------------------------------------------------------------------------------
 _doctor_check_helper() {
 	local helper_path="${1:-}"
@@ -306,7 +316,38 @@ _doctor_check_helper() {
 		_info "Fix: chmod +x '$helper_path'"
 		return
 	fi
-	_pass "Helper binary: present and executable ($helper_path)"
+
+	local timeout_s="${WISPR_DOCTOR_HELPER_TIMEOUT:-5}"
+	local err_file probe_out status=0
+	err_file=$(mktemp "${TMPDIR:-/tmp}/wispr-doctor-helper.XXXXXX")
+	probe_out=$(timeout "$timeout_s" "$helper_path" --version \
+		</dev/null 2>"$err_file" 3>/dev/null) || status=$?
+
+	if [[ $status -eq 0 ]]; then
+		if [[ $probe_out == wispr-flow-linux-helper* ]]; then
+			_pass "Helper binary: launches OK ($probe_out)"
+		else
+			_pass "Helper binary: launches OK ($helper_path)"
+			_info 'Helper predates --version (< v0.1.2); no version reported.'
+		fi
+		rm -f "$err_file"
+		return
+	fi
+
+	if [[ $status -eq 124 ]]; then
+		_fail "Helper binary: still running after ${timeout_s}s probe" \
+			"at $helper_path"
+		_info 'The helper did not exit on stdin EOF; it may be wedged.'
+	else
+		_fail "Helper binary: cannot launch (exit $status) at $helper_path"
+		_info 'Text injection / push-to-talk will not work.'
+	fi
+	# Surface the launch-failure cause (e.g. `GLIBC_2.39 not found`).
+	local line
+	while IFS= read -r line; do
+		_info "stderr: $line"
+	done < <(tail -n 3 "$err_file")
+	rm -f "$err_file"
 }
 
 #------------------------------------------------------------------------------

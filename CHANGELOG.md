@@ -10,6 +10,11 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Fixed
 
+- `wispr-flow --doctor` reported `Helper binary: present and executable` (and
+  an overall pass) for a helper that aborted on startup, because the check
+  only stat-ed the file. The doctor now execs the binary (`--version` probe
+  with stdin at EOF, 5s timeout, fd 3 discarded) and surfaces the captured
+  stderr — e.g. the loader's `GLIBC_2.39 not found` — on failure. (#16)
 - Local builds failed at packaging with `Linux helper not staged` because the
   prebuilt helper was only fetched in CI; staging now auto-fetches the release
   pinned in `helper-version.txt` when `HELPER_BIN` is unset. An explicit

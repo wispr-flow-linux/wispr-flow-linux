@@ -224,18 +224,67 @@ command() {
 }
 
 # =============================================================================
-# _doctor_check_helper (path argument lets us drive it without a real binary)
+# _doctor_check_helper (path argument lets us drive it with stub scripts that
+# mimic the real helper's launch behaviors: print a version, exit silently on
+# stdin EOF, abort with a loader error on stderr, or hang)
 # =============================================================================
 
-@test "_doctor_check_helper: passes for an executable file" {
+@test "_doctor_check_helper: passes and reports the probed version" {
 	local helper="$TEST_TMP/wispr-flow-linux-helper"
-	printf '#!/bin/sh\n' > "$helper"
+	printf '#!/bin/sh\necho "wispr-flow-linux-helper 0.1.2"\n' > "$helper"
 	chmod +x "$helper"
 	_doctor_failures=0
 	run _doctor_check_helper "$helper"
 	[[ $output == *"[PASS]"* ]]
+	[[ $output == *"wispr-flow-linux-helper 0.1.2"* ]]
 	_doctor_check_helper "$helper" >/dev/null
 	[[ $_doctor_failures -eq 0 ]]
+}
+
+@test "_doctor_check_helper: passes a pre---version helper (clean EOF exit)" {
+	# Helpers < v0.1.2 ignore argv, hit stdin EOF, and exit 0 silently.
+	local helper="$TEST_TMP/wispr-flow-linux-helper"
+	printf '#!/bin/sh\ncat >/dev/null\n' > "$helper"
+	chmod +x "$helper"
+	_doctor_failures=0
+	run _doctor_check_helper "$helper"
+	[[ $output == *"[PASS]"* ]]
+	[[ $output == *"predates --version"* ]]
+	_doctor_check_helper "$helper" >/dev/null
+	[[ $_doctor_failures -eq 0 ]]
+}
+
+@test "_doctor_check_helper: fails and surfaces stderr when launch aborts" {
+	# The #16 blind spot: present + executable but aborts at startup
+	# (e.g. the dynamic loader's GLIBC version error on stderr).
+	local helper="$TEST_TMP/wispr-flow-linux-helper"
+	{
+		printf '#!/bin/sh\n'
+		printf 'echo "version GLIBC_2.39 not found" >&2\n'
+		printf 'exit 1\n'
+	} > "$helper"
+	chmod +x "$helper"
+	_doctor_failures=0
+	run _doctor_check_helper "$helper"
+	[[ $output == *"[FAIL]"* ]]
+	[[ $output == *"cannot launch"* ]]
+	[[ $output == *"GLIBC_2.39 not found"* ]]
+	_doctor_check_helper "$helper" >/dev/null
+	[[ $_doctor_failures -eq 1 ]]
+}
+
+@test "_doctor_check_helper: fails when the probe times out" {
+	local helper="$TEST_TMP/wispr-flow-linux-helper"
+	printf '#!/bin/sh\nsleep 30\n' > "$helper"
+	chmod +x "$helper"
+	export WISPR_DOCTOR_HELPER_TIMEOUT=1
+	_doctor_failures=0
+	run _doctor_check_helper "$helper"
+	[[ $output == *"[FAIL]"* ]]
+	[[ $output == *"still running"* ]]
+	_doctor_check_helper "$helper" >/dev/null
+	[[ $_doctor_failures -eq 1 ]]
+	unset WISPR_DOCTOR_HELPER_TIMEOUT
 }
 
 @test "_doctor_check_helper: fails when helper binary is missing" {
