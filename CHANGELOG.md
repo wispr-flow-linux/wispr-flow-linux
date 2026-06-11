@@ -27,6 +27,9 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Changed
 
+- Helper pin bumped to `v0.1.2`: the helper now supports a `--version` flag,
+  the launch probe `wispr-flow --doctor` uses to catch binaries that abort on
+  startup (wispr-flow-linux/helper#3, groundwork for #16).
 - Helper pin bumped to `v0.1.1`: the helper binaries are now built on Ubuntu
   22.04 (glibc 2.35 floor), so they no longer abort on startup with
   `GLIBC_2.39 not found` on Ubuntu 22.04-era distros (wispr-flow-linux/helper#1).
