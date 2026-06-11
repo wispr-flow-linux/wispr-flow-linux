@@ -22,6 +22,9 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Changed
 
+- Helper pin bumped to `v0.1.1`: the helper binaries are now built on Ubuntu
+  22.04 (glibc 2.35 floor), so they no longer abort on startup with
+  `GLIBC_2.39 not found` on Ubuntu 22.04-era distros (wispr-flow-linux/helper#1).
 - The prebuilt native sqlite addons now build and release from their own repo
   (`wispr-flow-linux/native-modules`) instead of this one, mirroring the helper —
   so these CI-consumed artifacts no longer inflate the main project's Release
