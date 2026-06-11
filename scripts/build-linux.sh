@@ -66,23 +66,43 @@ manual(){ printf '  \033[1;33m[MANUAL]\033[0m %s\n' "$*"; }
 warn()  { printf '  \033[1;31m[WARN]\033[0m   %s\n' "$*"; }
 
 # Resolve the clean-room Linux helper into $HELPER_BIN, in priority order:
-#   1. already present + executable (a HELPER_BIN override pointing at a local
-#      build, a pre-drop into helper-bin/, or a previous fetch / re-run).
-#   2. HELPER_BIN was explicitly set but is missing/non-executable: respect the
+#   1. an executable HELPER_BIN override (CI's prefetched asset or a local
+#      build) -- used as-is, never version-checked.
+#   2. an executable binary in the default helper-bin/ drop spot, IF it is not
+#      a stale fetch: fetch-helper-bin.sh stamps the downloaded tag into
+#      helper-bin/.tag, and a stamp that disagrees with helper-version.txt
+#      means the pin moved past the cache -- refetch. No stamp = a manual
+#      pre-drop (the documented offline path) -- used as-is.
+#   3. HELPER_BIN was explicitly set but is missing/non-executable: respect the
 #      override -- warn and do NOT fetch over it.
-#   3. fetch the pinned prebuilt release asset (fetch-helper-bin.sh, tag in
+#   4. fetch the pinned prebuilt release asset (fetch-helper-bin.sh, tag in
 #      helper-version.txt) into the default helper-bin/ drop spot -- the
-#      normal, supported path for local builds. (CI prefetches the asset and
-#      sets HELPER_BIN itself, so it resolves at 1.)
-#   4. fetch failed:
+#      normal, supported path for local builds.
+#   5. fetch failed:
 #      - in CI: hard-fail. A package without the helper is non-functional.
 #      - locally: warn and continue (preserves the offline dry-run behavior;
 #        the packaging makers refuse a helper-less tree, so nothing broken
 #        ships).
 resolve_helper_bin() {
+  local helper_dir pinned stamp
+  helper_dir="$(dirname "$HELPER_BIN")"
+
   if [[ -x "$HELPER_BIN" ]]; then
-    auto "Found Linux helper binary: $HELPER_BIN"
-    return 0
+    if [[ $HELPER_BIN_PRESET == 1 ]]; then
+      auto "Found Linux helper binary: $HELPER_BIN"
+      return 0
+    fi
+    pinned="$(tr -d '[:space:]' < "$PROJECT_ROOT/helper-version.txt" \
+      2>/dev/null)"
+    stamp=''
+    [[ -f "$helper_dir/.tag" ]] \
+      && stamp="$(tr -d '[:space:]' < "$helper_dir/.tag")"
+    if [[ -z $stamp || $stamp == "$pinned" ]]; then
+      auto "Found Linux helper binary: $HELPER_BIN"
+      return 0
+    fi
+    warn "Cached helper in $helper_dir was fetched as $stamp but"
+    warn "  helper-version.txt now pins $pinned -- refetching."
   fi
 
   if [[ $HELPER_BIN_PRESET == 1 ]]; then
@@ -107,9 +127,18 @@ resolve_helper_bin() {
     warn "In CI: refusing to continue without the helper."
     exit 1
   fi
-  warn "  Build will continue and stage everything else; packaging will refuse"
-  warn "  a tree without the helper. Set HELPER_BIN to a local build, or re-run"
-  warn "  with network access to auto-fetch."
+  if [[ -x "$HELPER_BIN" ]]; then
+    # Only reachable via the stale-stamp path: the old fetch is still in
+    # place, and Step 7 stages whatever executable sits at $HELPER_BIN.
+    warn "  The previously fetched ${stamp:-unknown} helper is still in place"
+    warn "  and WILL be staged -- the package will carry that stale helper,"
+    warn "  not the pinned ${pinned:-tag}. Re-run with network access to"
+    warn "  refetch."
+  else
+    warn "  Build will continue and stage everything else; packaging will"
+    warn "  refuse a tree without the helper. Set HELPER_BIN to a local build,"
+    warn "  or re-run with network access to auto-fetch."
+  fi
   return 1
 }
 

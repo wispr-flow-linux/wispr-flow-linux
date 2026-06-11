@@ -11,7 +11,9 @@
 #   wispr-flow-linux-helper-aarch64   (arm64)
 #
 # This stages the matching asset into <dest>/wispr-flow-linux-helper, marks it
-# executable, and prints that absolute path to stdout (diagnostics go to stderr).
+# executable, stamps the fetched tag into <dest>/.tag (so the staging engine
+# can refetch when helper-version.txt moves past a cached copy), and prints
+# that absolute path to stdout (diagnostics go to stderr).
 # CI sets HELPER_BIN="$(scripts/setup/fetch-helper-bin.sh <arch>)" before
 # invoking build.sh.
 #
@@ -78,6 +80,11 @@ fi
 
 [[ -s $dest_bin ]] || die "downloaded helper is empty: ${dest_bin}"
 chmod 0755 "$dest_bin" || die "cannot chmod ${dest_bin}"
+
+# Stamp the tag this binary came from. resolve_helper_bin (build-linux.sh)
+# compares it against helper-version.txt and refetches a stale cache after a
+# pin bump; a manually pre-dropped binary has no stamp and is used as-is.
+printf '%s\n' "$tag" > "$dest_dir/.tag" || die "cannot write ${dest_dir}/.tag"
 
 log "Staged helper at ${dest_bin}"
 printf '%s\n' "$dest_bin"

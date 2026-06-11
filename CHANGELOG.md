@@ -19,6 +19,11 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   `APP_VERSION`/`ELECTRON_VERSION` are readonly, so the command-prefix env
   assignments were rejected and `build-linux.sh` silently fell back to its own
   defaults. The version constants are now exported instead. (#15)
+- A previously fetched helper in `helper-bin/` was reused forever, so bumping
+  `helper-version.txt` silently kept shipping the stale binary in local builds.
+  `fetch-helper-bin.sh` now stamps the fetched tag (`helper-bin/.tag`) and
+  staging refetches when the stamp disagrees with the pin. A manual pre-drop
+  (no stamp) and an explicit `HELPER_BIN` are still used as-is.
 
 ### Changed
 
