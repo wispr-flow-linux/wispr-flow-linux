@@ -31,9 +31,13 @@ RESOURCES_SRC="$NET45_DIR/resources"            # app.asar, app.asar.unpacked, R
 WEBPACK_MAIN="$EXTRACT_DIR/app/.webpack/main/index.js"   # unpacked main bundle (source of truth)
 
 # Clean-room Linux helper. It lives in its own repo
-# (github.com/wispr-flow-linux/helper); CI sets HELPER_BIN to a downloaded
-# prebuilt asset. Honor a pre-set env value first, else default to a local
-# helper-bin/ drop spot.
+# (github.com/wispr-flow-linux/helper) and is consumed as a prebuilt release
+# asset pinned in helper-version.txt. A pre-set HELPER_BIN (a local build, or
+# CI's prefetched asset) is honored as an override; otherwise the build
+# auto-fetches the pinned release into the local helper-bin/ drop spot
+# (resolve_helper_bin). Track whether the caller supplied a value so a bad
+# explicit override is reported instead of silently fetched over.
+HELPER_BIN_PRESET="${HELPER_BIN:+1}"
 HELPER_BIN="${HELPER_BIN:-$PROJECT_ROOT/helper-bin/wispr-flow-linux-helper}"
 
 # Linux-rebuilt native modules (better-sqlite3-multiple-ciphers + sqlite3). The
@@ -61,6 +65,54 @@ auto()  { printf '  \033[1;32m[AUTO]\033[0m   %s\n' "$*"; }
 manual(){ printf '  \033[1;33m[MANUAL]\033[0m %s\n' "$*"; }
 warn()  { printf '  \033[1;31m[WARN]\033[0m   %s\n' "$*"; }
 
+# Resolve the clean-room Linux helper into $HELPER_BIN, in priority order:
+#   1. already present + executable (a HELPER_BIN override pointing at a local
+#      build, a pre-drop into helper-bin/, or a previous fetch / re-run).
+#   2. HELPER_BIN was explicitly set but is missing/non-executable: respect the
+#      override -- warn and do NOT fetch over it.
+#   3. fetch the pinned prebuilt release asset (fetch-helper-bin.sh, tag in
+#      helper-version.txt) into the default helper-bin/ drop spot -- the
+#      normal, supported path for local builds. (CI prefetches the asset and
+#      sets HELPER_BIN itself, so it resolves at 1.)
+#   4. fetch failed:
+#      - in CI: hard-fail. A package without the helper is non-functional.
+#      - locally: warn and continue (preserves the offline dry-run behavior;
+#        the packaging makers refuse a helper-less tree, so nothing broken
+#        ships).
+resolve_helper_bin() {
+  if [[ -x "$HELPER_BIN" ]]; then
+    auto "Found Linux helper binary: $HELPER_BIN"
+    return 0
+  fi
+
+  if [[ $HELPER_BIN_PRESET == 1 ]]; then
+    warn "HELPER_BIN is set but not executable: $HELPER_BIN"
+    warn "  Respecting the override (not auto-fetching over it). Point it at a"
+    warn "  built helper (e.g. <helper checkout>/target/release/"
+    warn "  wispr-flow-linux-helper), or unset HELPER_BIN to auto-fetch the"
+    warn "  pinned prebuilt release (helper-version.txt)."
+    return 1
+  fi
+
+  auto "Fetching pinned prebuilt helper ($ARCH, tag in helper-version.txt)..."
+  if bash "$SCRIPT_DIR/setup/fetch-helper-bin.sh" "$ARCH" \
+      "$(dirname "$HELPER_BIN")" >/dev/null; then
+    auto "Fetched helper into $HELPER_BIN"
+    return 0
+  fi
+
+  warn "Could not fetch the pinned prebuilt helper (network? unpublished tag"
+  warn "  in helper-version.txt?)."
+  if [[ -n ${GITHUB_ACTIONS:-} || -n ${CI:-} ]]; then
+    warn "In CI: refusing to continue without the helper."
+    exit 1
+  fi
+  warn "  Build will continue and stage everything else; packaging will refuse"
+  warn "  a tree without the helper. Set HELPER_BIN to a local build, or re-run"
+  warn "  with network access to auto-fetch."
+  return 1
+}
+
 #===============================================================================
 # Step 0: preflight  [AUTO]
 #===============================================================================
@@ -82,15 +134,7 @@ step0_preflight() {
   if [[ -f "$RESOURCES_SRC/Release/Wispr Flow Helper.exe" ]]; then
     auto "Found Windows helper (will be replaced by the Linux helper): Release/Wispr Flow Helper.exe"
   fi
-  if [[ -x "$HELPER_BIN" ]]; then
-    auto "Found Linux helper binary: $HELPER_BIN"
-  else
-    warn "Linux helper binary not found/executable at $HELPER_BIN"
-    warn "  Get it from github.com/wispr-flow-linux/helper releases (pinned tag in"
-    warn "  helper-version.txt), or build a local checkout of that repo and set"
-    warn "  HELPER_BIN to its target/release/wispr-flow-linux-helper."
-    warn "  Build will continue and stage everything else; copy the helper in later."
-  fi
+  resolve_helper_bin
   if command -v node >/dev/null; then
     auto "node $(node --version)"
   else

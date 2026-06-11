@@ -8,6 +8,18 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+### Fixed
+
+- Local builds failed at packaging with `Linux helper not staged` because the
+  prebuilt helper was only fetched in CI; staging now auto-fetches the release
+  pinned in `helper-version.txt` when `HELPER_BIN` is unset. An explicit
+  `HELPER_BIN` (e.g. a local helper build) is still honored and never fetched
+  over. (#15)
+- `build.sh` emitted `readonly variable` errors when dispatching staging:
+  `APP_VERSION`/`ELECTRON_VERSION` are readonly, so the command-prefix env
+  assignments were rejected and `build-linux.sh` silently fell back to its own
+  defaults. The version constants are now exported instead. (#15)
+
 ### Changed
 
 - The prebuilt native sqlite addons now build and release from their own repo

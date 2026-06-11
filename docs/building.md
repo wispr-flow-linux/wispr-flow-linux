@@ -37,8 +37,9 @@ Format-specific (only the one you build):
 | `dpkg-deb` | `dpkg-dev` / `dpkg` | `--build deb` |
 | `rpmbuild` | `rpm` / `rpm-build` | `--build rpm` |
 
-You also need a **Rust toolchain** (`rustc` + `cargo`) for the helper. The
-native sqlite rebuild pulls `@electron/rebuild` via `npx` at build time, so
+A **Rust toolchain** (`rustc` + `cargo`) is only needed if you build the helper
+yourself from its repo; the build auto-fetches the prebuilt helper otherwise.
+The native sqlite rebuild pulls `@electron/rebuild` via `npx` at build time, so
 that one isn't a system package you install ahead of time.
 
 ## Obtaining the installer
@@ -115,9 +116,10 @@ unique to Wispr Flow. Its text-injection "Helper" process exists only as macOS
 (Swift) and Windows (C#) binaries, with no Linux variant and no source. A
 clean-room Rust helper
 ([github.com/wispr-flow-linux/helper](https://github.com/wispr-flow-linux/helper))
-reimplements it. This build no longer compiles the helper. It downloads the
-prebuilt binary pinned in `helper-version.txt`, staged via the `HELPER_BIN` env
-var, and patches the app to load it on Linux.
+reimplements it. This build no longer compiles the helper. By default it
+auto-fetches the prebuilt binary pinned in `helper-version.txt` and stages it;
+set `HELPER_BIN` to use a local build instead (see below). The app bundle is
+patched to load it on Linux.
 
 Here's what the staging pipeline (`scripts/build-linux.sh`) does:
 
@@ -147,13 +149,35 @@ broken. I added that gate after getting burned by a silently-incomplete patch.
 
 ## Manual / network-dependent steps
 
-Two steps need network + toolchain, so they can't run fully offline:
+Three steps need network + toolchain, so they can't run fully offline:
 
 ### Linux Electron download
 
 The build fetches **Electron 42.3.0** for `linux-x64` (or `linux-arm64`) from
 the upstream releases. `scripts/setup/fetch-electron-binary.js` drives this, so
 you don't pick the runtime by hand.
+
+### The clean-room helper (prebuilt, with a `HELPER_BIN` override)
+
+The helper is consumed like the native modules: a prebuilt release asset pinned
+in `helper-version.txt`. When `HELPER_BIN` is unset, staging auto-fetches that
+tag from the [helper repo](https://github.com/wispr-flow-linux/helper)'s
+releases into `helper-bin/` via `scripts/setup/fetch-helper-bin.sh` — no env
+var, no manual step.
+
+To use a local build instead (e.g. while hacking on the helper), point
+`HELPER_BIN` at it:
+
+```bash
+HELPER_BIN=/path/to/helper/target/release/wispr-flow-linux-helper \
+  ./build.sh --build deb
+```
+
+An explicit `HELPER_BIN` is always respected: if it points at a missing or
+non-executable file the build warns and does **not** fetch over it, and
+packaging then refuses the helper-less tree. Offline, you can also pre-drop a
+binary at `helper-bin/wispr-flow-linux-helper` — an existing executable there
+is used as-is.
 
 ### Native sqlite modules (prebuilt, with an opt-in local rebuild)
 

@@ -44,6 +44,12 @@ export WM_CLASS
 readonly APP_VERSION='1.5.695'
 readonly ELECTRON_VERSION='42.3.0'
 readonly ELECTRON_MAJOR='42'
+# Exported so scripts/build-linux.sh stages the versions the orchestrator
+# resolved (it defaults them when unset). They cannot be passed as
+# command-prefix assignments (VAR=x cmd): bash rejects a temporary assignment
+# to a readonly name, and the staging engine would silently fall back to its
+# own defaults.
+export APP_VERSION ELECTRON_VERSION ELECTRON_MAJOR
 # Exported so packaging makers (Phase 2 deb/appimage) can read them from the
 # environment; rpm.sh currently embeds its own metadata.
 readonly MAINTAINER='Wispr Flow Linux (unofficial)'
@@ -98,10 +104,10 @@ run_staging() {
 	say 'Stage app (patch + native + repack) via scripts/build-linux.sh'
 	chmod +x "$script_dir/scripts/build-linux.sh" || die 'cannot chmod build-linux.sh'
 	# build-linux.sh reads ARCH/APP_VERSION/ELECTRON_VERSION from the env (it
-	# defaults them when unset, preserving its standalone behavior).
+	# defaults them when unset, preserving its standalone behavior). The
+	# version constants reach it as exports (see the constants block); ARCH is
+	# per-invocation.
 	ARCH="$electron_arch" \
-	APP_VERSION="$APP_VERSION" \
-	ELECTRON_VERSION="$ELECTRON_VERSION" \
 		"$script_dir/scripts/build-linux.sh" \
 		|| die 'scripts/build-linux.sh staging failed'
 }
@@ -141,8 +147,10 @@ sync_stage_to_dist() {
 		auto 'Synced staged resources (app.asar + helper + native modules)'
 	else
 		warn "helper not present in staged tree ($helper)"
-		warn '  packaging will fail its helper check -- set HELPER_BIN and'
-		warn '  re-run staging (see helper-version.txt / wispr-flow-linux/helper).'
+		warn '  the staging auto-fetch failed (see warnings above) -- packaging'
+		warn '  will fail its helper check. Re-run with network access, or set'
+		warn '  HELPER_BIN to a local build (see helper-version.txt /'
+		warn '  wispr-flow-linux/helper).'
 	fi
 }
 
