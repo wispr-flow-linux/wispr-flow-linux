@@ -204,6 +204,38 @@ the a11y bus as unreachable, odds are the AT-SPI registry just isn't running on
 your compositor. [configuration.md](configuration.md#at-spi-accessibility) has
 the details.
 
+## "ERROR: Linux helper not staged at resources/Release/wispr-flow-linux-helper"
+
+A `./build.sh` run fails in the packaging step with this error (often after a
+`helper not present in staged tree` warning during the resources sync).
+
+### Fix
+
+The packaging makers refuse to ship a tree without the helper, and staging
+didn't get one. Staging auto-fetches the prebuilt helper pinned in
+`helper-version.txt` when `HELPER_BIN` is unset, so this means the fetch failed
+or an explicit `HELPER_BIN` pointed at a missing/non-executable file — scroll up
+to the `[WARN]` lines from Step 0 for which one.
+
+1. **Auto-fetch failed** (no network, or `gh`/`curl` unavailable) — restore
+   network access and re-run, or fetch by hand:
+
+   ```bash
+   scripts/setup/fetch-helper-bin.sh x86_64   # or aarch64
+   ./build.sh --build deb
+   ```
+
+2. **`HELPER_BIN` override is wrong** — the build respects an explicit override
+   and never fetches over it. Point it at a *built binary* (not a source
+   checkout), or unset it to auto-fetch:
+
+   ```bash
+   HELPER_BIN=/path/to/helper/target/release/wispr-flow-linux-helper \
+     ./build.sh --build deb
+   ```
+
+See the helper section of [building.md](building.md#the-clean-room-helper-prebuilt-with-a-helper_bin-override).
+
 ## More
 
 Curious which setups are actually validated, and which are only wired through?
