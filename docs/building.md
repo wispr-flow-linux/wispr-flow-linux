@@ -175,9 +175,13 @@ HELPER_BIN=/path/to/helper/target/release/wispr-flow-linux-helper \
 
 An explicit `HELPER_BIN` is always respected: if it points at a missing or
 non-executable file the build warns and does **not** fetch over it, and
-packaging then refuses the helper-less tree. Offline, you can also pre-drop a
-binary at `helper-bin/wispr-flow-linux-helper` — an existing executable there
-is used as-is.
+packaging then refuses the helper-less tree.
+
+A fetched copy is stamped with its release tag (`helper-bin/.tag`), so when
+`helper-version.txt` is bumped the stale cache is refetched automatically on
+the next build. Offline, you can also pre-drop a binary at
+`helper-bin/wispr-flow-linux-helper` — an executable there without a stamp is
+treated as a deliberate local drop and used as-is.
 
 ### Native sqlite modules (prebuilt, with an opt-in local rebuild)
 
