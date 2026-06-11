@@ -8,6 +8,8 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+## [v1.0.3] - 2026-06-11
+
 ### Fixed
 
 - `wispr-flow --doctor` reported `Helper binary: present and executable` (and
@@ -95,7 +97,8 @@ Initial release — unofficial Linux repackaging of Wispr Flow (1.5.695) as
 (text injection, clipboard, global key capture), the Linux platform-gate
 patches, Nix flake, docs tree, and the tag-driven release/publish pipeline.
 
-[Unreleased]: https://github.com/wispr-flow-linux/wispr-flow-linux/compare/v1.0.2+wispr1.5.695...HEAD
+[Unreleased]: https://github.com/wispr-flow-linux/wispr-flow-linux/compare/v1.0.3+wispr1.5.751...HEAD
+[v1.0.3]: https://github.com/wispr-flow-linux/wispr-flow-linux/compare/v1.0.2+wispr1.5.751...v1.0.3+wispr1.5.751
 [v1.0.2]: https://github.com/wispr-flow-linux/wispr-flow-linux/compare/v1.0.1+wispr1.5.695...v1.0.2+wispr1.5.695
 [v1.0.1]: https://github.com/wispr-flow-linux/wispr-flow-linux/compare/v1.0.0+wispr1.5.695...v1.0.1+wispr1.5.695
 [v1.0.0]: https://github.com/wispr-flow-linux/wispr-flow-linux/releases/tag/v1.0.0+wispr1.5.695
