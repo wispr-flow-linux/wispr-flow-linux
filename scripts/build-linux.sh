@@ -277,6 +277,15 @@ step3_patch_bundle() {
     auto "Running linux-deeplink.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-deeplink.sh" "$target_bundle" \
       || warn "Deep-link patch failed -- see linux-deeplink.sh output above."
+    # Call setVisibleOnAllWorkspaces on Linux for the four overlay windows (status
+    # indicator, overlay panel, context menu, calendar reminder). Without it, GNOME
+    # Wayland treats them as workspace-bound toplevels and they surface in the
+    # Alt+Tab switcher, interrupting dictation focus. The call is gated on isMac in
+    # the bundle; widening it to also run on Linux pins the windows as sticky system
+    # overlays (_NET_WM_STATE_STICKY on X11/XWayland; equivalent on Wayland).
+    auto "Running linux-overlay-visible.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-overlay-visible.sh" "$target_bundle" \
+      || warn "Overlay-visible patch failed -- see linux-overlay-visible.sh output above."
 
     # Renderer + preload patches live alongside the main bundle under .webpack/.
     local webpack_root="${target_bundle%/main/index.js}"
