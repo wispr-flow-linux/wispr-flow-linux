@@ -278,6 +278,14 @@ step3_patch_bundle() {
     bash "$SCRIPT_DIR/patches/linux-deeplink.sh" "$target_bundle" \
       || warn "Deep-link patch failed -- see linux-deeplink.sh output above."
 
+    # Make "Start at Login" write the correct XDG autostart desktop entry.
+    # Electron's setLoginItemSettings on Linux either silently does nothing or
+    # points Exec at the raw electron binary; this patch writes/removes
+    # ~/.config/autostart/wispr-flow.desktop with Exec=/usr/bin/wispr-flow.
+    auto "Running linux-autostart.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-autostart.sh" "$target_bundle" \
+      || warn "Autostart patch failed -- see linux-autostart.sh output above."
+
     # Renderer + preload patches live alongside the main bundle under .webpack/.
     local webpack_root="${target_bundle%/main/index.js}"
     # Remap the <html> platform class linux->win32 so Linux adopts the tested
