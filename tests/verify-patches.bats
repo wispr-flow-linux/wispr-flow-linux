@@ -169,6 +169,29 @@ write_fixture() {
 }
 
 # =============================================================================
+# Meta: MARKER_SAMPLES must stay in sync with verify-patches.sh
+# =============================================================================
+
+# For every fixed-string (|F|) marker in verify-patches.sh, at least one
+# entry in MARKER_SAMPLES must contain that exact string.  This catches the
+# recurring mistake of adding a new marker to the script without updating
+# this file.  Perl-regex (|P|) markers are deliberately excluded — their
+# patterns don't appear literally in the minified bundle samples.
+@test "verify: MARKER_SAMPLES covers every fixed-string marker in verify-patches.sh" {
+	local missing=0 token
+	while IFS= read -r token; do
+		[[ -n "$token" ]] || continue
+		if ! grep -qF "$token" "${BATS_TEST_FILENAME}"; then
+			echo "MARKER_SAMPLES has no sample containing: $token"
+			echo "  Add an entry to MARKER_SAMPLES that includes this string,"
+			echo "  then add a negative @test for the new key."
+			missing=$((missing + 1))
+		fi
+	done < <(grep -oP '(?<=\|F\|)[^"]+' "$VERIFY_SH")
+	[[ "$missing" -eq 0 ]]
+}
+
+# =============================================================================
 # Input shapes / usage
 # =============================================================================
 
