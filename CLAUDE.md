@@ -166,6 +166,16 @@ when you discover something non-obvious that would save the next contributor
   match count, inject a marker for idempotency, and verify against shipped bytes
   (not a beautified copy). Read before touching `scripts/patches/`.
 
+## Cross-VM testing memory
+
+Operational knowledge from manual VM validation (e.g. issue #32) lives in
+[`.claude/memory/`](.claude/memory/) — **committed** so it carries across test
+VMs and survives agent session resets (only `.claude/worktrees/` is gitignored).
+Read it before doing VM validation work, and append new hard-won learnings there
+(launch quirks, keybind/window/mic gotchas, per-issue validation status). It
+complements `docs/learnings/` (code-level) with environment/runtime test
+knowledge.
+
 ## GitHub / CI workflow
 
 - Use the `gh` CLI for GitHub interactions.

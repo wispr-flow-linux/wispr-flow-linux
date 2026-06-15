@@ -32,4 +32,4 @@ yarn-error.log*
 *~
 
 # === Local agent/session scratch ===
-.claude/
+.claude/worktrees/
