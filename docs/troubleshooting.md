@@ -31,6 +31,54 @@ It prints `[PASS]` / `[WARN]` / `[FAIL]` lines with inline fix commands, grouped
 The exit status is non-zero if any check FAILs. Do me a favor and attach the
 full output to bug reports — it's the single most useful thing you can hand me.
 
+## Push-to-talk doesn't fire / shortcut recorder captures no keystrokes (including during onboarding)
+
+The in-app shortcut recorder (including the one on the onboarding setup screen)
+and push-to-talk are both fed entirely by `KeypressEvent` frames the helper
+streams from the OS key layer. If those frames never arrive, the recorder shows
+nothing and captures nothing — the app has no other path for global hotkey input.
+
+The helper has two capture backends:
+
+- **evdev** (`/dev/input/event*`) — works on Wayland **and** X11. Needs read
+  access to the input devices.
+- **XInput2** — true X11 sessions only (not XWayland). Needs no device access.
+
+On **Wayland**, only evdev is available, and it needs the udev access grant.
+
+### Fix
+
+Run the built-in diagnostics first — the `Push-to-Talk (input monitor)` section
+will tell you exactly what's missing:
+
+```bash
+wispr-flow --doctor
+```
+
+If it prints `[FAIL] /dev/input: none of N event device(s) readable`, install
+the udev rule that grants your session access to input devices (this is a
+one-time step; it survives reboots):
+
+```bash
+wispr-flow --install-udev-rules
+```
+
+The command escalates via `pkexec` (graphical sudo prompt) or falls back to
+`sudo`. After it completes you may need to **log out and back in** (or replug
+your keyboard) for the new ACL to take effect on already-open devices. Then
+re-run `--doctor` to confirm the check passes and try the shortcut recorder
+again.
+
+Alternatively, if you're already a member of the `input` group (check with
+`id -nG | grep input`), just re-login — logind should grant uaccess on session
+start.
+
+> [!NOTE]
+> On **X11** the helper uses XInput2, which needs no device access at all. If
+> the shortcut recorder is still dead on X11 after confirming the helper is
+> running (`--doctor` shows the helper launch as OK), file a bug with the
+> full `--doctor` output.
+
 ## Paste does nothing / transcription doesn't get typed into my app
 
 This is the whole reason the app exists, so when it goes silent it hurts. In my
