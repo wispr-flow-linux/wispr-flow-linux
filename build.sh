@@ -41,7 +41,7 @@ final_output_path=''
 readonly PACKAGE_NAME='wispr-flow'
 readonly WM_CLASS='Wispr Flow'
 export WM_CLASS
-readonly APP_VERSION='1.5.897'
+readonly APP_VERSION='1.5.1095'
 readonly ELECTRON_VERSION='42.3.0'
 readonly ELECTRON_MAJOR='42'
 # Exported so scripts/build-linux.sh stages the versions the orchestrator
