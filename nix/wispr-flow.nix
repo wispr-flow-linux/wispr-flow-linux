@@ -85,15 +85,14 @@ let
   # resources/Release/wispr-flow-linux-helper (mode 0755) where the patched
   # main bundle's 'linux' branch looks for it.
   #============================================================================
-  # NOTE: nix is unavailable in the environment this was wired up in, so the
-  # real fixed-output (FOD) hash for the GitHub fetch cannot be computed here.
-  # The first `nix build` WILL FAIL and print the correct `hash = ...`; paste
-  # that value over lib.fakeHash below.
+# Pinned FOD hash for the helper source fetch (v0.1.0). If the pin ever
+  # goes stale (e.g. the tag is moved), `nix build` will fail and print the
+  # correct `hash = ...` to paste in here.
   helperSrc = fetchFromGitHub {
     owner = "wispr-flow-linux";
     repo = "helper";
     rev = "v0.1.0";
-    hash = lib.fakeHash;
+    hash = "sha256-Teer9aJ7naKhZ3BOLSpOZSb48A7Ngsaq65ZJ3I14Bfc=";
   };
 
   linux-helper = rustPlatform.buildRustPackage {
