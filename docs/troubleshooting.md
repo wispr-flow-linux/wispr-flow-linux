@@ -67,6 +67,49 @@ Run `--doctor` and work the failures top-down:
    uinput through logind (Arch is the one that caught me), so group membership
    is your grant path instead. Go back to step 1's `usermod` and relogin.
 
+4. **`wl-copy` hangs instead of returning (Wayland)** — `wl-clipboard` is
+   installed and `--doctor` is all-green, but the log shows `gRPC transcription
+   successful` followed by `PasteText: Request timed out`, and nothing reaches
+   the focused app. Check whether the clipboard tool returns at all:
+
+   ```bash
+   printf 'test' | timeout 4 wl-copy; echo "$?"   # 124 means it hung
+   pgrep -x wl-copy                               # stray copies piling up
+   ```
+
+   Mutter implements no data-control protocol, so `wl-clipboard` falls back to
+   mapping a surface that has to take keyboard focus before it can own the
+   selection. When that focus never lands, `wl-copy` never returns and
+   `PasteText` times out behind it. Route `wl-copy` through `xclip`, which
+   reaches the clipboard over Xwayland, using a shim earlier in `PATH` than
+   `/usr/bin` (needs `xclip` and a running Xwayland):
+
+   ```bash
+   #!/bin/bash
+   # ~/.local/bin/wl-copy
+   sel=clipboard
+   type=
+   while [[ $# -gt 0 ]]; do
+   	case "$1" in
+   		-p | --primary) sel=primary ;;
+   		-t | --type) shift; type="$1" ;;
+   		--type=*) type="${1#--type=}" ;;
+   		-*) ;;
+   		*) break ;;
+   	esac
+   	shift
+   done
+   [[ -z $type || $type == text/plain* ]] &&
+   	exec xclip -selection "$sel" -i
+   exec xclip -selection "$sel" -t "$type" -i
+   ```
+
+   > [!NOTE]
+   > Seen on GNOME Shell 50.2 / mutter 50.2 / wl-clipboard 2.3.0 (CachyOS,
+   > Wayland). GNOME paste is validated working on Ubuntu 24.04 / GNOME —
+   > see [compatibility.md](compatibility.md) — so this is not GNOME-wide.
+   > Run the check above before assuming it's your problem.
+
 Want the why behind all this? See
 [configuration.md](configuration.md#text-injection-devuinput-access) for how the
 udev rule grants access, and
