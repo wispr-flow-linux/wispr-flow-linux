@@ -12,12 +12,14 @@ The maintainer's desktop (hostname `Imsai`), where the PTT hotplug-decay bug
   asset sits beside it as `wispr-flow-linux-helper.orig` (sha256 matches the
   v0.1.2 GitHub asset). A pacman upgrade of the package will silently restore
   the broken release helper until a fixed helper release is pinned.
-- **`/dev/input` churn sources here:** RustDesk re-creates its uinput
-  keyboard hourly on the hour; Logitech G604 (Bluetooth mouse) exposes a
-  keyboard HID node that returns on every reconnect; Keychron K2 (USB)
-  re-enumerates on replug/reset; suspend/resume cycles. `162+86 →
-  paste_event` matches in the log can come from the G604/RustDesk, so they do
-  NOT prove the Keychron stream is alive.
+- **`/dev/input` churn sources here:** Logitech G604 (Bluetooth mouse)
+  exposes a keyboard HID node that returns on every reconnect; Keychron K2
+  (USB) re-enumerates on replug/reset; suspend/resume cycles. `162+86 →
+  paste_event` matches in the log can come from the G604, so they do NOT
+  prove the Keychron stream is alive. (RustDesk — the loudest churn source
+  during the helper#7 diagnosis, re-creating a uinput keyboard hourly on the
+  hour — was **uninstalled 2026-08-13**; `input: RustDesk UInput Keyboard`
+  journal entries before that date are it.)
 - **Log forensics:** `~/.cache/wispr-flow/launcher.log` is append-only across
   runs and holds helper stderr (with full UTC dates — use as date anchors for
   the time-only app lines). `main.log` rotates at 3 MiB. PTT usage dates are
