@@ -11,6 +11,8 @@
 #     * mac-gates.sh           -> gates the macOS Applications-folder guard
 #     * linux-window-frame.sh  -> frameless hub/settings window on Linux
 #     * linux-deeplink.sh      -> cold-start wispr-flow: argv parse on Linux
+#     * status-interval-log-ratelimit.sh -> samples the leaked-interval
+#       "Window is destroyed" spam 1-in-600 so rotation keeps real history
 #   renderer bundles:
 #     * linux-renderer-chrome.sh -> remaps the <html> platform class linux->win32
 #     * linux-renderer-treat-as-windows.sh -> widens each renderer's isWindows
@@ -48,6 +50,7 @@ MARKERS=(
   "window-frame: linux frameless window branch|F|WISPR_LINUX_FRAMELESS"
   "treat-as-windows: linux widens renderer isWindows bind|F|WISPR_LINUX_RENDERER_ISWIN"
   "deeplink: linux cold-start argv parse|F|WISPR_LINUX_DEEPLINK"
+  "log-ratelimit: leaked-interval spam sampled 1/600|F|WISPR_LINUX_LOG_RATELIMIT"
 )
 
 missing=0

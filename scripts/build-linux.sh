@@ -277,6 +277,12 @@ step3_patch_bundle() {
     auto "Running linux-deeplink.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-deeplink.sh" "$target_bundle" \
       || warn "Deep-link patch failed -- see linux-deeplink.sh output above."
+    # Sample the two leaked-interval "Window is destroyed" log lines 1-in-600.
+    # Unpatched they are ~6.4 lines/s (98% of main.log) and burn the 3 MiB
+    # rotation window in ~2.5 h, destroying failure evidence. See issue #48.
+    auto "Running status-interval-log-ratelimit.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/status-interval-log-ratelimit.sh" "$target_bundle" \
+      || warn "Log-ratelimit patch failed -- see status-interval-log-ratelimit.sh output above."
 
     # Renderer + preload patches live alongside the main bundle under .webpack/.
     local webpack_root="${target_bundle%/main/index.js}"

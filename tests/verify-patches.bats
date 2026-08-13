@@ -37,6 +37,7 @@ declare -gA MARKER_SAMPLES=(
 	[windowframe]='"win32"===process.platform||"linux"===process.platform/*WISPR_LINUX_FRAMELESS*/&&Object.assign(t,{titleBarStyle:"hidden"});'
 	[treataswindows]='const x=((y?.platform?.isWindows??!1)||"linux"===y?.platform?.os)/*WISPR_LINUX_RENDERER_ISWIN*/;'
 	[deeplink]='if(f.H8||"linux"===process.platform){/*WISPR_LINUX_DEEPLINK*/const e=process.argv.find(x=>x.startsWith("wispr-flow:"));}'
+	[logratelimit]='((globalThis.WISPR_LINUX_LOG_RATELIMIT_MM=(globalThis.WISPR_LINUX_LOG_RATELIMIT_MM||0)+1)%600!==1||a().info("Window is destroyed, ignoring monitorMove interval [sampled 1/600]"))'
 )
 
 # Write a fixture app.asar-like file containing every marker, except the one
@@ -149,6 +150,14 @@ write_fixture() {
 @test "verify: exits 1 when the deeplink marker is missing" {
 	local fixture
 	fixture="$(write_fixture deeplink)"
+	run "$VERIFY_SH" "$fixture"
+	[[ "$status" -eq 1 ]]
+	[[ "$output" == *'MISSING'* ]]
+}
+
+@test "verify: exits 1 when the log-ratelimit marker is missing" {
+	local fixture
+	fixture="$(write_fixture logratelimit)"
 	run "$VERIFY_SH" "$fixture"
 	[[ "$status" -eq 1 ]]
 	[[ "$output" == *'MISSING'* ]]

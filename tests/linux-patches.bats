@@ -202,3 +202,45 @@ JS
 	[[ "$status" -ne 0 ]]
 	! grep -q 'WISPR_LINUX_DEEPLINK' "$FIX"
 }
+
+# =============================================================================
+# status-interval-log-ratelimit.sh
+# =============================================================================
+
+# Both real sites: statement position (else-branch) and expression position
+# (return void). The fixture mirrors the shipped minified shapes.
+_ratelimit_fixture() {
+	cat > "$FIX" <<'JS'
+const ee=async()=>{if(w&&!w.isDestroyed()){try{mv()}finally{rel()}}else a().info("Window is destroyed, ignoring monitorMove interval")},te=()=>setInterval(ee,400);
+const poll=()=>{if(!w||w.isDestroyed())return void a().info("Window is destroyed, ignoring interval for ignoreMouseEventsWhenNotInAlphaRegion");if(x)y()};
+JS
+}
+
+@test "ratelimit: wraps both sites, keeps original strings as prefixes" {
+	_ratelimit_fixture
+	run bash "$PATCH_DIR/status-interval-log-ratelimit.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -q 'WISPR_LINUX_LOG_RATELIMIT_MM' "$FIX"
+	grep -q 'WISPR_LINUX_LOG_RATELIMIT_ALPHA' "$FIX"
+	grep -q 'Window is destroyed, ignoring monitorMove interval \[sampled 1/600\]' "$FIX"
+	grep -q 'ignoreMouseEventsWhenNotInAlphaRegion \[sampled 1/600\]' "$FIX"
+	node_check "$FIX"
+}
+
+@test "ratelimit: idempotent (second run is a byte-identical no-op)" {
+	_ratelimit_fixture
+	run bash "$PATCH_DIR/status-interval-log-ratelimit.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	assert_idempotent "$PATCH_DIR/status-interval-log-ratelimit.sh" "$FIX"
+}
+
+@test "ratelimit: bails non-zero when an anchor is missing" {
+	cat > "$FIX" <<'JS'
+const unrelated = () => a().info("some other log line");
+JS
+	run bash "$PATCH_DIR/status-interval-log-ratelimit.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *"expected exactly 1"* ]]
+	# The failed run must not leave a half-patched file behind.
+	! grep -q 'WISPR_LINUX_LOG_RATELIMIT' "$FIX"
+}
