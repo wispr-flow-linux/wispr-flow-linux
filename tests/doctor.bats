@@ -345,3 +345,144 @@ command() {
 	run run_doctor "$TEST_TMP/does-not-exist"
 	[[ $status -ne 0 ]]
 }
+
+# =============================================================================
+# _doctor_check_desktop_entry (dir arguments let us drive it with fixtures)
+# =============================================================================
+
+@test "_doctor_check_desktop_entry: passes on the deb/rpm filename" {
+	local dir="$TEST_TMP/apps"
+	mkdir -p "$dir"
+	: >"$dir/wispr-flow.desktop"
+	run _doctor_check_desktop_entry "$dir"
+	[[ $output == *"[PASS]"* ]]
+	[[ $output == *"wispr-flow.desktop"* ]]
+}
+
+@test "_doctor_check_desktop_entry: passes on the AUR AppImage filename" {
+	local dir="$TEST_TMP/apps"
+	mkdir -p "$dir"
+	: >"$dir/wispr-flow-appimage.desktop"
+	run _doctor_check_desktop_entry "$dir"
+	[[ $output == *"[PASS]"* ]]
+	[[ $output == *"wispr-flow-appimage.desktop"* ]]
+}
+
+@test "_doctor_check_desktop_entry: passes on the upstream app-id filename" {
+	local dir="$TEST_TMP/apps"
+	mkdir -p "$dir"
+	: >"$dir/ai.wisprflow.WisprFlow.desktop"
+	run _doctor_check_desktop_entry "$dir"
+	[[ $output == *"[PASS]"* ]]
+	[[ $output == *"ai.wisprflow.WisprFlow.desktop"* ]]
+}
+
+@test "_doctor_check_desktop_entry: warns (not fails) when nothing found" {
+	local dir="$TEST_TMP/apps-empty"
+	mkdir -p "$dir"
+	_doctor_failures=0
+	run _doctor_check_desktop_entry "$dir"
+	[[ $output == *"[WARN]"* ]]
+	_doctor_check_desktop_entry "$dir" >/dev/null
+	[[ $_doctor_failures -eq 0 ]]
+}
+
+# =============================================================================
+# _doctor_check_capture_liveness (proc root / devices file / log / pid seams)
+# =============================================================================
+
+# A devices-file block for a keyboard advertising KEY_A..KEY_Z (the last KEY
+# word 0xfffffffffffffffe has bits 30 and 44 set) plus a mouse that must be
+# ignored (no letter keys in its KEY bitmap).
+_liveness_fixture_devices() {
+	cat > "$1" <<'DEV'
+I: Bus=0003 Vendor=05ac Product=024f Version=0111
+N: Name="Fixture Keyboard"
+H: Handlers=sysrq kbd leds event4
+B: KEY=1000000000007 ff9f207ac14057ff febeffdfffefffff fffffffffffffffe
+
+I: Bus=0003 Vendor=046d Product=b024 Version=0111
+N: Name="Fixture Mouse"
+H: Handlers=mouse0 event7
+B: KEY=1f0000 0 0 0
+
+I: Bus=0000 Vendor=0000 Product=0000 Version=0000
+N: Name="Wispr Flow Linux Helper"
+H: Handlers=sysrq kbd event9
+B: KEY=1000000000007 ff9f207ac14057ff febeffdfffefffff fffffffffffffffe
+DEV
+}
+
+# Fake proc tree: $1=proc root  $2=pid  $3...=event nodes held open
+_liveness_fixture_proc() {
+	local root="$1" pid="$2" ev
+	shift 2
+	mkdir -p "$root/$pid/fd"
+	local i=10
+	for ev in "$@"; do
+		ln -s "/dev/input/$ev" "$root/$pid/fd/$i"
+		i=$((i + 1))
+	done
+}
+
+@test "capture_liveness: passes when the helper holds every keyboard open" {
+	local devs="$TEST_TMP/devices" log="$TEST_TMP/launcher.log"
+	_liveness_fixture_devices "$devs"
+	printf 'key capture: evdev (/dev/input)\n' > "$log"
+	_liveness_fixture_proc "$TEST_TMP/proc" 4242 event4
+	_doctor_failures=0
+	run _doctor_check_capture_liveness "$TEST_TMP/proc" "$devs" "$log" 4242
+	[[ $output == *"[PASS]"* ]]
+	[[ $output == *"1/1 keyboard"* ]]
+	[[ $output == *"evdev"* ]]
+}
+
+@test "capture_liveness: warns and names the unwatched keyboard" {
+	local devs="$TEST_TMP/devices" log="$TEST_TMP/launcher.log"
+	_liveness_fixture_devices "$devs"
+	printf 'key capture: evdev (/dev/input)\n' > "$log"
+	# Helper runs but holds no event node open (decayed monitor).
+	_liveness_fixture_proc "$TEST_TMP/proc" 4242
+	_doctor_failures=0
+	run _doctor_check_capture_liveness "$TEST_TMP/proc" "$devs" "$log" 4242
+	[[ $output == *"[WARN]"* ]]
+	[[ $output == *"Fixture Keyboard"* ]]
+	[[ $output == *"restarted"* ]]
+	_doctor_check_capture_liveness "$TEST_TMP/proc" "$devs" "$log" 4242 \
+		>/dev/null
+	[[ $_doctor_failures -eq 0 ]]
+}
+
+@test "capture_liveness: ignores mice and the helper's own uinput device" {
+	local devs="$TEST_TMP/devices" log="$TEST_TMP/launcher.log"
+	_liveness_fixture_devices "$devs"
+	printf 'key capture: evdev (/dev/input)\n' > "$log"
+	# Only the real keyboard is held open; the mouse (event7) and the
+	# helper's own device (event9) must not be counted as unwatched.
+	_liveness_fixture_proc "$TEST_TMP/proc" 4242 event4
+	run _doctor_check_capture_liveness "$TEST_TMP/proc" "$devs" "$log" 4242
+	[[ $output == *"[PASS]"* ]]
+	[[ $output != *"Fixture Mouse"* ]]
+	[[ $output != *"Wispr Flow Linux Helper"* ]]
+}
+
+@test "capture_liveness: XInput2 backend passes without fd comparison" {
+	local devs="$TEST_TMP/devices" log="$TEST_TMP/launcher.log"
+	_liveness_fixture_devices "$devs"
+	printf 'key capture: XInput2 (X11, no device access needed)\n' > "$log"
+	_liveness_fixture_proc "$TEST_TMP/proc" 4242
+	run _doctor_check_capture_liveness "$TEST_TMP/proc" "$devs" "$log" 4242
+	[[ $output == *"[PASS]"* ]]
+	[[ $output == *"XInput2"* ]]
+}
+
+@test "capture_liveness: helper not running is informational only" {
+	local devs="$TEST_TMP/devices" log="$TEST_TMP/launcher.log"
+	_liveness_fixture_devices "$devs"
+	printf 'key capture: evdev (/dev/input)\n' > "$log"
+	_doctor_failures=0
+	run _doctor_check_capture_liveness "$TEST_TMP/proc-none" "$devs" "$log" 99
+	[[ $output == *"helper not running"* ]]
+	[[ $output != *"[FAIL]"* ]]
+	[[ $_doctor_failures -eq 0 ]]
+}

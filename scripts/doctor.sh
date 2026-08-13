@@ -175,6 +175,140 @@ _doctor_check_input_read() {
 }
 
 #------------------------------------------------------------------------------
+# Push-to-talk liveness — is the RUNNING helper watching the keyboards that
+# exist right now? The static readability check above stays green while a
+# helper that enumerated /dev/input once (helper <= v0.1.2) decays to watching
+# nothing as devices churn (wispr-flow-linux/helper#7): each reader thread
+# dies with its device and nothing rescans. Compare the helper's open
+# event-node fds (procfs) against the keyboard-capable nodes present now.
+#
+# A "keyboard" mirrors the helper's own filter: a /proc/bus/input/devices
+# block whose KEY bitmap advertises the letter keys KEY_A(30)+KEY_Z(44) —
+# this excludes mice, power buttons and lid switches (which still get the
+# kernel kbd handler). The helper's own uinput injection device is excluded:
+# it is deliberately never watched (it would echo injected keys).
+#------------------------------------------------------------------------------
+# Args are test seams (tests/doctor.bats drives them with fixtures):
+#   $1 proc root (default /proc)   $2 input device list   $3 launcher.log
+#   $4 helper pid override (skips pgrep)
+_doctor_check_capture_liveness() {
+	local proc_root="${1:-/proc}"
+	local devices_file="${2:-/proc/bus/input/devices}"
+	local log_path="${3:-${XDG_CACHE_HOME:-$HOME/.cache}/wispr-flow/launcher.log}"
+	local pid="${4:-}"
+
+	# Selected capture backend: the helper logs one line per launch; the
+	# newest one is authoritative for the current/most recent run.
+	local backend=''
+	if [[ -r $log_path ]]; then
+		backend=$(grep -ao 'key capture: [^"'\'']*' "$log_path" 2>/dev/null \
+			| tail -n 1) || backend=''
+		backend="${backend#key capture: }"
+	fi
+	[[ -n $backend ]] && _info "Capture backend (last helper launch): $backend"
+
+	if [[ -z $pid ]]; then
+		pid=$(pgrep -f 'wispr-flow-linux-helper$' 2>/dev/null | head -n 1)
+	fi
+	if [[ -z $pid || ! -d "$proc_root/$pid/fd" ]]; then
+		_info 'Monitor liveness: helper not running' \
+			'(launch Wispr Flow, then re-run doctor to check)'
+		return
+	fi
+
+	# XInput2 (true X11) holds no event-node fds; the comparison below only
+	# applies to the evdev backend.
+	if [[ $backend == *XInput2* ]]; then
+		_pass "Monitor liveness: helper (pid $pid) uses XInput2" \
+			'(no device fds to check)'
+		return
+	fi
+
+	if [[ ! -r $devices_file ]]; then
+		_info 'Monitor liveness: cannot read the input device list'
+		return
+	fi
+
+	# Event nodes the helper currently holds open.
+	local watched=' '
+	local fd target
+	for fd in "$proc_root/$pid/fd"/*; do
+		[[ -e $fd || -L $fd ]] || continue
+		target=$(readlink "$fd" 2>/dev/null) || continue
+		if [[ $target == /dev/input/event* ]]; then
+			watched+="${target##*/} "
+		fi
+	done
+
+	# Keyboard-capable nodes present now.
+	local -a keyboards=() unwatched=()
+	local line name='' ev='' keybits='' tok
+	while IFS= read -r line || [[ -n $line ]]; do
+		case $line in
+			N:*)
+				name="${line#*Name=\"}"
+				name="${name%\"}"
+				;;
+			B:\ KEY=*)
+				keybits="${line##* }"
+				;;
+			H:*)
+				ev=''
+				for tok in ${line#*Handlers=}; do
+					[[ $tok == event[0-9]* ]] && ev="$tok"
+				done
+				;;
+			'')
+				_doctor_liveness_collect
+				name='' ev='' keybits=''
+				;;
+		esac
+	done < "$devices_file"
+	_doctor_liveness_collect
+
+	if ((${#keyboards[@]} == 0)); then
+		_info 'Monitor liveness: no keyboard-capable input devices found'
+		return
+	fi
+	if ((${#unwatched[@]} == 0)); then
+		_pass "Monitor liveness: helper (pid $pid) is watching" \
+			"${#keyboards[@]}/${#keyboards[@]} keyboard device(s)"
+		return
+	fi
+	_warn "Monitor liveness: helper (pid $pid) is NOT watching" \
+		"${#unwatched[@]} of ${#keyboards[@]} keyboard device(s):"
+	local k
+	for k in "${unwatched[@]}"; do
+		_info "  unwatched: $k"
+	done
+	_info 'Push-to-talk from those keyboards is dead until Wispr Flow is'
+	_info 'restarted. Helper <= v0.1.2 loses keyboards that re-enumerate'
+	_info '(Bluetooth reconnect, USB replug, suspend/resume); fixed by'
+	_info 'wispr-flow-linux/helper#7 hotplug adoption.'
+}
+
+# Block-end collector for _doctor_check_capture_liveness: appends the block
+# just parsed to `keyboards` (and `unwatched` when the helper does not hold
+# its node open). Reads/writes the caller's locals; bash dynamic scoping.
+_doctor_liveness_collect() {
+	[[ -n $ev && -n $keybits ]] || return 0
+	[[ $keybits =~ ^[0-9a-fA-F]{1,16}$ ]] || return 0
+	# Letter-key capability, mirroring the helper's EVIOCGBIT filter: bits
+	# KEY_A(30) and KEY_Z(44) of the last (lowest) 64-bit word of the KEY
+	# bitmap. Mice, power buttons and lid switches fail this even when they
+	# carry the kbd handler.
+	local v=$((16#$keybits))
+	(((v >> 30) & 1)) || return 0
+	(((v >> 44) & 1)) || return 0
+	# The helper's own uinput injection keyboard is never watched by design.
+	[[ $name == 'Wispr Flow Linux Helper' ]] && return 0
+	keyboards+=("$ev ($name)")
+	if [[ $watched != *" $ev "* ]]; then
+		unwatched+=("$ev ($name)")
+	fi
+}
+
+#------------------------------------------------------------------------------
 # Clipboard tools — hard requirement on Wayland (paste/selection).
 #------------------------------------------------------------------------------
 _doctor_check_clipboard() {
@@ -465,13 +599,40 @@ _doctor_check_sandbox() {
 # checks. Out-of-disk is a known Chromium failure mode (blank window / profile
 # corruption) that is otherwise invisible.
 #------------------------------------------------------------------------------
+# Args (test seam): application dirs to search; default is the system +
+# user XDG locations. Known filenames cover the deb/rpm makers
+# (wispr-flow.desktop), the AUR AppImage package (wispr-flow-appimage.desktop),
+# and the upstream app id (ai.wisprflow.WisprFlow.desktop) used by AppImage
+# desktop integration.
+# shellcheck disable=SC2120  # args are an optional test seam; prod uses the
+# default dir list, tests/doctor.bats drives it with fixture dirs.
 _doctor_check_desktop_entry() {
-	local desktop_file='/usr/share/applications/wispr-flow.desktop'
-	if [[ -f $desktop_file ]]; then
-		_pass "Desktop entry: $desktop_file"
+	local -a names=(
+		'wispr-flow.desktop'
+		'wispr-flow-appimage.desktop'
+		'ai.wisprflow.WisprFlow.desktop'
+	)
+	local -a dirs
+	if (($#)); then
+		dirs=("$@")
 	else
-		_warn 'Desktop entry: not found (expected for AppImage installs)'
+		dirs=(
+			'/usr/share/applications'
+			'/usr/local/share/applications'
+			"${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+		)
 	fi
+	local d n
+	for d in "${dirs[@]}"; do
+		for n in "${names[@]}"; do
+			if [[ -f "$d/$n" ]]; then
+				_pass "Desktop entry: $d/$n"
+				return
+			fi
+		done
+	done
+	_warn 'Desktop entry: none found (expected for portable AppImage runs)'
+	_info "Looked for: ${names[*]}"
 }
 
 _doctor_check_disk_space() {
@@ -526,6 +687,7 @@ run_doctor() {
 
 	echo -e "${_bold}Push-to-Talk (input monitor)${_reset}"
 	_doctor_check_input_read
+	_doctor_check_capture_liveness
 	echo
 
 	echo -e "${_bold}Clipboard${_reset}"
