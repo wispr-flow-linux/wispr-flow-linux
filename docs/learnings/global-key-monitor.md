@@ -5,10 +5,18 @@
 Hey! Here's something I had to learn the hard way: push-to-talk and the in-app
 shortcut recorder stay dead until the helper streams key events to the app.
 That's because **Wispr Flow has no hotkey detection of its own**. Its
-renderer-side "Keyboard Service" is fed entirely by `KeypressEvent` IPC frames
-from the helper. On macOS/Windows the Swift/C# helpers supply them via OS-level
-key hooks. The Linux helper originally shipped only text injection / focus /
+"Keyboard Service" is fed entirely by `KeypressEvent` IPC frames from the
+helper. On macOS/Windows the Swift/C# helpers supply them via OS-level key
+hooks. The Linux helper originally shipped only text injection / focus /
 clipboard, so the event stream was missing and every hotkey was silently dead.
+
+(A correction to an earlier version of this page: the Keyboard Service —
+chord matching and action dispatch — lives in the **main process**
+(`.webpack/main/index.js`), not a renderer. The hub renderer only hosts the
+shortcut-recorder UI, which main feeds via the `Shortcut` IPC while
+`isRecordingKeybind` is set. This matters when you're deciding whether a
+dead window can kill PTT: it can't — only a dead event stream or main-process
+state can.)
 
 **Source files** (in the [`wispr-flow-linux/helper`](https://github.com/wispr-flow-linux/helper) repo):
 
@@ -45,7 +53,10 @@ per session, and the choice trades device-access requirements against coverage:
   raw events from the kernel input layer, which sits **below** the display server
   and behaves identically on Wayland and X11 (the read-side mirror of the
   [uinput injection](wayland-injection.md) write path). The catch is it needs
-  read access to the input devices.
+  read access to the input devices — and it must **keep watching `/dev/input`
+  for hotplug**: a start-once enumeration silently decays to watching nothing
+  as devices churn, killing PTT hours into a session. That failure and its fix
+  get their own page: [evdev-hotplug-decay.md](evdev-hotplug-decay.md).
 
 Here's the part I really liked. XInput2 raw `detail` is the X keycode, which on
 Linux is the evdev code **+ 8**. Subtract 8 and both backends feed the *same*

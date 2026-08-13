@@ -8,6 +8,37 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+### Added
+
+- `wispr-flow --doctor` now probes push-to-talk **monitor liveness**: it
+  reports the selected capture backend and, when the helper is running,
+  compares the event nodes it holds open (`/proc/<pid>/fd`) against the
+  keyboard-capable devices currently present, naming any unwatched keyboard.
+  A helper whose capture decayed (enumerate-once ≤ v0.1.2 losing re-created
+  devices, wispr-flow-linux/helper#7) previously passed every check while
+  push-to-talk was dead. (#48)
+- `scripts/ptt-trace.sh`: opt-in durable diagnosis capture — a spam-filtered
+  `main.log` follower that survives rotation plus a timestamped
+  `udevadm monitor` input-churn trail under
+  `~/.cache/wispr-flow/ptt-trace/`. (#48)
+- `docs/learnings/evdev-hotplug-decay.md`: how enumerate-once evdev capture
+  silently kills push-to-talk on churning `/dev/input`, why every health
+  signal stayed green, and the tooling that makes it observable. (#48)
+
+### Fixed
+
+- `wispr-flow --doctor` no longer false-WARNs about a missing desktop entry
+  on AppImage/AUR installs: the check now accepts `wispr-flow.desktop`,
+  `wispr-flow-appimage.desktop`, and `ai.wisprflow.WisprFlow.desktop` across
+  the system and user application dirs. (#48)
+- The two leaked status-window interval log lines (`Window is destroyed,
+  ignoring …`) flooded `main.log` at ~6.4 lines/s (98%+ of the file), burning
+  the 3 MiB rotation window in ~2.5 h and destroying failure evidence. A new
+  bundle patch (`status-interval-log-ratelimit.sh`, marker
+  `WISPR_LINUX_LOG_RATELIMIT`) samples both sites 1-in-600 so rotation keeps
+  real history; the first tick still logs, and the original message text is
+  preserved as a prefix. (#48)
+
 ## [v1.0.3] - 2026-06-11
 
 ### Fixed

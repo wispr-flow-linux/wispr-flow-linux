@@ -16,6 +16,7 @@ one of these subsystems, read its page first. I wish I had.
 | [The isPackaged / launcher rename](ispackaged-rename.md) | Why an `electron`-named launcher silently breaks DB migrations ("no such table"). |
 | [Wayland injection](wayland-injection.md) | In-process `/dev/uinput` virtual keyboard + `ext-data-control` clipboard. |
 | [Global key monitor](global-key-monitor.md) | Push-to-talk lives in the helper: XInput2 (X11) / evdev (Wayland) → `KeypressEvent`, and why both PTT and the shortcut recorder were dead without it. |
+| [evdev hotplug decay](evdev-hotplug-decay.md) | Enumerate-once capture decays to watching nothing as `/dev/input` churns — PTT dies hours into a session with doctor green; the hotplug fix, the liveness probe, and the log-spam patch that stopped destroying the evidence. |
 | [Helper spawn env](helper-spawn-env.md) | The app spawns the helper with a replacement env (no `process.env`), starving it of `WAYLAND_DISPLAY`/`DISPLAY` → silent no-op `stub` injector; recording works, injection doesn't. |
 | [Platform gates](platform-gates.md) | The darwin/win32 carve-outs Linux falls through: the `.linux`-matches-no-CSS bug behind the shifted side menu, the three gate-shape rules, and how to re-audit a new Wispr version. |
 | [Patching minified JS](patching-minified-js.md) | Rules for patches that survive re-minification: `[\w$]+` for identifiers, anchor on developer strings, assert the match count, marker-based idempotency, verify against shipped bytes. |

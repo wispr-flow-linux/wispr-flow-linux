@@ -150,6 +150,12 @@ when you discover something non-obvious that would save the next contributor
 - [`global-key-monitor.md`](docs/learnings/global-key-monitor.md) — push-to-talk
   and the shortcut recorder are fed by helper `KeypressEvent`s (XInput2 on X11,
   evdev `/dev/input` on Wayland); the app has no hotkey detection of its own.
+- [`evdev-hotplug-decay.md`](docs/learnings/evdev-hotplug-decay.md) —
+  enumerate-once evdev capture decays to watching nothing as `/dev/input`
+  churns (hourly uinput re-creation, Bluetooth reconnects, USB re-enumeration
+  across suspend): PTT dies mid-session with `--doctor` green. Fixed by helper
+  hotplug adoption (helper#7); doctor now probes monitor liveness via
+  `/proc/<pid>/fd`, and `scripts/ptt-trace.sh` captures failure moments.
 - [`helper-spawn-env.md`](docs/learnings/helper-spawn-env.md) — the app spawns
   the helper with a replacement env (no `process.env`), starving it of
   `WAYLAND_DISPLAY`/`DISPLAY` so injection silently falls to the no-op `stub`
