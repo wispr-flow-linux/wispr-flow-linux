@@ -277,6 +277,19 @@ step3_patch_bundle() {
     auto "Running linux-deeplink.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-deeplink.sh" "$target_bundle" \
       || warn "Deep-link patch failed -- see linux-deeplink.sh output above."
+    # Take the Electron single-instance lock at the very top of the bundle,
+    # before ANY init runs. The vendor only requests the lock at the end of
+    # its ~8.3 MB bundle, so a second launch fully initializes (native .node
+    # modules, better-sqlite3, helper IPC) and then quits -- teardown of that
+    # half-initialized native state aborts with V8 FATAL napi_throw (9
+    # SIGABRT coredumps observed 2026-08-18/26, incl. a 4-in-6s crash loop).
+    # With the early guard the second instance exits before executing another
+    # byte; the primary still gets `second-instance` (argv handshake happens
+    # during the failed lock request) and focuses its hub window. See
+    # patches/linux-early-singleton.sh.
+    auto "Running linux-early-singleton.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-early-singleton.sh" "$target_bundle" \
+      || warn "Early-singleton patch failed -- see linux-early-singleton.sh output above."
 
     # Renderer + preload patches live alongside the main bundle under .webpack/.
     local webpack_root="${target_bundle%/main/index.js}"
