@@ -1,9 +1,10 @@
 #!/usr/bin/env bats
 #
 # linux-patches.bats
-# Unit tests for the four renderer/main bundle patches added for the Linux port:
+# Unit tests for the five renderer/main bundle patches added for the Linux port:
 #   * linux-renderer-chrome.sh           -> remaps the <html> platform class linux->win32
 #   * linux-window-frame.sh              -> frameless hub/settings window on Linux
+#   * linux-hub-focusable.sh             -> hub window focusable/WM-managed on Linux
 #   * linux-renderer-treat-as-windows.sh -> widens each renderer's isWindows bind
 #                                           (bridge stays honest; no preload touched)
 #   * linux-deeplink.sh                  -> cold-start wispr-flow: argv parse on Linux
@@ -125,6 +126,43 @@ JS
 	run bash "$PATCH_DIR/linux-window-frame.sh" "$FIX"
 	[[ "$status" -ne 0 ]]
 	! grep -q 'WISPR_LINUX_FRAMELESS' "$FIX"
+}
+
+# =============================================================================
+# linux-hub-focusable.sh
+# =============================================================================
+
+@test "hub-focusable: rewrites the Hub focusable:!1, leaves overlays alone" {
+	cat > "$FIX" <<'JS'
+const t={title:"Flow Hub",center:!0,show:!1,webPreferences:{preload:require("path").resolve(__dirname,"../renderer","hub","preload.js"),devTools:"development"===_.M0||(0,N.Pv)(d.RA.prefs?.user.email||"")},focusable:!1};_.tD?Object.assign(t,{frame:!1,titleBarStyle:"hidden"}):Object.assign(t,{frame:!1,autoHideMenuBar:!0});
+const ov=new r.BrowserWindow({show:!1,transparent:!0,frame:!1,hasShadow:!1,focusable:!1,skipTaskbar:!0});
+JS
+	run bash "$PATCH_DIR/linux-hub-focusable.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -q 'WISPR_LINUX_HUB_FOCUSABLE' "$FIX"
+	# the Hub site now gates focusable on the platform
+	grep -qF 'focusable:/*WISPR_LINUX_HUB_FOCUSABLE*/"linux"===process.platform}' "$FIX"
+	# the overlay's intentional focusable:!1 is untouched (exactly one remains)
+	[[ "$(grep -c 'focusable:!1' "$FIX")" -eq 1 ]]
+	grep -qF 'hasShadow:!1,focusable:!1,skipTaskbar:!0' "$FIX"
+	node_check "$FIX"
+}
+
+@test "hub-focusable: idempotent on second run" {
+	cat > "$FIX" <<'JS'
+const t={title:"Flow Hub",center:!0,show:!1,webPreferences:{preload:require("path").resolve(__dirname,"../renderer","hub","preload.js"),devTools:"development"===_.M0},focusable:!1};
+JS
+	bash "$PATCH_DIR/linux-hub-focusable.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-hub-focusable.sh" "$FIX"
+}
+
+@test "hub-focusable: bails non-zero when the Hub anchor is absent" {
+	cat > "$FIX" <<'JS'
+const ov=new r.BrowserWindow({show:!1,transparent:!0,frame:!1,hasShadow:!1,focusable:!1,skipTaskbar:!0});
+JS
+	run bash "$PATCH_DIR/linux-hub-focusable.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_HUB_FOCUSABLE' "$FIX"
 }
 
 # =============================================================================
