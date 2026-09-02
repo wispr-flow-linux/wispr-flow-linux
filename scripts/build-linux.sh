@@ -272,6 +272,14 @@ step3_patch_bundle() {
     auto "Running linux-window-frame.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-window-frame.sh" "$target_bundle" \
       || warn "Window-frame patch failed -- see linux-window-frame.sh output above."
+    # Make the Hub window focusable on Linux: upstream creates it focusable:!1
+    # on every platform and only restores focus behind isMac gates. On X11 a
+    # focusable:false BrowserWindow is created override-redirect (unmanaged):
+    # always on top, no Alt+Tab/move/minimize (issue #36). See
+    # linux-hub-focusable.sh.
+    auto "Running linux-hub-focusable.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-hub-focusable.sh" "$target_bundle" \
+      || warn "Hub-focusable patch failed -- see linux-hub-focusable.sh output above."
     # Parse the wispr-flow: deep-link URL out of argv at cold start on Linux too
     # (the parse was win32-only; the warm-start second-instance path already works).
     auto "Running linux-deeplink.sh on $target_bundle"
