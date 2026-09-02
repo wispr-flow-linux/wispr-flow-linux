@@ -160,10 +160,15 @@ build_electron_args() {
 		# GTK from connecting to the compositor (blurry/failed HiDPI).
 		export GDK_BACKEND=wayland
 	else
-		# Default: let Electron 42 auto-detect (Ozone picks Wayland when
-		# WAYLAND_DISPLAY is set). The uinput injection path does not
-		# depend on the toolkit backend, so no override is needed.
-		log_message 'Wayland session - Electron Ozone auto-detect'
+		# Default: force XWayland (--ozone-platform=x11).
+		# Under native Ozone Wayland, Electron ignores X11 EWMH window-type
+		# hints (skipTaskbar, type:"toolbar"), so the status indicator appears
+		# as a regular closeable window in GNOME Activities / Alt+Tab.
+		# Under XWayland those hints are honoured by the compositor, giving
+		# the status pill correct overlay behaviour.
+		# WISPR_USE_WAYLAND=1 opts back into native Ozone for users who need it.
+		log_message 'Wayland session - using XWayland (--ozone-platform=x11) for overlay window compatibility'
+		electron_args+=('--ozone-platform=x11')
 	fi
 }
 

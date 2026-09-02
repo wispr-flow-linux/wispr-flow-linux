@@ -48,6 +48,7 @@ MARKERS=(
   "window-frame: linux frameless window branch|F|WISPR_LINUX_FRAMELESS"
   "treat-as-windows: linux widens renderer isWindows bind|F|WISPR_LINUX_RENDERER_ISWIN"
   "deeplink: linux cold-start argv parse|F|WISPR_LINUX_DEEPLINK"
+  "status-autohide: pill hidden when idle, shown on dictation|F|WISPR_LINUX_STATUS_AUTOHIDE"
 )
 
 missing=0
