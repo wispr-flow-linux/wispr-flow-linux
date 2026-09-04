@@ -35,13 +35,14 @@ original_home=''
 project_root=''
 work_dir=''
 installer_exe_path=''
+resolved_installer_sha256=''
 final_output_path=''
 
 #--- package metadata (constants) ----------------------------------------------
 readonly PACKAGE_NAME='wispr-flow'
 readonly WM_CLASS='Wispr Flow'
 export WM_CLASS
-readonly APP_VERSION='1.6.7'
+readonly APP_VERSION='1.6.774'
 readonly ELECTRON_VERSION='42.3.0'
 readonly ELECTRON_MAJOR='42'
 # Exported so scripts/build-linux.sh stages the versions the orchestrator
