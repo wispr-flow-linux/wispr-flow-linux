@@ -277,6 +277,16 @@ step3_patch_bundle() {
     auto "Running linux-deeplink.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-deeplink.sh" "$target_bundle" \
       || warn "Deep-link patch failed -- see linux-deeplink.sh output above."
+    # Seed fresh Linux profiles with the WINDOWS default shortcut/PTT map. The
+    # main process picks the defaults with a `"win32"===process.platform` flag,
+    # so on Linux it wrote the macOS map -- whose PTT key resolves to keycode -1
+    # ("no such key on Linux"). Result: an unpressable, blank push-to-talk
+    # binding and no way past the onboarding shortcuts step (issues #33, #46).
+    # Only the two default-seeding ternaries are widened; the flag's other ~79
+    # consumers (Windows-only OS/registry/path APIs) keep the real platform.
+    auto "Running linux-main-shortcut-defaults.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-main-shortcut-defaults.sh" "$target_bundle" \
+      || warn "Shortcut-defaults patch failed -- see linux-main-shortcut-defaults.sh output above."
 
     # Renderer + preload patches live alongside the main bundle under .webpack/.
     local webpack_root="${target_bundle%/main/index.js}"

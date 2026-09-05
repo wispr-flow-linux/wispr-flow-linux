@@ -8,12 +8,26 @@
 # WHY THIS PATCH EXISTS
 # ---------------------
 # The shipped main bundle spawns the native helper with a REPLACEMENT env
-# object that lists only telemetry keys -- it does NOT spread process.env:
+# object that lists only telemetry keys -- it does NOT spread process.env.
+# Up to 1.6.7 that object was inline at the spawn site:
 #
 #   helper.process = spawn(s, {
 #     stdio:["pipe","pipe","pipe","pipe"],
 #     env:{ sentryDSN, environment, segmentWriteKey,
 #           postHogProjectKey, sentryLocalDebug } })
+#
+# As of 1.6.774 upstream hoisted it into a factory, so the spawn site reads
+# `env:N()` and the object literal lives elsewhere in the module:
+#
+#   N = (packaged = app.isPackaged) => ({ sentryDSN, environment,
+#         segmentWriteKey, postHogProjectKey, sentryLocalDebug,
+#         developmentFileLogging })
+#   ... spawn(s, { stdio:["pipe","pipe","pipe","pipe"], env:N() })
+#
+# The env is still telemetry-only either way, so the bug is unchanged -- but an
+# anchor on the spawn site's `env:{` stopped matching and this patch silently
+# no-op'd (caught by verify-patches.sh, which fails the build on the missing
+# marker). We now anchor on the OBJECT rather than on where it is consumed.
 #
 # On macOS/Windows the helper talks to the OS through native APIs and needs no
 # session env, so upstream never spread process.env. But the Linux helper's
@@ -35,15 +49,19 @@
 #
 # THE PATCH (surgical, one insertion point)
 # -----------------------------------------
-# Anchor on the stable spawn literal (the 4-pipe stdio + the telemetry env
-# object -- both are preserved across minification because the stdio array and
-# the telemetry keys are string/property literals, not minified identifiers).
-# Insert a `...process.env,` spread at the FRONT of the env object so the
-# session env propagates, while the telemetry keys that follow still override
-# anything of the same name. On mac/win this only adds the (harmless) parent
-# env the helper already ignores, so the patch cannot regress those platforms.
+# Anchor on the telemetry env object's OWN opening -- `{sentryDSN:` -- rather
+# than on the spawn call that consumes it. Property names are not mangled by the
+# current bundler, so this survives re-minification AND survives the object
+# being hoisted, inlined, or wrapped in a factory: wherever the object is built,
+# that is where the spread belongs. `sentryDSN` appears exactly ONCE in the
+# whole bundle (asserted below), so the anchor cannot drift onto another object.
 #
-#   env:{...process.env,sentryDSN:...}   (marker comment carries the grep token)
+# Insert a `...process.env,` spread at the FRONT of the object so the session
+# env propagates, while the telemetry keys that follow still override anything of
+# the same name. On mac/win this only adds the (harmless) parent env the helper
+# already ignores, so the patch cannot regress those platforms.
+#
+#   {...process.env,sentryDSN:...}   (marker comment carries the grep token)
 #
 # stdio / fd-3 / exec-bit notes live in helper-resolver.sh PATCH NOTES.
 #===============================================================================
@@ -80,20 +98,33 @@ path, marker = sys.argv[1], sys.argv[2]
 with io.open(path, "r", encoding="utf-8", errors="surrogateescape") as f:
     data = f.read()
 
-# The helper spawn site: 4-pipe stdio (fd 3 = IPC channel) + the telemetry-only
-# replacement env. Unique in the bundle; if upstream ever spreads process.env
-# itself, the `...process.env` check below makes this a clean no-op.
-anchor = 'stdio:["pipe","pipe","pipe","pipe"],env:{'
+# The telemetry-only replacement env object handed to the helper spawn. Anchored
+# on its first property name (a preserved developer identifier), so it is found
+# whether the object sits inline at the spawn site (<=1.6.7) or inside a factory
+# the spawn calls (>=1.6.774). Asserted unique; if upstream ever spreads
+# process.env itself, the check below makes this a clean no-op.
+anchor = '{sentryDSN:'
 n = data.count(anchor)
 if n != 1:
-    sys.exit(f"ERROR: expected exactly 1 helper-spawn env anchor, found {n}.")
+    sys.exit(f"ERROR: expected exactly 1 telemetry env object anchor "
+             f"('{anchor}'), found {n}.")
+
+# Sanity-check the object really is the helper spawn's env: the 4-pipe stdio
+# spawn (fd 3 = the helper IPC channel) must exist too. Cheap, and it fails
+# closed if a future bundle reuses these property names for something else.
+if data.count('stdio:["pipe","pipe","pipe","pipe"]') != 1:
+    sys.exit('ERROR: expected exactly 1 four-pipe helper spawn site; '
+             'the bundle layout may have changed -- inspect manually.')
 
 after = data[data.find(anchor) + len(anchor):]
 if after.startswith("...process.env") or after.startswith(f"/*{marker}*/"):
     sys.exit(0)  # already spreads the parent env -- nothing to do
 
-# Insert the marker comment + spread at the front of the env object literal.
-repl = anchor + f"/*{marker}*/...process.env,"
+# Insert the marker comment + spread at the front of the env object literal --
+# i.e. just inside the `{`, BEFORE the property name the anchor also spans.
+# (Appending after the whole anchor would land inside the `sentryDSN:` value
+# position and produce `{sentryDSN:...process.env,`, a syntax error.)
+repl = "{" + f"/*{marker}*/" + "...process.env," + anchor[1:]
 data = data.replace(anchor, repl, 1)
 
 with io.open(path, "w", encoding="utf-8", errors="surrogateescape") as f:
@@ -122,5 +153,5 @@ fi
 echo "OK: helper-spawn env now inherits the session environment in $BUNDLE"
 echo
 echo "Patched spawn now does (conceptually):"
-echo "  spawn(helper, { stdio:[...x4],"
-echo "    env:{ ...process.env, sentryDSN, environment, ... } });"
+echo "  env object := { ...process.env, sentryDSN, environment, ... }"
+echo "  spawn(helper, { stdio:[...x4], env: <that object> });"
