@@ -45,8 +45,14 @@ _fetch() {
 #   * --exe absent (default): resolve the latest upstream URL and download it
 #     (see fetch_installer). The proprietary app is never bundled or committed
 #     to the repo -- it is fetched/supplied fresh each build.
-# A SHA-256 is verified IF one is known (WISPR_EXE_SHA256 env or installer.sha256
-# file). Upstream publishes no stable hash, so absence only warns.
+# A SHA-256 is verified IF one is known, in precedence order:
+#   1. WISPR_EXE_SHA256 env      (explicit operator override, wins over all)
+#   2. installer.sha256 file     (pinned in-tree)
+#   3. the upstream release manifest's own sha256, captured by fetch_installer
+#      (resolve-installer-url.sh emits SHA256=; only set on the fetch path, so
+#      a --exe installer is never checked against the *latest* hash)
+# Absence still only warns -- but on the default fetch path a hash is now always
+# available, so a corrupted or tampered download fails the build.
 #-------------------------------------------------------------------------------
 download_installer() {
 	say 'Locate Wispr Flow installer'
@@ -59,12 +65,14 @@ download_installer() {
 		fetch_installer
 	fi
 
-	# Optional SHA-256 verification.
+	# Optional SHA-256 verification (see precedence in the header comment).
 	local expected_sha=''
 	if [[ -n ${WISPR_EXE_SHA256:-} ]]; then
 		expected_sha="$WISPR_EXE_SHA256"
 	elif [[ -f "$project_root/installer.sha256" ]]; then
 		expected_sha=$(awk '{print $1; exit}' "$project_root/installer.sha256")
+	elif [[ -n ${resolved_installer_sha256:-} ]]; then
+		expected_sha="$resolved_installer_sha256"
 	fi
 	verify_sha256 "$installer_exe_path" "$expected_sha" 'Wispr Flow installer' \
 		|| die 'Installer checksum verification failed'
@@ -84,12 +92,19 @@ fetch_installer() {
 	[[ -x $resolver ]] || die "installer resolver not found: $resolver"
 
 	auto 'No --exe supplied; resolving the latest Wispr Flow installer'
-	local resolved url version
+	local resolved url version sha
 	resolved=$("$resolver") \
 		|| die 'Failed to resolve the Wispr Flow installer URL (pass --exe to use a local installer)'
 	url=$(printf '%s\n' "$resolved" | sed -nE 's/^URL=//p')
 	version=$(printf '%s\n' "$resolved" | sed -nE 's/^VERSION=//p')
+	sha=$(printf '%s\n' "$resolved" | sed -nE 's/^SHA256=//p')
 	[[ -n $url ]] || die 'installer resolver returned no URL'
+	# Publish the manifest hash for download_installer's verification step. Only
+	# the fetch path sets it, so a local --exe is never judged against it.
+	resolved_installer_sha256="$sha"
+	if [[ -z $sha ]]; then
+		warn 'upstream manifest published no sha256; the download cannot be verified'
+	fi
 
 	if [[ -n $version && $version != "${APP_VERSION:-}" ]]; then
 		die "upstream latest is ${version} but this build is pinned to ${APP_VERSION}.

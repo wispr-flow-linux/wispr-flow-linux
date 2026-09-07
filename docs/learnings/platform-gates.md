@@ -152,6 +152,7 @@ backup, `node --check`s the result, and is idempotent (re-run = byte-identical).
 | Chrome window fell to default framed + visible menu bar → make it frameless like win32 (1.5.695: the meeting_recorder window; the Hub/scratchpad windows now self-frame Linux via a two-way else branch) | [`linux-window-frame.sh`](../../scripts/patches/linux-window-frame.sh) | `WISPR_LINUX_FRAMELESS` |
 | Fresh installs seeded macOS `fn`/⌘ shortcut defaults + skipped the onboarding Permissions step → widen each renderer's `isWindows` **bind** to also be true on linux (bridge stays honest) | [`linux-renderer-treat-as-windows.sh`](../../scripts/patches/linux-renderer-treat-as-windows.sh) | `WISPR_LINUX_RENDERER_ISWIN` |
 | Cold-start `wispr-flow:` deep links dropped (parse was win32-only) → widen the argv-parse guard | [`linux-deeplink.sh`](../../scripts/patches/linux-deeplink.sh) | `WISPR_LINUX_DEEPLINK` |
+| Fresh Linux profiles were **seeded** with macOS chords, so push-to-talk landed on keycode `-1` (no Linux key) — blank PTT in Settings, no way past the onboarding shortcuts step (#33, #46) → widen the win32 flag *inside the main bundle's shortcuts module only* | [`linux-main-shortcut-defaults.sh`](../../scripts/patches/linux-main-shortcut-defaults.sh) | `WISPR_LINUX_MAIN_SHORTCUT_DEFAULTS` |
 
 `linux-renderer-treat-as-windows.sh` is the high-leverage one: per renderer it
 widens the *one* place `isWindows` is bound into a module-local
@@ -178,6 +179,31 @@ help asset, plus a recording-start delay and a `voiceProfile` prop) where Linux
 correctly wants the Windows branch. The OS-API danger class lives in the **main**
 bundle and gates on `process.platform`/`H8`, which this renderer-only patch never
 touches.
+
+### The main bundle needed its own, narrower cut
+
+Being renderer-only is also this patch's blind spot. The default shortcut map
+lives in a module *shared* by both bundles, and the profile is written by the
+**main** process — where the same flag is `"win32"===process.platform`, i.e.
+false on Linux. So the renderer showed Windows chords while main persisted the
+macOS ones, and a fresh `config.json` came out as
+`"shortcuts":{"-1":"ptt","-1+32":"popo",...},"modifierShortcut":"9"`. Since `-1`
+is the "no keycode on this platform" sentinel, push-to-talk was literally
+unpressable: the key monitor delivered events that matched nothing, Settings
+rendered the binding blank, and onboarding could not be completed. That is the
+one bug behind both #33 and #46.
+
+The fix could **not** be "widen `H8` at its definition" — in the main bundle it
+has ~79 consumers and does gate the real Windows-only OS-API class (registry,
+`%LOCALAPPDATA%` path resolution, Windows exit-code semantics). So
+[`linux-main-shortcut-defaults.sh`](../../scripts/patches/linux-main-shortcut-defaults.sh)
+widens the flag only where it is *read inside the shortcuts module*. An audit of
+1.6.774 found the module reads it at **8** sites and every one selects a Windows
+chord against a macOS chord (default map, default modifier, four polish-prompt /
+meeting-recorder chord sets, two PTT-display accessors) — so all 8 are widened
+together, and the patch **fails closed** if any read there is ever not a ternary,
+rather than silently widening an OS gate. Fixing only the PTT default would have
+left its siblings seeding `-1` (e.g. `"-1+77"` for `open_meeting_recorder`).
 
 **Still gated out, deliberately deferred (known limits, not patched):**
 
