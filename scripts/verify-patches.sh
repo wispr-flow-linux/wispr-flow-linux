@@ -48,6 +48,7 @@ MARKERS=(
   "window-frame: linux frameless window branch|F|WISPR_LINUX_FRAMELESS"
   "treat-as-windows: linux widens renderer isWindows bind|F|WISPR_LINUX_RENDERER_ISWIN"
   "deeplink: linux cold-start argv parse|F|WISPR_LINUX_DEEPLINK"
+  "early-singleton: second instance exits before init|F|WISPR_LINUX_EARLY_SINGLETON_V1"
 )
 
 missing=0

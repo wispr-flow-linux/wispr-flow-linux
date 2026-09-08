@@ -1,13 +1,14 @@
 #!/usr/bin/env bats
 #
 # linux-patches.bats
-# Unit tests for the four renderer/main bundle patches added for the Linux port:
+# Unit tests for the renderer/main bundle patches added for the Linux port:
 #   * linux-renderer-chrome.sh           -> remaps the <html> platform class linux->win32
 #   * linux-window-frame.sh              -> frameless hub/settings window on Linux
 #   * linux-renderer-treat-as-windows.sh -> widens each renderer's isWindows bind
 #                                           (bridge stays honest; no preload touched)
 #   * linux-deeplink.sh                  -> cold-start wispr-flow: argv parse on Linux
-#
+#   * linux-early-singleton.sh           -> take the single-instance lock before init
+
 # The real bundle is the proprietary, gitignored app -- not available in CI -- so
 # each test drives a hermetic minified-JS FIXTURE carrying the exact anchor the
 # patch keys on. Every patch is asserted to: apply (marker + transformation),
@@ -201,4 +202,49 @@ JS
 	run bash "$PATCH_DIR/linux-deeplink.sh" "$FIX"
 	[[ "$status" -ne 0 ]]
 	! grep -q 'WISPR_LINUX_DEEPLINK' "$FIX"
+}
+
+# =============================================================================
+# linux-early-singleton.sh
+# =============================================================================
+
+@test "early-singleton: guard lands after the license banner, before the IIFE" {
+	cat > "$FIX" <<'JS'
+/*! For license information please see index.js.LICENSE.txt */
+!function(){console.log("app init")}()
+JS
+	run bash "$PATCH_DIR/linux-early-singleton.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	# License banner stays line 1.
+	[[ "$(head -1 "$FIX")" == '/*! For license information please see index.js.LICENSE.txt */' ]]
+	# Guard is line 2 and keys on the real Electron API, not a minified name.
+	grep -qF 'WISPR_LINUX_EARLY_SINGLETON_V1' "$FIX"
+	grep -qF 'require("electron").app' "$FIX"
+	grep -qF 'requestSingleInstanceLock' "$FIX"
+	grep -qF 'process.exit(0)' "$FIX"
+	# Nothing but the banner precedes the guard.
+	[[ "$(grep -nF 'WISPR_LINUX_EARLY_SINGLETON_V1' "$FIX" | cut -d: -f1)" -eq 2 ]]
+	node_check "$FIX"
+}
+
+@test "early-singleton: guard at byte 0 when there is no banner" {
+	printf '!function(){console.log("app init")}()' > "$FIX"
+	run bash "$PATCH_DIR/linux-early-singleton.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	[[ "$(grep -nF 'WISPR_LINUX_EARLY_SINGLETON_V1' "$FIX" | cut -d: -f1)" -eq 1 ]]
+	node_check "$FIX"
+}
+
+@test "early-singleton: idempotent on second run" {
+	printf '!function(){console.log("app init")}()' > "$FIX"
+	bash "$PATCH_DIR/linux-early-singleton.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-early-singleton.sh" "$FIX"
+}
+
+@test "early-singleton: keeps a backup of the pre-patch bundle" {
+	printf '!function(){console.log("app init")}()' > "$FIX"
+	run bash "$PATCH_DIR/linux-early-singleton.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	[[ -f "$FIX.earlysingleton.orig" ]]
+	cmp -s "$FIX.earlysingleton.orig" <(printf '!function(){console.log("app init")}()')
 }

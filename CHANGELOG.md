@@ -8,6 +8,23 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+### Fixed
+
+- Launching a second instance while the app was running crashed with
+  `SIGABRT` (coredump stack: `V8 FATAL:
+  Error::ThrowAsJavaScriptException napi_throw`) — 9 coredumps over two weeks,
+  including a 4-crashes-in-6-seconds loop. The vendor main bundle only calls
+  `app.requestSingleInstanceLock()` at the end of its ~8.3 MB bundle, so a
+  second launch fully initialized (native `.node` modules, better-sqlite3,
+  helper IPC) before quitting, and teardown of that half-initialized state
+  aborted. A new `linux-early-singleton.sh` patch inserts a guard before the
+  webpack IIFE that takes the lock first and `process.exit(0)`s immediately
+  when it is not acquired — the abort class is unreachable, and the running
+  primary still focuses its hub window via the `second-instance` event
+  (argv handshake completes during the failed lock request). `--quit-app`
+  and `wispr-flow:` deep links keep working through the primary's existing
+  handler.
+
 ## [v1.0.3] - 2026-06-11
 
 ### Fixed
