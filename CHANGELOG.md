@@ -8,6 +8,17 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+### Fixed
+
+- On X11 the Hub window opened as an unmanaged (override-redirect) window:
+  pinned above every other window, missing from Alt+Tab, and impossible to
+  move, minimize, or maximize. Upstream creates the window with `focusable:!1`
+  on every platform and only macOS restores focus later, so Linux inherited
+  Electron's override-redirect treatment of non-focusable windows. The new
+  `linux-hub-focusable.sh` patch rewrites the Hub config so `focusable` is
+  true on Linux only, leaving the shipped macOS and Windows behavior
+  untouched. (#36)
+
 ## [v1.0.3] - 2026-06-11
 
 ### Fixed
