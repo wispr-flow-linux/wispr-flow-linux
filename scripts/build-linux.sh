@@ -278,6 +278,14 @@ step3_patch_bundle() {
     bash "$SCRIPT_DIR/patches/linux-deeplink.sh" "$target_bundle" \
       || warn "Deep-link patch failed -- see linux-deeplink.sh output above."
 
+    # Hide the status pill when idle; show it only during dictation.
+    # On macOS/Windows the pill is always visible; on Linux many users find a
+    # persistent overlay intrusive. This patch hides the window at startup and
+    # re-shows it on the Listening state, hiding again 2 s after Idle/Dismissed.
+    auto "Running linux-status-autohide.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-status-autohide.sh" "$target_bundle" \
+      || warn "Status-autohide patch failed -- see linux-status-autohide.sh output above."
+
     # Renderer + preload patches live alongside the main bundle under .webpack/.
     local webpack_root="${target_bundle%/main/index.js}"
     # Remap the <html> platform class linux->win32 so Linux adopts the tested
