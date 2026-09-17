@@ -48,6 +48,7 @@ MARKERS=(
   "window-frame: linux frameless window branch|F|WISPR_LINUX_FRAMELESS"
   "treat-as-windows: linux widens renderer isWindows bind|F|WISPR_LINUX_RENDERER_ISWIN"
   "deeplink: linux cold-start argv parse|F|WISPR_LINUX_DEEPLINK"
+  "status-position: pill placed above panel / autohide dock|F|WISPR_LINUX_STATUS_POSITION"
 )
 
 missing=0
