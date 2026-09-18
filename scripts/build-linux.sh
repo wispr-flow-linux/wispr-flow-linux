@@ -277,6 +277,10 @@ step3_patch_bundle() {
     auto "Running linux-deeplink.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-deeplink.sh" "$target_bundle" \
       || warn "Deep-link patch failed -- see linux-deeplink.sh output above."
+    # Shrink the status-pill window from 440x320 to the pill's footprint. The invisible transparent canvas swallows clicks on Wayland.
+    auto "Running linux-status-compact.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-status-compact.sh" "$target_bundle" \
+      || warn "linux-status-compact.sh failed -- see its output above."
 
     # Renderer + preload patches live alongside the main bundle under .webpack/.
     local webpack_root="${target_bundle%/main/index.js}"
