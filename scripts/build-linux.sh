@@ -277,6 +277,10 @@ step3_patch_bundle() {
     auto "Running linux-deeplink.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-deeplink.sh" "$target_bundle" \
       || warn "Deep-link patch failed -- see linux-deeplink.sh output above."
+    # Implement Electron's login-item API on Linux (XDG autostart, launched --hidden so a login start stays in the tray).
+    auto "Running linux-autostart.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-autostart.sh" "$target_bundle" \
+      || warn "linux-autostart.sh failed -- see its output above."
 
     # Renderer + preload patches live alongside the main bundle under .webpack/.
     local webpack_root="${target_bundle%/main/index.js}"
