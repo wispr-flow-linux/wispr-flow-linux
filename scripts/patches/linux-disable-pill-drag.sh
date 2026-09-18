@@ -48,7 +48,7 @@
 # Every identifier here (<fn>, <e>, <t>, <n>, <log>, <U>) is minified and
 # churns between releases; the only stable anchor is the developer log string
 # literal `[Drag Overlay]: Setting drag overlay state to `. We do NOT hardcode
-# any of those tokens -- the regex captures them and the replacement re-uses
+# any of those tokens -- the regex captures them and the replacement reuses
 # the captured parameter name, so it survives re-minification renaming them all
 # to something else next release.
 #
