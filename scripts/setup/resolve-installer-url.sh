@@ -1,27 +1,40 @@
 #!/usr/bin/env bash
 #===============================================================================
 # resolve-installer-url.sh -- resolve the latest Wispr Flow Windows installer
-# download URL and version from the upstream "latest" redirect.
+# download URL and version.
 #
-# Wispr Flow publishes a stable redirect endpoint that 302s to a versioned,
-# CDN-hosted Setup .exe whose filename embeds the version:
+# Wispr Flow publishes a stable redirect endpoint:
 #   https://dl.wisprflow.ai/windows/latest
-#     -> https://dl.wisprflow.com/wispr-flow/win32/x64/Wispr%20Flow%20Setup-v1.5.695.exe
+# It used to 302 straight to a versioned, CDN-hosted Setup .exe whose filename
+# embedded the version (.../Wispr%20Flow%20Setup-v1.5.695.exe). As of the
+# WisprFlowInstaller.exe bootstrapper rollout, it instead 302s to a small
+# (~6 MB) unversioned stub that downloads the real installer at run time, so
+# the version can no longer be read off that filename.
+#
+# Instead we read the Squirrel.Windows `RELEASES` manifest that sits next to
+# the installer in the same CDN directory -- it is unaffected by the
+# bootstrapper change and always names the current full nupkg, e.g.:
+#   <SHA1> WisprFlow-1.6.897-full.nupkg <size>
+# From that we recover the version and build the direct Setup .exe URL, which
+# still exists at the same path template the bootstrapper used to redirect to.
+# We verify that URL resolves before returning it, so a further CDN layout
+# change fails loudly here instead of downloading garbage downstream.
 #
 # Only a Windows x64 build is published (the arm64 Windows endpoint redirects to
 # the homepage). The Linux arm64 package is built from the SAME x64 installer --
 # the app bundle is arch-neutral JS/asar -- so this resolver is arch-independent.
 #
 # Output contract (stdout, one KEY=VALUE per line; ALL diagnostics to stderr):
-#   URL=<final resolved download URL>
-#   VERSION=<x.y.z extracted from the installer filename>
+#   URL=<direct download URL for the versioned Setup .exe>
+#   VERSION=<x.y.z, from the RELEASES manifest (or filename if still present)>
 #
 # Usage:   resolve-installer-url.sh [--latest-url <url>] [--version <x.y.z>]
 #   --latest-url   override the upstream "latest" redirect endpoint
-#   --version      skip filename parsing and emit this version verbatim
+#   --version      skip version discovery and emit this version verbatim
+#                  (the Setup .exe URL is still built from it and verified)
 #
-# Exit 0 on success; non-zero if the URL can't be resolved or the version can't
-# be parsed. This is a standalone CI helper -- it sources nothing.
+# Exit 0 on success; non-zero if the URL/version can't be resolved. This is a
+# standalone CI helper -- it sources nothing.
 #===============================================================================
 set -uo pipefail
 
@@ -68,6 +81,7 @@ fi
 log "Resolved URL: ${final_url}"
 
 # Extract the version from the filename, e.g. "...Setup-v1.5.695.exe" -> 1.5.695.
+# Works when the redirect still lands directly on the versioned Setup .exe.
 if [[ -n $version_override ]]; then
 	version="$version_override"
 else
@@ -75,11 +89,49 @@ else
 		| sed -nE 's/.*[Ss]etup-v([0-9]+\.[0-9]+\.[0-9]+)\.exe.*/\1/p')"
 fi
 
+# Fallback: the redirect now lands on an unversioned bootstrapper stub
+# (WisprFlowInstaller.exe), so the filename has no version to parse. Read the
+# Squirrel.Windows RELEASES manifest in the same CDN directory instead -- it
+# names the current full nupkg, e.g. "WisprFlow-1.6.897-full.nupkg".
+installer_dir=''
 if [[ -z $version ]]; then
-	die "could not parse a version from ${final_url} (pass --version to override)"
+	installer_dir="${final_url%/*}"
+	releases_url="${installer_dir}/RELEASES"
+	log "Filename has no version; trying RELEASES manifest at ${releases_url} ..."
+
+	releases_body="$(curl -fsSL --max-time 60 "$releases_url")"
+	rc=$?
+	if [[ $rc -ne 0 || -z $releases_body ]]; then
+		die "failed to fetch ${releases_url} (curl rc=${rc})"
+	fi
+
+	version="$(printf '%s\n' "$releases_body" \
+		| sed -nE 's/.*-([0-9]+\.[0-9]+\.[0-9]+)-full\.nupkg.*/\1/p' | head -1)"
+fi
+
+if [[ -z $version ]]; then
+	die "could not determine a version from ${final_url} (pass --version to override)"
 fi
 
 log "Resolved version: ${version}"
 
-printf 'URL=%s\n' "$final_url"
+# Build the direct Setup .exe URL. When the redirect already landed on a
+# versioned Setup .exe, that URL is used verbatim; otherwise (bootstrapper
+# stub or --version override) it is built from the RELEASES manifest's
+# directory using the naming template Wispr has used since v1 of this script.
+if [[ $final_url == *[Ss]etup-v*.exe ]]; then
+	download_url="$final_url"
+else
+	[[ -n $installer_dir ]] || installer_dir="${final_url%/*}"
+	download_url="${installer_dir}/Wispr%20Flow%20Setup-v${version}.exe"
+fi
+
+# Verify the URL actually resolves before handing it to a downstream
+# downloader -- a further CDN layout change should fail loudly here.
+if ! curl -fsSLI -o /dev/null --max-time 60 "$download_url"; then
+	die "built ${download_url} from version ${version}, but it does not" \
+		" resolve (pass --version to override, or re-check the CDN layout)"
+fi
+
+printf 'URL=%s\n' "$download_url"
 printf 'VERSION=%s\n' "$version"
