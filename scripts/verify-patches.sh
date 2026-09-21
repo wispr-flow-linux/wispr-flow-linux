@@ -11,6 +11,7 @@
 #     * mac-gates.sh           -> gates the macOS Applications-folder guard
 #     * linux-window-frame.sh  -> frameless hub/settings window on Linux
 #     * linux-deeplink.sh      -> cold-start wispr-flow: argv parse on Linux
+#     * linux-status-compact.sh -> shrink the status-pill window from 440x320 to the pill's footprint
 #   renderer bundles:
 #     * linux-renderer-chrome.sh -> remaps the <html> platform class linux->win32
 #     * linux-renderer-treat-as-windows.sh -> widens each renderer's isWindows
@@ -48,6 +49,7 @@ MARKERS=(
   "window-frame: linux frameless window branch|F|WISPR_LINUX_FRAMELESS"
   "treat-as-windows: linux widens renderer isWindows bind|F|WISPR_LINUX_RENDERER_ISWIN"
   "deeplink: linux cold-start argv parse|F|WISPR_LINUX_DEEPLINK"
+  "status-compact: linux status window shrunk to pill size|F|WISPR_LINUX_STATUS_COMPACT"
 )
 
 missing=0
