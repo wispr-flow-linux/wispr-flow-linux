@@ -58,12 +58,23 @@ Resting state, measured on the rendered page: the only pixels with alpha > 0 are
 the 48x14 hit area at (76, 88), so the published box is `70,82,60,26` with the
 6px pad; hovering grows it to `70,56,60,52` and it shrinks back afterwards.
 
-## Fullscreen apps
+## Apps under the pill
 
-The box still captures clicks over its own 60x26. While a fullscreen window is
-showing on the pill's monitor, the extension also makes the window actor and all
-its descendants non-reactive (on the actor alone, the surface child is still
-picked), so even that area falls through.
+The box still captures clicks over its own 60x26. Whenever a normal app window on
+the active workspace overlaps the pill's box (the box from the title, else the
+whole window), the extension also makes the window actor and all its descendants
+non-reactive (on the actor alone, the surface child is still picked), so a click
+where the pill sits reaches that app. This covers fullscreen apps too: over one,
+a click on the pill would focus it, the game would lose focus, and apps that
+minimize on focus loss (Wine/Proton games) would drop out of fullscreen.
+
+With nothing under it (the pill over the bare desktop) the pill stays fully
+interactive. While an app is under it, the hover-only UI (globe button, tooltip)
+is not clickable; push-to-talk is keyboard-driven and unaffected. Wispr's own
+auxiliary windows are skipped (they are hidden from the window list by the
+extension) while Hub and Scratchpad count like any other app. The check re-runs
+on every move, resize, minimize and workspace change of any window, so dragging
+an app over the pill flips it as the window arrives.
 
 ## Testing without a second seat
 
