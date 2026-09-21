@@ -13,6 +13,8 @@
 #     * linux-deeplink.sh      -> cold-start wispr-flow: argv parse on Linux
 #     * linux-status-screenpos.sh -> wayland reports window
 #   renderer bundles:
+#     * linux-status-shape.sh -> pill's painted box published in the title, so
+#       the compositor-side extension can shape the window's input area
 #     * linux-renderer-chrome.sh -> remaps the <html> platform class linux->win32
 #     * linux-renderer-treat-as-windows.sh -> widens each renderer's isWindows
 #       bind so its consumers take the Windows branch on Linux (the bridge's
@@ -50,6 +52,7 @@ MARKERS=(
   "treat-as-windows: linux widens renderer isWindows bind|F|WISPR_LINUX_RENDERER_ISWIN"
   "deeplink: linux cold-start argv parse|F|WISPR_LINUX_DEEPLINK"
   "status-screenpos: linux status renderer real screen position|F|WISPR_LINUX_SCREENPOS"
+  "status-shape: linux status renderer publishes the pill's painted box|F|WISPR_LINUX_STATUS_SHAPE"
 )
 
 missing=0
