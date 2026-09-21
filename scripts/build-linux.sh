@@ -283,6 +283,19 @@ step3_patch_bundle() {
     # Remap the <html> platform class linux->win32 so Linux adopts the tested
     # .win32 stylesheet (fixes the ~68px phantom window-control inset that shoved
     # the sidebar collapse toggle right and left the controls invisible).
+    # Wayland reports window.screenX/Y as 0, so pickers the pill opens (language, auto-polish, fetch) anchor at the screen's left edge; give the status renderer its real bottom-centred position instead.
+    local status_renderer="$webpack_root/renderer/status/index.js"
+    if [[ -f "$status_renderer" ]]; then
+      auto "Running linux-status-screenpos.sh on $status_renderer"
+      bash "$SCRIPT_DIR/patches/linux-status-screenpos.sh" "$status_renderer" \
+        || warn "linux-status-screenpos.sh failed -- see its output above."
+      # The pill's window is far larger than the pill and Wayland has no
+      # client-side click-through, so publish the pill's painted box in the
+      # window title for the compositor-side extension to clip the window to.
+      auto "Running linux-status-shape.sh on $status_renderer"
+      bash "$SCRIPT_DIR/patches/linux-status-shape.sh" "$status_renderer" \
+        || warn "linux-status-shape.sh failed -- see its output above."
+    fi
     local hub_renderer="$webpack_root/renderer/hub/index.js"
     if [[ -f "$hub_renderer" ]]; then
       auto "Running linux-renderer-chrome.sh on $hub_renderer"
