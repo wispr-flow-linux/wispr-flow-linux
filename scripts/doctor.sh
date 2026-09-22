@@ -168,7 +168,8 @@ _doctor_check_input_read() {
 		return
 	fi
 	_fail "/dev/input: none of ${total} event device(s) readable"
-	_info 'Push-to-talk and the in-app shortcut recorder will not work.'
+	_info 'Push-to-talk and the in-app shortcut recorder will not work'
+	_info '(including the shortcut setup step during onboarding).'
 	_info 'Fix (easiest): wispr-flow --install-udev-rules  (installs the rule via pkexec/sudo)'
 	# shellcheck disable=SC2016  # literal $USER: copy-paste remedy
 	_info 'Fix (group, grants both input read + uinput write): sudo usermod -aG input "$USER"  (then re-login)'
