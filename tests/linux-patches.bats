@@ -4,10 +4,13 @@
 # Unit tests for the renderer/main bundle patches added for the Linux port:
 #   * linux-renderer-chrome.sh           -> remaps the <html> platform class linux->win32
 #   * linux-window-frame.sh              -> frameless hub/settings window on Linux
+#   * linux-hub-focusable.sh             -> hub window focusable/WM-managed on Linux
 #   * linux-renderer-treat-as-windows.sh -> widens each renderer's isWindows bind
 #                                           (bridge stays honest; no preload touched)
 #   * linux-deeplink.sh                  -> cold-start wispr-flow: argv parse on Linux
+#   * linux-early-singleton.sh           -> take the single-instance lock before init
 #   * helper-env.sh                      -> spreads process.env into the helper env
+#   * linux-disable-pill-drag.sh         -> force the drag-overlay flag false on Linux
 #
 # The real bundle is the proprietary, gitignored app -- not available in CI -- so
 # each test drives a hermetic minified-JS FIXTURE carrying the exact anchor the
@@ -174,6 +177,43 @@ JS
 }
 
 # =============================================================================
+# linux-hub-focusable.sh
+# =============================================================================
+
+@test "hub-focusable: rewrites the Hub focusable:!1, leaves overlays alone" {
+	cat > "$FIX" <<'JS'
+const t={title:"Flow Hub",center:!0,show:!1,webPreferences:{preload:require("path").resolve(__dirname,"../renderer","hub","preload.js"),devTools:"development"===_.M0||(0,N.Pv)(d.RA.prefs?.user.email||"")},focusable:!1};_.tD?Object.assign(t,{frame:!1,titleBarStyle:"hidden"}):Object.assign(t,{frame:!1,autoHideMenuBar:!0});
+const ov=new r.BrowserWindow({show:!1,transparent:!0,frame:!1,hasShadow:!1,focusable:!1,skipTaskbar:!0});
+JS
+	run bash "$PATCH_DIR/linux-hub-focusable.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -q 'WISPR_LINUX_HUB_FOCUSABLE' "$FIX"
+	# the Hub site now gates focusable on the platform
+	grep -qF 'focusable:/*WISPR_LINUX_HUB_FOCUSABLE*/"linux"===process.platform}' "$FIX"
+	# the overlay's intentional focusable:!1 is untouched (exactly one remains)
+	[[ "$(grep -c 'focusable:!1' "$FIX")" -eq 1 ]]
+	grep -qF 'hasShadow:!1,focusable:!1,skipTaskbar:!0' "$FIX"
+	node_check "$FIX"
+}
+
+@test "hub-focusable: idempotent on second run" {
+	cat > "$FIX" <<'JS'
+const t={title:"Flow Hub",center:!0,show:!1,webPreferences:{preload:require("path").resolve(__dirname,"../renderer","hub","preload.js"),devTools:"development"===_.M0},focusable:!1};
+JS
+	bash "$PATCH_DIR/linux-hub-focusable.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-hub-focusable.sh" "$FIX"
+}
+
+@test "hub-focusable: bails non-zero when the Hub anchor is absent" {
+	cat > "$FIX" <<'JS'
+const ov=new r.BrowserWindow({show:!1,transparent:!0,frame:!1,hasShadow:!1,focusable:!1,skipTaskbar:!0});
+JS
+	run bash "$PATCH_DIR/linux-hub-focusable.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_HUB_FOCUSABLE' "$FIX"
+}
+
+# =============================================================================
 # linux-renderer-treat-as-windows.sh
 # =============================================================================
 
@@ -247,6 +287,51 @@ JS
 	run bash "$PATCH_DIR/linux-deeplink.sh" "$FIX"
 	[[ "$status" -ne 0 ]]
 	! grep -q 'WISPR_LINUX_DEEPLINK' "$FIX"
+}
+
+# =============================================================================
+# linux-early-singleton.sh
+# =============================================================================
+
+@test "early-singleton: guard lands after the license banner, before the IIFE" {
+	cat > "$FIX" <<'JS'
+/*! For license information please see index.js.LICENSE.txt */
+!function(){console.log("app init")}()
+JS
+	run bash "$PATCH_DIR/linux-early-singleton.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	# License banner stays line 1.
+	[[ "$(head -1 "$FIX")" == '/*! For license information please see index.js.LICENSE.txt */' ]]
+	# Guard is line 2 and keys on the real Electron API, not a minified name.
+	grep -qF 'WISPR_LINUX_EARLY_SINGLETON_V1' "$FIX"
+	grep -qF 'require("electron").app' "$FIX"
+	grep -qF 'requestSingleInstanceLock' "$FIX"
+	grep -qF 'process.exit(0)' "$FIX"
+	# Nothing but the banner precedes the guard.
+	[[ "$(grep -nF 'WISPR_LINUX_EARLY_SINGLETON_V1' "$FIX" | cut -d: -f1)" -eq 2 ]]
+	node_check "$FIX"
+}
+
+@test "early-singleton: guard at byte 0 when there is no banner" {
+	printf '!function(){console.log("app init")}()' > "$FIX"
+	run bash "$PATCH_DIR/linux-early-singleton.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	[[ "$(grep -nF 'WISPR_LINUX_EARLY_SINGLETON_V1' "$FIX" | cut -d: -f1)" -eq 1 ]]
+	node_check "$FIX"
+}
+
+@test "early-singleton: idempotent on second run" {
+	printf '!function(){console.log("app init")}()' > "$FIX"
+	bash "$PATCH_DIR/linux-early-singleton.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-early-singleton.sh" "$FIX"
+}
+
+@test "early-singleton: keeps a backup of the pre-patch bundle" {
+	printf '!function(){console.log("app init")}()' > "$FIX"
+	run bash "$PATCH_DIR/linux-early-singleton.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	[[ -f "$FIX.earlysingleton.orig" ]]
+	cmp -s "$FIX.earlysingleton.orig" <(printf '!function(){console.log("app init")}()')
 }
 
 # =============================================================================
@@ -325,4 +410,46 @@ JS
 	run bash "$PATCH_DIR/helper-env.sh" "$FIX"
 	[[ "$status" -ne 0 ]]
 	! grep -q 'WISPR_LINUX_HELPER_ENV' "$FIX"
+}
+
+# =============================================================================
+# linux-disable-pill-drag.sh
+# =============================================================================
+
+@test "pill-drag: forces the handler's flag false on Linux, leaves the blackout site alone" {
+	# Shipped 1.6.897 bytes: the drag-overlay handler opens with `let t,n;if(`
+	# and the sibling blackout-overlay handler beside it has the same log
+	# shape with a different developer string and no `let` prelude.
+	cat > "$FIX" <<'JS'
+var i={globalShortcut:{isRegistered:()=>!1,register:()=>!0,unregister:()=>{}}},o=()=>({info(){},warn(){}}),Y,Z,ke=()=>{};
+const Ie=(e,t)=>{o().info(`[Blackout Overlay]: Setting blackout overlay state to ${e} (source: ${t})`),Y=e,ke()},Le=e=>{let t,n;if(o().info(`[Drag Overlay]: Setting drag overlay state to ${e}`),Z=e,e?i.globalShortcut.isRegistered("Escape")||i.globalShortcut.register("Escape",()=>Le(!1)):i.globalShortcut.isRegistered("Escape")&&i.globalShortcut.unregister("Escape"),ke(),e){t=1,n=2}};
+JS
+	run bash "$PATCH_DIR/linux-disable-pill-drag.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'Le=e=>{let t,n;e=(/*WISPR_LINUX_DISABLE_PILL_DRAG*/"linux"===process.platform)?!1:e;if(o().info(`[Drag Overlay]: Setting drag overlay state to ${e}`),Z=e,' "$FIX"
+	# exactly one insertion; the blackout handler is untouched
+	[[ "$(grep -o 'WISPR_LINUX_DISABLE_PILL_DRAG' "$FIX" | wc -l)" -eq 1 ]]
+	grep -qF 'const Ie=(e,t)=>{o().info(`[Blackout Overlay]' "$FIX"
+	node_check "$FIX"
+}
+
+@test "pill-drag: idempotent on second run" {
+	cat > "$FIX" <<'JS'
+var o=()=>({info(){}}),Z;
+const Le=e=>{let t,n;if(o().info(`[Drag Overlay]: Setting drag overlay state to ${e}`),Z=e,e){t=1,n=2}};
+JS
+	bash "$PATCH_DIR/linux-disable-pill-drag.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-disable-pill-drag.sh" "$FIX"
+}
+
+@test "pill-drag: bails non-zero when the log string is present but the handler shape is not" {
+	# The 1.5.789 shape: same developer string, no `let` prelude. A decoy
+	# with the literal but not the call shape must not be patched.
+	cat > "$FIX" <<'JS'
+var o=()=>({info(){}}),R;
+const U=e=>{o().info(`[Drag Overlay]: Setting drag overlay state to ${e}`),R=e};
+JS
+	run bash "$PATCH_DIR/linux-disable-pill-drag.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_DISABLE_PILL_DRAG' "$FIX"
 }

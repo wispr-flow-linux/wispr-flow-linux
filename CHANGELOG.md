@@ -31,6 +31,29 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   the anchor spanned) now matches the win32 window config as a brace-fenced
   property bag instead of exact text. Both carry near-miss bats fixtures
   copied from the shipped 1.6.897 bytes.
+- On X11 the Hub window opened as an unmanaged (override-redirect) window:
+  pinned above every other window, missing from Alt+Tab, and impossible to
+  move, minimize, or maximize. Upstream creates the window with `focusable:!1`
+  on every platform and only macOS restores focus later, so Linux inherited
+  Electron's override-redirect treatment of non-focusable windows. The new
+  `linux-hub-focusable.sh` patch rewrites the Hub config so `focusable` is
+  true on Linux only, leaving the shipped macOS and Windows behavior
+  untouched. (#36)
+- Launching a second instance while the app was running crashed with
+  `SIGABRT` (`V8 FATAL: Error::ThrowAsJavaScriptException napi_throw`).
+  Upstream only requests the single-instance lock at the end of its main
+  bundle, so a second launch fully initialised native modules, the database
+  and the helper before quitting, and tearing that down aborted. The new
+  `linux-early-singleton.sh` patch takes the lock before the webpack IIFE
+  and exits at once when it is not acquired; the running primary still gets
+  `second-instance` and focuses its Hub, and `--quit-app` and `wispr-flow:`
+  deep links still reach it (#51, by @jcartu).
+- Dragging the status pill on Wayland never moved it and left a dimming
+  overlay that swallowed clicks and scroll until Escape was pressed: the
+  drag moves the window to absolute coordinates, which native Wayland
+  ignores. The new `linux-disable-pill-drag.sh` patch forces the drag-overlay
+  activation flag false on Linux at the one handler that enacts it, so the
+  gesture is a no-op and no overlay appears (#66, by @crafteraadarsh).
 
 ### Added
 

@@ -31,6 +31,54 @@ It prints `[PASS]` / `[WARN]` / `[FAIL]` lines with inline fix commands, grouped
 The exit status is non-zero if any check FAILs. Do me a favor and attach the
 full output to bug reports — it's the single most useful thing you can hand me.
 
+## Push-to-talk doesn't fire / shortcut recorder captures no keystrokes (including during onboarding)
+
+The in-app shortcut recorder (including the one on the onboarding setup screen)
+and push-to-talk are both fed entirely by `KeypressEvent` frames the helper
+streams from the OS key layer. If those frames never arrive, the recorder shows
+nothing and captures nothing — the app has no other path for global hotkey input.
+
+The helper has two capture backends:
+
+- **evdev** (`/dev/input/event*`) — works on Wayland **and** X11. Needs read
+  access to the input devices.
+- **XInput2** — true X11 sessions only (not XWayland). Needs no device access.
+
+On **Wayland**, only evdev is available, and it needs the udev access grant.
+
+### Fix
+
+Run the built-in diagnostics first — the `Push-to-Talk (input monitor)` section
+will tell you exactly what's missing:
+
+```bash
+wispr-flow --doctor
+```
+
+If it prints `[FAIL] /dev/input: none of N event device(s) readable`, install
+the udev rule that grants your session access to input devices (this is a
+one-time step; it survives reboots):
+
+```bash
+wispr-flow --install-udev-rules
+```
+
+The command escalates via `pkexec` (graphical sudo prompt) or falls back to
+`sudo`. After it completes you may need to **log out and back in** (or replug
+your keyboard) for the new ACL to take effect on already-open devices. Then
+re-run `--doctor` to confirm the check passes and try the shortcut recorder
+again.
+
+Alternatively, if you're already a member of the `input` group (check with
+`id -nG | grep input`), just re-login — logind should grant uaccess on session
+start.
+
+> [!NOTE]
+> On **X11** the helper uses XInput2, which needs no device access at all. If
+> the shortcut recorder is still dead on X11 after confirming the helper is
+> running (`--doctor` shows the helper launch as OK), file a bug with the
+> full `--doctor` output.
+
 ## Paste does nothing / transcription doesn't get typed into my app
 
 This is the whole reason the app exists, so when it goes silent it hurts. In my
@@ -66,6 +114,53 @@ Run `--doctor` and work the failures top-down:
 3. **Not in the `input` group and no uaccess ACL** — some distros don't ACL
    uinput through logind (Arch is the one that caught me), so group membership
    is your grant path instead. Go back to step 1's `usermod` and relogin.
+
+4. **`wl-copy` hangs instead of returning (Wayland)** — `wl-clipboard` is
+   installed and `--doctor` is all-green, but the log shows `gRPC transcription
+   successful` followed by `PasteText: Request timed out`, and nothing reaches
+   the focused app. Check whether the clipboard tool returns at all:
+
+   ```bash
+   printf 'test' | timeout 4 wl-copy; echo "$?"   # 124 means it hung
+   pgrep -x wl-copy                               # stray copies piling up
+   ```
+
+   Why it hangs is not established. On a compositor with no data-control
+   protocol, `wl-clipboard` falls back to mapping a surface that has to take
+   keyboard focus before it can own the selection, and a daemon's `wl-copy`
+   never gets that focus. Mutter has advertised `ext-data-control` since
+   GNOME 48, though, and the helper's own in-process clipboard source relies
+   on it (see [wayland-injection.md](learnings/wayland-injection.md)), so on
+   a current GNOME that fallback should not be in play. Whatever the cause,
+   routing `wl-copy` through `xclip`, which reaches the clipboard over
+   Xwayland, gets around it. Use a shim earlier in `PATH` than `/usr/bin`
+   (needs `xclip` and a running Xwayland):
+
+   ```bash
+   #!/bin/bash
+   # ~/.local/bin/wl-copy
+   sel=clipboard
+   type=
+   while [[ $# -gt 0 ]]; do
+   	case "$1" in
+   		-p | --primary) sel=primary ;;
+   		-t | --type) shift; type="$1" ;;
+   		--type=*) type="${1#--type=}" ;;
+   		-*) ;;
+   		*) break ;;
+   	esac
+   	shift
+   done
+   [[ -z $type || $type == text/plain* ]] &&
+   	exec xclip -selection "$sel" -i
+   exec xclip -selection "$sel" -t "$type" -i
+   ```
+
+   > [!NOTE]
+   > Seen on GNOME Shell 50.2 / mutter 50.2 / wl-clipboard 2.3.0 (CachyOS,
+   > Wayland). GNOME paste is validated working on Ubuntu 24.04 / GNOME —
+   > see [compatibility.md](compatibility.md) — so this is not GNOME-wide.
+   > Run the check above before assuming it's your problem.
 
 Want the why behind all this? See
 [configuration.md](configuration.md#text-injection-devuinput-access) for how the
