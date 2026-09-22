@@ -65,6 +65,9 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   ignores. The new `linux-disable-pill-drag.sh` patch forces the drag-overlay
   activation flag false on Linux at the one handler that enacts it, so the
   gesture is a no-op and no overlay appears (#66, by @crafteraadarsh).
+- `nix build` failed on a fixed-output hash mismatch: `nix/wispr-flow.nix`
+  shipped `lib.fakeHash` for the helper fetch. The real hash is pinned and the
+  helper pin tracks v0.1.2 like `helper-version.txt` (#40, by @Anirudh-K96).
 
 ### Added
 
@@ -94,6 +97,11 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   claude-desktop-debian (the `run`-subshell counter trap, near-miss fixtures,
   real-tool FAIL branches, host-state isolation, launch-smoke blind spots, the
   mutation check), grounded on this repo's bats and artifact suites.
+- `--doctor` says that a failed input-monitor check also blocks the shortcut
+  setup step during onboarding, and `docs/troubleshooting.md` gains a section
+  for push-to-talk and the shortcut recorder capturing nothing (#37, by
+  @rajivranjanmars) and the `wl-copy` hang as a paste-failure cause, with an
+  `xclip` shim (#42, by @caio-passos).
 
 ### Changed
 
