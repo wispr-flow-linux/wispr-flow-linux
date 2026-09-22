@@ -10,6 +10,13 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Fixed
 
+- Every package carried the patch scripts' backup copies inside `app.asar`:
+  each patch keeps a `<bundle>.orig` beside the file it rewrites, and the
+  repack packed them, so nine pristine copies of the main and renderer
+  bundles (102 MB on 1.6.897) rode in a 192 MB asar and into every deb,
+  rpm and AppImage. `build-linux.sh` now drops `*.orig` from the asar
+  contents before packing, and the artifact tests read the packed asar's
+  header and fail on any `.orig` entry.
 - `./build.sh` without `--exe` works again. Wispr repointed the stable
   "latest" redirect at a versionless web-bootstrap stub with no payload, so
   `resolve-installer-url.sh` died on every build and the nightly bump workflow

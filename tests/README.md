@@ -19,7 +19,7 @@ bats tests/*.bats
 | `doctor.bats` | `scripts/doctor.sh`: the `_pass`/`_fail`/`_warn` counter, display/clipboard/helper/singleton-lock checks (driven with stubbed tool presence and temp fixtures), and `run_doctor` exit status. |
 | `verify-patches.bats` | `scripts/verify-patches.sh`: PASS when every Linux patch marker is present in a fixture app.asar, exit 1 when any one is omitted (omit-one matrix), exit 2 on bad usage. |
 | `installer-pin.bats` | `scripts/setup/installer-pin.sh` is well-formed; `write-installer-pin.sh` rewrites it from resolver output and refuses bad or partial input; `resolve-installer-url.sh` parses `latest.json`-shaped fixtures over `file://`; `download.sh`'s pinned fetch verifies the digest, caches, and re-fetches a bad cache, the `--exe` path warns, and `extract_installer` refuses a wrong-version tree. |
-| `test-artifact-common.bats` | `tests/test-artifact-common.sh`: `run_launch_smoke_test` driven through PATH shims (`setsid` writes the readiness marker and a backend line, `pkill` records its argv): the `pkill -f` sweep runs only under `CI`, an empty pattern sweeps nothing, and a `stub` backend line fails. |
+| `test-artifact-common.bats` | `tests/test-artifact-common.sh`: `run_launch_smoke_test` driven through PATH shims (`setsid` writes the readiness marker and a backend line, `pkill` records its argv): the `pkill -f` sweep runs only under `CI`, an empty pattern sweeps nothing, and a `stub` backend line fails. `assert_asar_no_patch_backups` against hand-built asar headers: passes clean, fails naming each packed `*.orig`, ignores the name inside a bundle body, reads a long header whole, and fails (never passes) on an unreadable header. |
 | `linux-patches.bats` | `scripts/patches/linux-{renderer-chrome,window-frame,renderer-treat-as-windows,deeplink}.sh`: each patch applied to a hermetic minified-JS fixture carrying its anchor — asserts the transformation + marker, leaves unrelated sites alone, `node --check`s the result, is idempotent (second run is byte-identical), and bails non-zero when the anchor is absent. |
 
 Don't have bats yet? Grab it: `sudo dnf install bats` / `sudo apt install bats`.
@@ -33,8 +33,9 @@ This tier looks at an actual built package. Each
   metadata, FHS file placement (`/usr/bin/wispr-flow`,
   `/usr/lib/wispr-flow/{launcher-common.sh,doctor.sh,wispr-flow,chrome-sandbox}`,
   the helper binary, udev rule, desktop file, icons), `wl-clipboard`
-  dependency, launcher-script content, and the Linux patch markers in
-  `app.asar` (via `scripts/verify-patches.sh`).
+  dependency, launcher-script content, the Linux patch markers in
+  `app.asar` (via `scripts/verify-patches.sh`), and that no patch backups
+  (`*.orig`) are packed into `app.asar`.
 - **Install + smoke** — CI containers only, **opt-in via
   `WISPR_ARTIFACT_INSTALL=1` and root**: installs the package, checks
   on-disk files + setuid `chrome-sandbox`, runs `--doctor`, and does a headless

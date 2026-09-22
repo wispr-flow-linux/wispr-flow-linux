@@ -101,6 +101,30 @@ assert_command_succeeds() {
 	fi
 }
 
+# Assert the packed asar lists no patch backup (*.orig) entry. Every patch
+# keeps a <bundle>.orig beside the file it rewrites and build-linux.sh
+# step 7 drops them before repack; before it did, nine of them (102 MB on
+# 1.6.897) shipped in every package. Only the header is read: an asar
+# starts with a 16-byte pickle prefix whose last uint32 (offset 12,
+# little-endian) is the JSON header length, so every entry name sits in
+# the first 16+len bytes and a matching string in a bundle body cannot be
+# mistaken for an entry. A PASS is only printed once that length parsed.
+assert_asar_no_patch_backups() {
+	local asar="$1" len names
+	len=$(LC_ALL=C od -An -j12 -N4 -tu4 "$asar" 2>/dev/null | tr -d ' ')
+	if [[ ! $len =~ ^[0-9]+$ ]] || (( len == 0 )); then
+		fail "Cannot read the asar header length: $asar"
+		return
+	fi
+	names=$(head -c $((16 + len)) "$asar" \
+		| LC_ALL=C grep -ao '"[^"]*\.orig"' | sort -u | tr '\n' ' ')
+	if [[ -z $names ]]; then
+		pass "No patch backups (*.orig) packed in $asar"
+	else
+		fail "Patch backups packed in $asar: $names"
+	fi
+}
+
 # Locate scripts/verify-patches.sh relative to this file (tests/..).
 _verify_patches_sh() {
 	local d
@@ -120,6 +144,7 @@ validate_app_contents() {
 
 	assert_file_exists "$resources_dir/app.asar"
 	assert_dir_exists "$resources_dir/app.asar.unpacked"
+	assert_asar_no_patch_backups "$resources_dir/app.asar"
 
 	# resources/ and resources/Release/ must be traversable by non-root users:
 	# Electron runs as the user and reads app.asar / the helper from here. A
