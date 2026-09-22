@@ -427,11 +427,64 @@ const Ie=(e,t)=>{o().info(`[Blackout Overlay]: Setting blackout overlay state to
 JS
 	run bash "$PATCH_DIR/linux-disable-pill-drag.sh" "$FIX"
 	[[ "$status" -eq 0 ]]
-	grep -qF 'Le=e=>{let t,n;e=(/*WISPR_LINUX_DISABLE_PILL_DRAG*/"linux"===process.platform)?!1:e;if(o().info(`[Drag Overlay]: Setting drag overlay state to ${e}`),Z=e,' "$FIX"
+	grep -qF 'Le=e=>{let t,n;if(/*WISPR_LINUX_DISABLE_PILL_DRAG*/"linux"===process.platform){e=!1}if(o().info(`[Drag Overlay]: Setting drag overlay state to ${e}`),Z=e,' "$FIX"
 	# exactly one insertion; the blackout handler is untouched
 	[[ "$(grep -o 'WISPR_LINUX_DISABLE_PILL_DRAG' "$FIX" | wc -l)" -eq 1 ]]
 	grep -qF 'const Ie=(e,t)=>{o().info(`[Blackout Overlay]' "$FIX"
 	node_check "$FIX"
+}
+
+@test "pill-drag: matches a handler with no declaration prelude (if( right after the brace)" {
+	# The prelude is the minifier's hoisted `let`, not part of the shape;
+	# a bundle that drops it must still patch, with the gate in the same place.
+	cat > "$FIX" <<'JS'
+var o=()=>({info(){}}),Z;
+const Le=e=>{if(o().info(`[Drag Overlay]: Setting drag overlay state to ${e}`),Z=e,e){}};
+JS
+	run bash "$PATCH_DIR/linux-disable-pill-drag.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'Le=e=>{if(/*WISPR_LINUX_DISABLE_PILL_DRAG*/"linux"===process.platform){e=!1}if(o().info(`[Drag Overlay]' "$FIX"
+	node_check "$FIX"
+}
+
+@test "pill-drag: reproduces a reshaped prelude verbatim (split declarations)" {
+	cat > "$FIX" <<'JS'
+var o=()=>({info(){}}),Z;
+const Le=e=>{let t;var n;if(o().info(`[Drag Overlay]: Setting drag overlay state to ${e}`),Z=e,e){t=1,n=2}};
+JS
+	run bash "$PATCH_DIR/linux-disable-pill-drag.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'Le=e=>{let t;var n;if(/*WISPR_LINUX_DISABLE_PILL_DRAG*/"linux"===process.platform){e=!1}if(o().info(`[Drag Overlay]' "$FIX"
+	node_check "$FIX"
+}
+
+@test "pill-drag: the prelude fence stops at a nested block (near miss)" {
+	# A brace inside the prelude is a structural boundary the bounded run must
+	# not cross, so the anchor finds nothing and the patch fails closed for a
+	# re-audit rather than injecting past an unknown statement.
+	cat > "$FIX" <<'JS'
+var o=()=>({info(){}}),Z;
+const Le=e=>{let t={};if(o().info(`[Drag Overlay]: Setting drag overlay state to ${e}`),Z=e,e){t=1}};
+JS
+	run bash "$PATCH_DIR/linux-disable-pill-drag.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *'found 0'* ]]
+	run grep -q 'WISPR_LINUX_DISABLE_PILL_DRAG' "$FIX"
+	[[ "$status" -ne 0 ]]
+}
+
+@test "pill-drag: the prelude budget is 80 characters (near miss at 81)" {
+	local pad80 pad81
+	pad80="let $(printf 'a%.0s' {1..75});"
+	pad81="let $(printf 'a%.0s' {1..76});"
+	[[ ${#pad80} -eq 80 && ${#pad81} -eq 81 ]]
+	printf 'var o=()=>({info(){}}),Z;\nconst Le=e=>{%sif(o().info(`[Drag Overlay]: Setting drag overlay state to ${e}`),Z=e,e){}};\n' "$pad80" > "$FIX"
+	run bash "$PATCH_DIR/linux-disable-pill-drag.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	printf 'var o=()=>({info(){}}),Z;\nconst Le=e=>{%sif(o().info(`[Drag Overlay]: Setting drag overlay state to ${e}`),Z=e,e){}};\n' "$pad81" > "$FIX"
+	run bash "$PATCH_DIR/linux-disable-pill-drag.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *'found 0'* ]]
 }
 
 @test "pill-drag: idempotent on second run" {
@@ -444,8 +497,9 @@ JS
 }
 
 @test "pill-drag: bails non-zero when the log string is present but the handler shape is not" {
-	# The 1.5.789 shape: same developer string, no `let` prelude. A decoy
-	# with the literal but not the call shape must not be patched.
+	# The 1.5.789 shape: same developer string, but the handler is a comma
+	# expression with no `if(` at all. A decoy with the literal but not the
+	# call shape must not be patched.
 	cat > "$FIX" <<'JS'
 var o=()=>({info(){}}),R;
 const U=e=>{o().info(`[Drag Overlay]: Setting drag overlay state to ${e}`),R=e};

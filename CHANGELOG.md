@@ -147,6 +147,15 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Changed
 
+- `linux-disable-pill-drag.sh` no longer requires the exact `let t,n;`
+  the minifier hoists between the drag-overlay handler's `{` and its `if(`:
+  the anchor spans that prelude as a bounded, brace-fenced run of up to 80
+  characters and reproduces it verbatim, so a re-minification that splits,
+  reorders or drops the declaration still patches, while a nested block in
+  the prelude or a comma-expression handler (the 1.5.789 shape) still fails
+  closed. The injected gate is now a braced `if(...){e=!1}` so the fence
+  cannot absorb it on a re-run. Fixtures cover the no-prelude, split-prelude,
+  nested-block and 81-character near misses.
 - The artifact tests' headless launch harness runs its `pkill -f` sweep only
   under `CI`. The sweep's patterns (`/usr/lib/wispr-flow`, the AppImage path)
   also match a live Wispr Flow on a developer's desktop, so a local run that
