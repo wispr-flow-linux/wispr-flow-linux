@@ -1,10 +1,14 @@
 name: Check Wispr Flow Version
 
-# Tracks upstream Wispr Flow releases. Daily, it resolves the latest Windows
-# installer version from Wispr's "latest" redirect; when it differs from the
-# stored WISPR_FLOW_VERSION it bumps APP_VERSION (build.sh) and the Nix package
-# version, updates the variable, and pushes a v<REPO_VERSION>+wispr<VERSION> tag
-# that triggers the publish chain in ci.yml.
+# Tracks upstream Wispr Flow releases. Daily, it reads upstream's release
+# manifest (scripts/setup/resolve-installer-url.sh -> latest.json: versioned
+# installer URL + sha256). When that differs from the in-tree installer pin
+# (scripts/setup/installer-pin.sh) or from the stored WISPR_FLOW_VERSION, it
+# rewrites the pin (version, URL, sha256 move together), bumps the Nix
+# package version, commits, updates the variable, and pushes a
+# v<REPO_VERSION>+wispr<VERSION> tag that triggers the publish chain in
+# ci.yml. This is the ONLY place that looks at upstream's "latest"; every
+# build downloads exactly what the pin says and verifies the digest.
 #
 # Needs GH_PAT (the default GITHUB_TOKEN cannot push a tag that re-triggers
 # tag-driven workflows).
@@ -31,45 +35,78 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GH_PAT }}
 
-      - name: Resolve latest Wispr Flow version
+      - name: Resolve latest Wispr Flow release from upstream's manifest
         id: resolve
         run: |
           chmod +x scripts/setup/resolve-installer-url.sh
           scripts/setup/resolve-installer-url.sh > resolved.txt
           version=$(grep '^VERSION=' resolved.txt | cut -d= -f2-)
+          url=$(grep '^URL=' resolved.txt | cut -d= -f2-)
+          sha256=$(grep '^SHA256=' resolved.txt | cut -d= -f2-)
           [[ -n "$version" ]] || { echo "::error::no version resolved"; exit 1; }
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Resolved upstream version: $version"
+          [[ -n "$url" ]] || { echo "::error::no URL resolved"; exit 1; }
+          # A pin without a digest cannot be verified at build time; never
+          # bump onto one. Upstream has published sha256 since the manifest
+          # appeared, so this is a tripwire, not an expected path.
+          if [[ -z "$sha256" ]]; then
+            echo "::error::manifest published no sha256 for ${version}; refusing to bump"
+            exit 1
+          fi
+          {
+            echo "version=$version"
+            echo "url=$url"
+            echo "sha256=$sha256"
+          } >> "$GITHUB_OUTPUT"
+          echo "Resolved upstream: ${version} ${url} sha256=${sha256}"
 
       - name: Check if update needed
         id: check
         run: |
           new="${{ steps.resolve.outputs.version }}"
+          new_sha="${{ steps.resolve.outputs.sha256 }}"
           stored="${{ vars.WISPR_FLOW_VERSION }}"
           repo_ver="${{ vars.REPO_VERSION }}"
-          echo "stored=$stored new=$new repo_ver=$repo_ver"
+          pinned=$(grep -oP "^WISPR_VERSION='\K[^']+" scripts/setup/installer-pin.sh)
+          pinned_sha=$(grep -oP "^WISPR_INSTALLER_SHA256='\K[^']+" scripts/setup/installer-pin.sh)
+          echo "pin=$pinned stored=$stored new=$new repo_ver=$repo_ver"
           if [[ -z "$repo_ver" ]]; then
             echo "::error::REPO_VERSION variable is not set"
             exit 1
           fi
-          if [[ "$new" == "$stored" ]]; then
-            echo "Up to date; nothing to do."
-            echo "update_needed=false" >> "$GITHUB_OUTPUT"
-          else
+          needed=false
+          if [[ "$new" != "$pinned" ]]; then
+            echo "Version differs from the pin ($pinned -> $new)"
+            needed=true
+          elif [[ "$new_sha" != "$pinned_sha" ]]; then
+            # Same version, different bytes: upstream re-published. The pin
+            # must follow or every build fails its digest check.
+            echo "Upstream re-published $new with a new sha256; pin follows"
+            needed=true
+          fi
+          if [[ "$new" != "$stored" ]]; then
+            echo "Version differs from WISPR_FLOW_VERSION ($stored -> $new)"
+            needed=true
+          fi
+          if [[ "$needed" == true ]]; then
             echo "update_needed=true" >> "$GITHUB_OUTPUT"
             echo "new_tag=v${repo_ver}+wispr${new}" >> "$GITHUB_OUTPUT"
+          else
+            echo "Up to date; nothing to do."
+            echo "update_needed=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Bump APP_VERSION and Nix version
+      - name: Rewrite the installer pin and the Nix version
         if: steps.check.outputs.update_needed == 'true'
         run: |
           new="${{ steps.resolve.outputs.version }}"
-          # build.sh: the hardcoded upstream version constant.
-          sed -i "s/^readonly APP_VERSION='[^']*'/readonly APP_VERSION='$new'/" build.sh
+          chmod +x scripts/setup/write-installer-pin.sh
+          # The writer validates every field and refuses a partial rewrite,
+          # so the pin can never be left internally inconsistent.
+          scripts/setup/write-installer-pin.sh < resolved.txt
           # nix/wispr-flow.nix: only the FIRST `version = "..."` (the app's;
           # the helper's version line comes later and must NOT be touched).
           sed -i "0,/version = \"[^\"]*\";/ s//version = \"$new\";/" nix/wispr-flow.nix
-          echo "--- build.sh ---"; grep "APP_VERSION='" build.sh
+          echo "--- pin ---"; grep '^WISPR_' scripts/setup/installer-pin.sh
           echo "--- nix ---"; grep -n 'version = "' nix/wispr-flow.nix
 
       - name: Commit, set variable, and push tag
@@ -78,6 +115,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           new="${{ steps.resolve.outputs.version }}"
+          url="${{ steps.resolve.outputs.url }}"
+          sha256="${{ steps.resolve.outputs.sha256 }}"
           new_tag="${{ steps.check.outputs.new_tag }}"
           if [[ -z "$GH_TOKEN" ]]; then
             echo "::error::GH_PAT secret is not configured"
@@ -85,14 +124,26 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet build.sh nix/wispr-flow.nix; then
-            echo "No file changes (version constants already current)."
+          if git diff --quiet scripts/setup/installer-pin.sh nix/wispr-flow.nix; then
+            echo "No file changes (the pin already holds ${new})."
           else
-            git add build.sh nix/wispr-flow.nix
-            git commit -m "chore: bump Wispr Flow to ${new}"
+            git add scripts/setup/installer-pin.sh nix/wispr-flow.nix
+            git commit -F - <<COMMIT_MSG
+          chore: bump Wispr Flow to ${new}
+
+          Pinned from upstream's release manifest:
+            ${url}
+            sha256 ${sha256}
+          COMMIT_MSG
             git push
           fi
           gh variable set WISPR_FLOW_VERSION --body "$new"
+          # A same-version re-pin (new sha256) already has its tag; the
+          # publish chain is append-only, so leave it alone.
+          if git ls-remote --exit-code --tags origin "refs/tags/${new_tag}" >/dev/null; then
+            echo "Tag ${new_tag} already exists; pin updated, not re-tagged."
+            exit 0
+          fi
           echo "Creating and pushing tag: $new_tag"
           git tag -a "$new_tag" -m "Wispr Flow ${new}"
           git push origin "$new_tag"

@@ -43,23 +43,24 @@ Phase 6  pill strategy + helper v0.1.3         (needs a decision first)
 
 | PR | Author | Verdict | Notes |
 |---|---|---|---|
-| #55 | khamsakamal48 | cherry-pick | 4 commits, one per fix. Author silent since Sept 6. Take helper-env re-anchor, resolver, appdata icon; drop the version-bump hunk. |
+| #55 | khamsakamal48 | closed 09-22 with credit | 4 commits: helper-env re-anchor landed in #80, resolver + appdata icon in #84, shortcut map in #88 (re-checked on 1.6.897, 8 ternary sites). Version-bump hunk superseded by the pin. |
 | #70 | crafteraadarsh | keep open, redirect | Ask for RELEASES + direct nupkg fetch verified by the manifest sha1 as the fallback path; credit #55. |
-| #59 | nihalebr | close | Stale one-line bump to 1.6.827; bot handles this. |
-| #40 | Anirudh-K96 | edit + merge | Bump `rev`/`version` to helper v0.1.2 and re-derive the hash, or make nix read `helper-version.txt`. |
-| #39 | jaikr-dev | merge as-is | Hub `focusable` gate. Dev-string anchor, count=1, marker, tests, changelog, 3 community confirmations. Closes #36 #56 #72. |
-| #45 | Techyid613 | close, credit | Byte-identical to #39. |
-| #74 | vascode2 | close, credit | Same fix; minified-identifier anchor matches 0 sites on 1.5.789; no tests/marker. |
-| #51 | jcartu | edit + merge | Early singleton lock. Root cause and lock-path parity verified. Trim changelog entry, add attribution. |
-| #69 | crafteraadarsh | round-trip | Autostart shim. Needs bats, changelog, troubleshooting entry, doctor line. Silent first-launch enable is upstream parity; say so. Check GNOME no-tray case. |
-| #66 | crafteraadarsh | edit + merge | Disable pill drag. Wrap one 130-col comment, add changelog. |
+| #59 | nihalebr | closed 09-21 | Stale one-line bump to 1.6.827; credited to #84. |
+| #40 | Anirudh-K96 | merged 09-22 | Bumped to helper v0.1.2; hash derived by NAR-hashing the tarball (reproduces the v0.1.0 hash). |
+| #39 | jaikr-dev | merged 09-22 as 528b096 | Hub `focusable` gate; one site on 1.5.789 and 1.6.897. Closed #36 #56 #72. |
+| #45 | Techyid613 | closed 09-22 | Byte-identical to #39; credited in ACKNOWLEDGMENTS.md. |
+| #74 | vascode2 | closed 09-22 | Same fix; anchor matched 0 sites; the `_NET_WM_ALLOWED_ACTIONS` diagnosis is credited. |
+| #51 | jcartu | merged 09-22 as 77f1bbb | Early singleton lock; banner shape holds on 1.6.897; changelog trimmed and credited. |
+| #69 | crafteraadarsh | round-trip posted 09-22 | Autostart shim. Asked for bats, changelog, troubleshooting entry, doctor line, GNOME no-tray check, and a rebase. |
+| #66 | crafteraadarsh | merged 09-22 as 23c53b5 | Disable pill drag; anchor is 1 site on 1.6.897, 0 on 1.5.789 (`let t,n;if(` adjacency, fails closed). Added the linux-patches.bats trio. |
 | #67 | crafteraadarsh | drop | 200x110 on all Linux clips toasts for X11 users; moot once #78 lands. |
-| #68 | crafteraadarsh | round-trip | Global `screenX` replace, 49px dock guess, wrong off GNOME. Fix main-side from the window's own bounds. |
-| #78 | crafteraadarsh | hold | Right approach; blocked on helper #19/#20 + v0.1.3. Rebase off #68's commit. |
-| #73 | vascode2 | round-trip | See "#73 diagnostic ask" below. |
-| #77 | vascode2 | close, credit | Context menu has no alpha poll and is full-work-area by design; carries #74's commit. |
-| #42 | caio-passos | edit + merge | Soften the "Mutter has no data-control" sentence (contradicts `wayland-injection.md`). |
-| #37 | rajivranjanmars | merge as-is | Accurate against `doctor.sh` and the learnings. |
+| #68 | crafteraadarsh | round-trip posted 09-22 | Asked for a main-bundle patch on the `ShowAutoPolishPicker`/`ShowFetchLinkPicker` forwarding handlers adding `statusWindow.getBounds()`. |
+| #78 | crafteraadarsh | hold, comment posted 09-22 | Right approach; blocked on helper #19/#20 + v0.1.3 and the #68 rework. |
+| #73 | vascode2 | diagnostic ask posted 09-22 | Both remaining anchors match 0 sites on 1.6.897; see "#73 diagnostic ask" below. |
+| #77 | vascode2 | closed 09-22 | Context menu has no alpha poll and is full-work-area by design; carried #74's commit. |
+| #42 | caio-passos | merged 09-22 as 30bf36a | Cause sentence left open: mutter ships ext-data-control since GNOME 48. |
+| #82 | vascode2 | round-trip posted 09-22 | New since the plan. Tray-only Hub at launch; anchor hardcodes the logger name and matches 0 sites on 1.5.789/1.6.897. 1.6.897 already has a win32-gated "auto launch at login is enabled" skip plus `--show-hub-at-launch`; asked to widen that gate instead and drop the #73/#74/#77 stack. |
+| #37 | rajivranjanmars | merged 09-22 as 608a3c7 | Accurate against `doctor.sh` and the learnings. |
 
 Merge order for the clean set: #39 → #37 → #42 → #51 → #66 → #40. #51 and
 #66/#69 all append to the same three hunks (`build-linux.sh` patch block,
@@ -116,6 +117,11 @@ Authors get shellcheck and bats results without maintainer time.
 
 ### Phase 2 — pin the installer, land the resolver
 
+**Status (2026-09-21): built and verified in PR #84, unmerged.** Merge
+re-arms the nightly tag push; the publish-gate decision below is the
+maintainer's call before merging (or merge and dispatch by hand at once).
+#59 closed with credit; #70 redirected to the `RELEASES`+nupkg fallback.
+
 Transferred from cdd: the build reads a pin file; only the bump workflow
 resolves live.
 
@@ -129,14 +135,32 @@ resolves live.
 5. Dispatch the bump workflow and watch the first 1.6.897 tag build.
 6. Close #59. Redirect #70 to the RELEASES/nupkg fallback.
 
-Optional gate: put the `release` and `update-*-repo` jobs behind a GitHub
-`environment:` with a required reviewer, or have the bot open a PR instead of
-tagging. cdd runs ungated and relies on fail-closed anchors; roughly one in
-three of its auto-bumps goes red and ships nothing. The gate matters most for
-the first bump after a multi-version jump; drop it after that if it becomes
-friction.
+**Publish gate decision (2026-09-22, maintainer): none. The chain stays
+automatic and fails closed**, on the sibling's model. What already makes it
+fail closed here: `release` needs `build-amd64`, `build-arm64` and
+`test-artifacts`; the three publish jobs need `release`; the build verifies
+the pinned installer's sha256, every patch asserts its anchor count, the
+`verify-patches.sh` marker gate runs on the shipped asar, and the launch
+smoke test fails on the `stub` backend. A red run ships nothing; a bad
+release that shipped gets marked pre-release and a follow-up tag, never
+deleted (RELEASING.md). Two follow-ups carry the decision:
+
+1. Add `!contains(github.ref_name, '-rc')` to `update-apt-repo`,
+   `update-dnf-repo` and `update-aur-repo`, and `prerelease:` on rc tags in
+   `release`, so a hand-pushed `v*-rc*` tag builds, tests and creates a
+   pre-release without touching the package repos. That is the sibling's
+   manual look-first path; the bot never produces rc tags. Say so in
+   RELEASING.md.
+2. Record it as D-011 in `docs/decisions.md` (Phase 5 item 10).
+
+**Status (2026-09-22, second session): both follow-ups are PR #89, stacked
+on #84's branch; rebase onto main after #84 lands.**
 
 ### Phase 3 — merge the clean PRs, close the duplicates
+
+**Status (2026-09-22): done.** #39, #37, #42, #51, #66, #40 merged in that
+order; #45, #74, #77 closed with credit; `ACKNOWLEDGMENTS.md` landed as
+#87 with a CONTRIBUTING bullet.
 
 - Push the small edits yourself (all PRs allow maintainer edits): #40 pin
   bump, #42 wording, #51 changelog, #66 comment wrap.
@@ -147,6 +171,9 @@ friction.
   and whenever an issue author's snippet is used).
 
 ### Phase 4 — contributor round-trips
+
+**Status (2026-09-22): all asks posted** (#69, #73, #68, #78, plus the new
+#82). Waiting on authors.
 
 - #69: request bats, changelog, troubleshooting entry naming
   `~/.config/autostart/wispr-flow.desktop`, a `--doctor` line reporting it,
@@ -204,9 +231,10 @@ Do these after the first clean auto-bump, each as its own PR.
    prompt-injection scan, deterministic validation, adversarial review,
    public comment + labels. Takes first response off the one maintainer.
    Port after the pipeline work; needs an API key secret.
-10. **Decision log entries.** Record in `docs/decisions.md`: installer is
-    pinned not resolved at build time; Wayland pill input shaping lives in
-    the compositor extension (or not, per Phase 6); PR policy above.
+10. **Decision log entries.** Record in `docs/decisions.md`: the publish
+    chain is ungated and fails closed (D-011, decided 2026-09-22); Wayland
+    pill input shaping lives in the compositor extension (or not, per
+    Phase 6); PR policy above. D-010 (pinned installer) is already in.
 
 ### Phase 6 — pill strategy and helper v0.1.3
 

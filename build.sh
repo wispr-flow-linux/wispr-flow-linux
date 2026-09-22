@@ -11,7 +11,7 @@
 #   parse_arguments
 #     --test-flags? -> print resolved flags + exit 0 (NO build)
 #   check_dependencies
-#   download_installer  (--exe, else fetch latest) -> staged installer
+#   download_installer  (--exe, else fetch the pinned installer) -> staged .exe
 #   scripts/build-linux.sh           -> patch + native + stage (ARCH/version via env)
 #   fetch_electron (if not staged)   -> Linux Electron, launcher renamed wispr-flow
 #   run_packaging                    -> scripts/packaging/<fmt>.sh
@@ -38,10 +38,15 @@ installer_exe_path=''
 final_output_path=''
 
 #--- package metadata (constants) ----------------------------------------------
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PACKAGE_NAME='wispr-flow'
 readonly WM_CLASS='Wispr Flow'
 export WM_CLASS
-readonly APP_VERSION='1.6.7'
+# The upstream app version comes from the installer pin, the single place the
+# bump workflow rewrites (version, download URL and sha256 move together).
+# shellcheck source=scripts/setup/installer-pin.sh
+source "$script_dir/scripts/setup/installer-pin.sh"
+readonly APP_VERSION="$WISPR_VERSION"
 readonly ELECTRON_VERSION='42.3.0'
 readonly ELECTRON_MAJOR='42'
 # Exported so scripts/build-linux.sh stages the versions the orchestrator
@@ -60,7 +65,6 @@ export MAINTAINER DESCRIPTION
 electron_version="$ELECTRON_VERSION"
 
 #--- source helpers ------------------------------------------------------------
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/_common.sh
 source "$script_dir/scripts/_common.sh"
 # shellcheck source=scripts/setup/detect-host.sh
@@ -259,7 +263,7 @@ print_resolved_flags() {
 	echo "Arch (electron):$electron_arch"
 	echo "Distro family:  $distro_family"
 	echo "Clean:          $clean_action"
-	echo "Exe:            ${local_exe_path:-<none: fetch latest upstream>}"
+	echo "Exe:            ${local_exe_path:-<none: fetch pinned installer>}"
 	echo "Release tag:    ${release_tag:-<none>}"
 	echo "App version:    $APP_VERSION"
 	echo "Package version:$pkg_version"
@@ -289,9 +293,9 @@ main() {
 
 	check_dependencies
 
-	# Phase 2: resolve the installer (--exe, else fetch the latest upstream),
-	# then 7z-extract it into the extract/ tree that staging consumes
-	# (idempotent -- reuses a hand-prepared tree).
+	# Phase 2: obtain the installer (--exe, else download the pinned one and
+	# verify its digest), then 7z-extract it into the extract/ tree that
+	# staging consumes (idempotent -- reuses a same-version tree).
 	download_installer
 	extract_installer
 
