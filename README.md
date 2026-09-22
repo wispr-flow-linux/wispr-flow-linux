@@ -76,15 +76,16 @@ use); the repo never bundles or commits it. Build a package with:
 ./build.sh --build rpm --exe ~/Downloads/"Wispr Flow Setup-v1.5.695.exe"
 ```
 
-`--exe` is optional: without it, `build.sh` fetches the latest installer and
-verifies it matches the pinned version; with it, the build uses your local `.exe`
-and never fetches the proprietary app.
+`--exe` is optional: without it, `build.sh` downloads the installer pinned in
+`scripts/setup/installer-pin.sh` (version, URL and SHA-256) and refuses it on a
+digest mismatch; with it, the build uses your local `.exe` and never fetches the
+proprietary app.
 
 Here are the common options (`./build.sh --help` lists all):
 
 - `-b, --build <deb|rpm|appimage|nix>` — package format (default: auto-detected)
 - `--arch <amd64|arm64>` — target architecture (default: host)
-- `-e, --exe <path>` — installer .exe to use (optional; default: fetch latest)
+- `-e, --exe <path>` — installer .exe to use (optional; default: fetch the pinned one)
 - `-c, --clean <yes|no>` — remove intermediate build files when done
 
 I cover prerequisites, the Linux Electron download, the native sqlite rebuild, and

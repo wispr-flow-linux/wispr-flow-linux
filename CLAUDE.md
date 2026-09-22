@@ -67,7 +67,11 @@ This repo's tree:
   `--doctor`).
 - `scripts/`
   - `setup/` — host detection, dependency install, Wispr Flow / Electron
-    download helpers.
+    download helpers. `installer-pin.sh` is the pinned upstream installer
+    (version, URL, sha256): builds download exactly that and verify it;
+    only `check-wispr-version.yml` resolves upstream's `latest.json`
+    (`resolve-installer-url.sh`) and rewrites the pin
+    (`write-installer-pin.sh`).
   - `patches/` — the app patches: `helper-resolver.sh` (adds the `'linux'`
     helper-path branch), `mac-gates.sh` (gates the macOS Applications-folder
     guard to darwin), and the V8 14.8 `better-sqlite3-multiple-ciphers` compat

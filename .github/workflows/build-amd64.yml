@@ -1,8 +1,9 @@
 name: Build Package AMD64 (Reusable)
 
-# Builds one package format for x86_64. CI downloads the proprietary Wispr Flow
-# installer and the pinned prebuilt clean-room helper, then runs build.sh. The
-# .exe and helper never live in the repo.
+# Builds one package format for x86_64. CI downloads the pinned proprietary
+# Wispr Flow installer (scripts/setup/installer-pin.sh) and the pinned prebuilt
+# clean-room helper, then runs build.sh. The .exe and helper never live in the
+# repo.
 
 on:
   workflow_call:
@@ -61,15 +62,17 @@ jobs:
           sudo install -m 0755 /tmp/appimagetool /usr/local/bin/appimagetool
 
       - name: Make scripts executable
-        run: chmod +x ./build.sh scripts/setup/resolve-installer-url.sh scripts/setup/fetch-helper-bin.sh
+        run: chmod +x ./build.sh scripts/setup/fetch-helper-bin.sh
 
-      - name: Resolve and download Wispr Flow installer
+      - name: Download the pinned Wispr Flow installer
+        # The build never resolves "latest": it downloads the URL pinned in
+        # scripts/setup/installer-pin.sh and refuses it unless the sha256
+        # matches. Only check-wispr-version.yml looks at upstream's manifest.
         run: |
-          scripts/setup/resolve-installer-url.sh > resolved.txt
-          url=$(grep '^URL=' resolved.txt | cut -d= -f2-)
-          [[ -n "$url" ]] || { echo "::error::no installer URL resolved"; exit 1; }
-          echo "Downloading installer: $url"
-          curl -fSL -o wispr-flow-setup.exe "$url"
+          source scripts/setup/installer-pin.sh
+          echo "Downloading installer ${WISPR_VERSION}: ${WISPR_INSTALLER_URL}"
+          curl -fSL -o wispr-flow-setup.exe "$WISPR_INSTALLER_URL"
+          echo "${WISPR_INSTALLER_SHA256}  wispr-flow-setup.exe" | sha256sum -c -
 
       - name: Fetch pinned helper binary (x86_64)
         run: |

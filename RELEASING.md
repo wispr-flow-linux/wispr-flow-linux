@@ -75,12 +75,26 @@ Before the first real release:
 ## Two release flavors
 
 - **Upstream-tracking retag (no human action).** `check-wispr-version` runs
-  daily: it resolves the latest Wispr Flow version from
-  `dl.wisprflow.ai/windows/latest`, and when it differs from
-  `WISPR_FLOW_VERSION` it bumps `APP_VERSION` in `build.sh` and the version in
-  `nix/wispr-flow.nix`, updates the variable, and pushes a new tag with the same
-  `REPO_VERSION` and a new `+wispr{X.Y.Z}` suffix. These don't get CHANGELOG
-  entries — the tag suffix tracks them.
+  daily: it reads upstream's release manifest
+  (`dl.wisprflow.com/wispr-flow/win32/latest.json`, via
+  `scripts/setup/resolve-installer-url.sh`), and when the version or digest
+  there differs from the installer pin in `scripts/setup/installer-pin.sh`, or
+  the version differs from `WISPR_FLOW_VERSION`, it rewrites the pin (version,
+  URL and SHA-256 together, via `scripts/setup/write-installer-pin.sh`), bumps
+  the version in `nix/wispr-flow.nix`, commits, updates the variable, and
+  pushes a new tag with the same `REPO_VERSION` and a new `+wispr{X.Y.Z}`
+  suffix. A manifest without a digest never bumps. These don't get CHANGELOG
+  entries — the tag suffix tracks them. To bump by hand, run the same
+  pipeline locally and commit the result:
+
+  ```bash
+  scripts/setup/resolve-installer-url.sh | scripts/setup/write-installer-pin.sh
+  ```
+
+  Every build (local and CI) downloads exactly what the pin says and fails on
+  a digest mismatch, so a build can never quietly pick up an un-audited
+  upstream release. The workflow is also the only thing that tags on its own:
+  merging a working pin to `main` re-arms it.
 
 - **Project release.** You bumped `REPO_VERSION` because you shipped wrapper or
   packaging changes. Follow the checklist below.
@@ -92,16 +106,17 @@ Before the first real release:
    `[v{REPO_VERSION}]` heading with today's date.
 3. **Local lint/tests pass** — `bats tests/` and the shellcheck command in
    [`CLAUDE.md`](CLAUDE.md).
-4. **Versions in sync** — `gh variable get WISPR_FLOW_VERSION` matches the
-   `APP_VERSION` constant in `build.sh`. If not, pull `main` (the
-   `check-wispr-version` workflow may have bumped it).
+4. **Versions in sync** — `gh variable get WISPR_FLOW_VERSION` matches
+   `WISPR_VERSION` in `scripts/setup/installer-pin.sh`. If not, pull `main`
+   (the `check-wispr-version` workflow may have bumped it).
 
 ## What CI does on a tag push
 
 After the gate jobs pass, the [`ci.yml`](.github/workflows/ci.yml) chain:
 
-1. Builds deb/rpm/AppImage for amd64 and arm64 — each build resolves and
-   downloads the proprietary installer and stages the pinned prebuilt helper.
+1. Builds deb/rpm/AppImage for amd64 and arm64 — each build downloads the
+   pinned proprietary installer, verifies its SHA-256, and stages the pinned
+   prebuilt helper.
 2. Runs the format validators (`tests/test-artifact-*.sh`).
 3. Creates the GitHub Release and attaches the six packages.
 4. Hands off to `update-apt-repo`, `update-dnf-repo`, and `update-aur-repo`,

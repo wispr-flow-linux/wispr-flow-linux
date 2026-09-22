@@ -22,6 +22,7 @@ decision date, and an owner.
 | [D-006](#d-006--rename-the-electron-launcher-to-wispr-flow) | 2026-06-04 | Accepted | Rename the Electron launcher to `wispr-flow` |
 | [D-007](#d-007--clean-room-v8-148-patch-for-better-sqlite3-multiple-ciphers) | 2026-06-04 | Accepted | Clean-room V8 14.8 patch for `better-sqlite3-multiple-ciphers` |
 | [D-008](#d-008--async-zbus-on-tokio-never-zbusblocking-for-services) | 2026-06-04 | Accepted | Async zbus on tokio, never `zbus::blocking` for services |
+| [D-010](#d-010--the-installer-is-pinned-in-tree-not-resolved-at-build-time) | 2026-09-21 | Accepted | The installer is pinned in-tree, not resolved at build time |
 
 ---
 
@@ -424,3 +425,97 @@ release assets.
 
 - [learnings/electron42-v8-sqlite.md](learnings/electron42-v8-sqlite.md),
   [building.md](building.md#native-sqlite-modules-prebuilt-with-an-opt-in-local-rebuild).
+
+---
+
+## D-010 — The installer is pinned in-tree, not resolved at build time
+
+- **Status:** Accepted
+- **Decided:** 2026-09-21
+- **Owner:** @aaddrick
+
+### Context
+
+Until this decision every build, local or CI, asked upstream what "latest" was
+(`scripts/setup/resolve-installer-url.sh` followed Wispr's stable redirect) and
+downloaded whatever came back. A version constant in `build.sh` was the only
+guard: the build aborted when the resolved version differed from it. Two things
+broke that model at once in August 2026. Wispr repointed the redirect at a
+versionless web-bootstrap stub with no payload, so the resolver died and every
+`./build.sh` without `--exe` failed ([#83](https://github.com/wispr-flow-linux/wispr-flow-linux/issues/83)).
+And [#55](https://github.com/wispr-flow-linux/wispr-flow-linux/pull/55) showed
+that `helper-env.sh` had been a silent no-op on 1.6.7xx+ bundles, which is the
+class of drift a live resolve exists to ship. The nightly bump workflow pushes
+a `v*` tag with no human gate, so a working resolver alone would have re-armed
+the publish chain against a bundle nobody had re-audited.
+
+The sibling project (claude-desktop-debian) had already moved to a pinned
+artifact: `official-deb.sh` holds version, pool path and SHA-256 per arch, the
+build downloads exactly that, and only its bump workflow queries the index.
+
+### Decision
+
+The upstream installer is **pinned in-tree** in
+[`scripts/setup/installer-pin.sh`](../scripts/setup/installer-pin.sh): version,
+download URL and SHA-256, one assignment per line. `build.sh` sources it for
+`APP_VERSION`; `download.sh` downloads exactly the pinned URL and refuses the
+file unless its digest matches; CI does the same. `--exe` remains the local
+override and is never rejected, only warned about when its digest is not the
+pin's. Nothing in the build path resolves "latest".
+
+Only `check-wispr-version.yml` looks upstream, via the JSON manifest the
+bootstrapper itself reads (`latest.json`: versioned full-installer URL plus a
+published SHA-256). It rewrites the pin through
+`scripts/setup/write-installer-pin.sh`, which validates every field and refuses
+a partial write, then bumps the Nix version, commits, and tags. A manifest that
+publishes no digest never bumps.
+
+### Rationale
+
+- **A build is reproducible from the tree alone.** The version, URL and digest
+  are in git, so a checkout builds the same bytes next month, and a bump is a
+  commit someone can read, revert, or bisect to.
+- **Fail closed on tampering and re-publishes.** The redirect never published a
+  hash; the manifest does. A corrupted or replaced download stops the build
+  instead of shipping.
+- **The audit gate is structural, not procedural.** A new upstream version
+  cannot reach a package without first moving the pin, and moving the pin is
+  the moment the patch suite gets re-audited (the marker gate in
+  `verify-patches.sh` and the fixtures in `tests/linux-patches.bats` fail on
+  drift; the stub-backend assert in the artifact smoke test catches the silent
+  kind).
+- **One writer.** Version, URL and digest move together through one validated
+  script, so the pin can never be internally inconsistent.
+
+### Alternatives considered
+
+- **Fix the resolver, keep resolving at build time** (#55's shape). Simplest
+  diff, but leaves every build tracking upstream's publish cadence and keeps
+  the version constant as the sole guard. Rejected.
+- **Pin the version only, resolve the URL and digest live.** Still trusts
+  whatever the manifest says that day for the bytes; a re-published same-version
+  installer would slip through. Rejected.
+- **Squirrel `RELEASES` + nupkg as the primary source.** Works today and is the
+  natural fallback if `latest.json` disappears
+  ([#70](https://github.com/wispr-flow-linux/wispr-flow-linux/pull/70)); the
+  manifest is preferred because it is what upstream's own installer reads and it
+  publishes a SHA-256 rather than a SHA-1.
+
+### Consequences
+
+- `./build.sh` without `--exe` works again and builds the audited version.
+- Merging a working pin to `main` re-arms the nightly bump workflow; whether
+  the publish chain gets a human gate (a GitHub environment with a required
+  reviewer, or a bot-opened PR instead of a tag) is a separate decision.
+- A stale `extract/` tree from another version is refused rather than reused
+  under the pinned label.
+- `docs/building.md` and `RELEASING.md` describe the pin and the manual bump
+  (`resolve-installer-url.sh | write-installer-pin.sh`).
+
+### References
+
+- [#83](https://github.com/wispr-flow-linux/wispr-flow-linux/issues/83),
+  [#55](https://github.com/wispr-flow-linux/wispr-flow-linux/pull/55) (the
+  manifest resolver, by @khamsakamal48),
+  [learnings/patching-minified-js.md](learnings/patching-minified-js.md#end-to-end-verification-post-build),
+  [learnings/test-methodology.md](learnings/test-methodology.md).

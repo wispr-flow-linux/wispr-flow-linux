@@ -51,10 +51,14 @@ WORK_DIR="$PROJECT_ROOT/build-linux"
 STAGE="$WORK_DIR/stage"                          # becomes the app's resources/ tree
 # These honor env overrides (set by the build.sh orchestrator) but default to
 # the validated values when run standalone -- behavior is identical unless an
-# override is exported. Keep APP_VERSION in lockstep with build.sh's APP_VERSION
-# so a standalone `build-linux.sh` run stages the same version the orchestrator
+# override is exported. APP_VERSION defaults to the installer pin so a
+# standalone `build-linux.sh` run stages the same version the orchestrator
 # does (a divergent default silently mislabels the staged tree).
-APP_VERSION="${APP_VERSION:-1.5.695}"
+if [[ -z "${APP_VERSION:-}" ]]; then
+  # shellcheck source=setup/installer-pin.sh
+  source "$SCRIPT_DIR/setup/installer-pin.sh"
+  APP_VERSION="$WISPR_VERSION"
+fi
 ELECTRON_MAJOR="${ELECTRON_MAJOR:-42}"
 ELECTRON_VERSION="${ELECTRON_VERSION:-42.3.0}"
 ARCH="${ARCH:-x64}"   # linux-x64; the helper + sqlite must match
