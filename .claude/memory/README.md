@@ -19,4 +19,8 @@ learnings here.
   practices to transfer from claude-desktop-debian.
 - [`wispr-1.6.897-audit.md`](wispr-1.6.897-audit.md) — Phase 1 results: which
   anchors drifted on 1.6.897 and how they were re-anchored, runtime smoke
-  results, and the build-tree gotchas hit along the way.
+  results, the build-tree gotchas hit along the way, and the gate audit of
+  the new `win32` reads (with the `~/Library` finding behind #100).
+- [`handover-2026-09-22.md`](handover-2026-09-22.md) — the prompt to paste
+  into a fresh session: where the triage stands, open PRs, next actions,
+  the conventions that are not written down elsewhere.

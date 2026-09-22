@@ -188,6 +188,18 @@ order; #45, #74, #77 closed with credit; `ACKNOWLEDGMENTS.md` landed as
 
 Do these after the first clean auto-bump, each as its own PR.
 
+**Status (2026-09-22, second session):** items 2 (#96), 3 (#92), 7 (#98),
+8 and 10 (#93, D-012) landed. Item 6 is covered by `extract_installer`'s
+nupkg-name check from #84 (the pin's sha256 fixes the bytes; the name
+fixes the label), so no further code. Item 5 is applied as patches are
+touched (#99 added the pill-drag near misses). Items 1, 4 and 9 are open.
+The X11 opt-in from Phase 6 landed as #94. Two defects found on the way
+were fixed (#95: 102 MB of `*.orig` patch backups packed into every asar;
+#97: step 2 wiped the download cache and package outputs) and one filed
+(#100: the app's database lives under `~/Library` on Linux). The three
+unfiled audit items are done: step 2 (#97), the pill-drag prelude (#99),
+the gate audit (recorded in `wispr-1.6.897-audit.md`).
+
 1. **Upstream tripwires instead of marker grepping.** cdd deleted its
    `verify-patches.sh` in v3.0.0 and replaced it with
    `_check_upstream_tripwires` (`scripts/patches/app-asar.sh:88`), which greps
