@@ -8,6 +8,64 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+### Fixed
+
+- Two bundle patches silently stopped matching the Wispr 1.6.7xx+ main
+  bundle, and the marker gate correctly refused to build 1.6.897:
+  `helper-env.sh` (upstream hoisted the helper's telemetry-only spawn env
+  into a factory, so the `env:{` spawn-site anchor found nothing and the
+  helper fell to the no-op `stub` injection backend) now anchors on the
+  `{sentryDSN:` object itself, wherever it lives (#55, by @khamsakamal48);
+  `linux-window-frame.sh` (upstream inserted `frame:!1` between the two keys
+  the anchor spanned) now matches the win32 window config as a brace-fenced
+  property bag instead of exact text. Both carry near-miss bats fixtures
+  copied from the shipped 1.6.897 bytes.
+- On X11 the Hub window opened as an unmanaged (override-redirect) window:
+  pinned above every other window, missing from Alt+Tab, and impossible to
+  move, minimize, or maximize. Upstream creates the window with `focusable:!1`
+  on every platform and only macOS restores focus later, so Linux inherited
+  Electron's override-redirect treatment of non-focusable windows. The new
+  `linux-hub-focusable.sh` patch rewrites the Hub config so `focusable` is
+  true on Linux only, leaving the shipped macOS and Windows behavior
+  untouched. (#36)
+- Launching a second instance while the app was running crashed with
+  `SIGABRT` (`V8 FATAL: Error::ThrowAsJavaScriptException napi_throw`).
+  Upstream only requests the single-instance lock at the end of its main
+  bundle, so a second launch fully initialised native modules, the database
+  and the helper before quitting, and tearing that down aborted. The new
+  `linux-early-singleton.sh` patch takes the lock before the webpack IIFE
+  and exits at once when it is not acquired; the running primary still gets
+  `second-instance` and focuses its Hub, and `--quit-app` and `wispr-flow:`
+  deep links still reach it (#51, by @jcartu).
+- Dragging the status pill on Wayland never moved it and left a dimming
+  overlay that swallowed clicks and scroll until Escape was pressed: the
+  drag moves the window to absolute coordinates, which native Wayland
+  ignores. The new `linux-disable-pill-drag.sh` patch forces the drag-overlay
+  activation flag false on Linux at the one handler that enacts it, so the
+  gesture is a no-op and no overlay appears (#66, by @crafteraadarsh).
+
+### Added
+
+- The headless launch smoke test in `tests/test-artifact-common.sh` now reads
+  the helper's injection-backend line from `launcher.log` after the readiness
+  marker and fails on `stub` (or on no backend line at all). This is the
+  assert that would have caught the `helper-env.sh` no-op: the app reached
+  helper-ready and recorded fine while nothing was ever typed.
+
+- `docs/learnings/test-methodology.md`: the shell-test discipline ported from
+  claude-desktop-debian (the `run`-subshell counter trap, near-miss fixtures,
+  real-tool FAIL branches, host-state isolation, launch-smoke blind spots, the
+  mutation check), grounded on this repo's bats and artifact suites.
+
+### Changed
+
+- `docs/learnings/patching-minified-js.md` gains the sibling project's newer
+  lessons: quote classes for string anchors, callee-indirection call shapes,
+  bounded `[^{}]` preludes (adjacency), developer-literal terminators, anchors
+  that survive their own patch, per-anchor file resolution, and the
+  shared-gate rule (grep every consumer before flipping a predicate), each
+  regrounded on a patch or PR in this repo.
+
 ## [v1.0.3] - 2026-06-11
 
 ### Fixed

@@ -23,11 +23,12 @@
 # minimize/maximize/close controls): those controls only render correctly inside
 # a frameless / hidden-title-bar window, exactly like Windows.
 #
-# As of Wispr Flow 1.5.695 this is the meeting_recorder window. The other chrome
-# windows no longer have this gap: the Flow Hub and scratchpad windows now use a
-# TWO-WAY `isMac ? {frame:!1,...} : {frame:!1,autoHideMenuBar:!0}` switch whose
-# else branch already gives Linux a frameless window, and the overlay / status /
-# contextMenu / calendar_reminder windows set `frame:!1` unconditionally. Earlier
+# As of Wispr Flow 1.5.695 (still true on 1.6.897) this is the meeting_recorder
+# window. The other chrome windows no longer have this gap: the Flow Hub and
+# scratchpad windows now use a TWO-WAY `isMac ? {frame:!1,...} :
+# {frame:!1,autoHideMenuBar:!0}` switch whose else branch already gives Linux a
+# frameless window, and the overlay / status / contextMenu windows set
+# `frame:!1` unconditionally. Earlier
 # Wispr versions keyed the mac branch on `titleBarStyle:"hiddenInset"`; that
 # disappeared in the 1.5.695 refactor (which is why the old anchor no-oped and
 # verify-patches.sh failed on the absent WISPR_LINUX_FRAMELESS marker).
@@ -41,12 +42,11 @@
 #       becomes
 #   : ("win32"===process.platform||"linux"===process.platform)&&Object.assign(...)
 #
-# Linux now receives  {titleBarStyle:"hidden", autoHideMenuBar:!0}  — identical
-# to Windows. `titleBarStyle:"hidden"` hides the native title bar so the custom
-# `.win32` chrome can draw min/max/close; `autoHideMenuBar:!0` removes the menu
-# bar. The win32 branch already supplies everything Linux needs, so NO separate
-# `frame:false` is required here (this window uses the hidden-title-bar style,
-# not a fully `frame:false` window).
+# Linux now receives the win32 object verbatim ({titleBarStyle:"hidden",
+# autoHideMenuBar:!0}; 1.6.897 adds frame:!1). `titleBarStyle:"hidden"` hides
+# the native title bar so the custom `.win32` chrome can draw min/max/close;
+# `autoHideMenuBar:!0` removes the menu bar. The win32 branch already supplies
+# everything Linux needs, so the patch adds NO properties of its own.
 #
 # WHY THIS CANNOT REGRESS WINDOWS UPDATE / LOGIN BEHAVIOUR
 # -------------------------------------------------------
@@ -64,12 +64,23 @@
 # NOT on minified symbols (the platform flags `tD`/`H8` and the config var churn
 # every release):
 #   "win32"===process.platform  +
-#   &&Object.assign(<var>,{titleBarStyle:"hidden",autoHideMenuBar:!0})
-# These two literals adjacent uniquely identify the meeting_recorder
+#   &&Object.assign(<var>,{ ..titleBarStyle:"hidden".. autoHideMenuBar:!0.. })
+# The win32 predicate immediately followed by an Object.assign whose object
+# literal carries BOTH keys uniquely identifies the meeting_recorder
 # window-config ternary -- the only window config of this shape (the Hub and
 # scratchpad windows moved to a two-way switch whose else branch already gives
-# Linux frame:!1, and the overlay/status/contextMenu/calendar_reminder windows
-# set frame:!1 unconditionally, so all of those are already frameless on Linux).
+# Linux frame:!1, and the overlay/status/contextMenu windows set frame:!1
+# unconditionally, so all of those are already frameless on Linux). The
+# meeting_ax_inspector window (new in 1.6.x) uses the same object in a two-way
+# switch with no win32 predicate, so its else branch already covers Linux and
+# the anchor deliberately does not match it.
+#
+# The object literal is matched as a brace-fenced bag of properties rather
+# than as the exact `{titleBarStyle:"hidden",autoHideMenuBar:!0}` text: 1.6.897
+# inserted `frame:!1` between the two keys and the exact-text anchor went to
+# zero (the adjacency trap in docs/learnings/patching-minified-js.md). The
+# `[^{}]` fence keeps the two lookaheads inside ONE object literal, so the
+# loosened anchor cannot reach across `},{` into a neighbouring config.
 # We no longer anchor on the mac branch: it churns (it dropped "hiddenInset" in
 # 1.5.695), and the win32-predicate + hidden-title-bar Object.assign pair is
 # already unique on its own. The EXPECTED count assertion below fails loudly if
@@ -125,10 +136,19 @@ with io.open(path, "r", encoding="utf-8", errors="surrogateescape") as f:
 # the hidden-title-bar Object.assign. The marker comment is injected inside the
 # widened predicate so the idempotency grep and the per-site count both key on
 # the same insertion.
+#
+# The object literal is fenced with `[^{}]` so both lookaheads must land inside
+# the SAME brace pair: extra properties between the two keys (1.6.897 added
+# `frame:!1`) or a different key order still match, but a `},{` boundary or a
+# nested object ends the search. Q is the string-delimiter class: the bundle
+# emits `"` today, and a bundler swap to backticks must not zero the anchor.
+Q = r'[`"\']'
 site = re.compile(
-    r'("win32"===process\.platform)'                      # g1: win32 predicate
+    r'(' + Q + r'win32' + Q + r'===process\.platform)'     # g1: win32 predicate
     r'(&&Object\.assign\((?P<var>[\w$]+),'                # g2: &&assign( + var
-    r'\{titleBarStyle:"hidden",autoHideMenuBar:!0\}\))'   # ...hidden cfg )
+    r'\{(?=[^{}]*titleBarStyle:' + Q + r'hidden' + Q + r')'  #   {  has hidden
+    r'(?=[^{}]*autoHideMenuBar:!0)'                       #      has no menubar
+    r'[^{}]*\}\))'                                         #   ...} )
 )
 matches = list(site.finditer(data))
 
@@ -185,8 +205,8 @@ fi
 # Confirm the widened predicate is well-formed: the marker must sit inside a
 # parenthesised win32||linux predicate immediately before the hidden-title-bar
 # Object.assign.
-if ! grep -q \
-	'/\*'"$LINUX_MARKER"'\*/"win32"===process.platform||"linux"===process.platform)&&Object.assign' \
+if ! grep -qE \
+	'/\*'"$LINUX_MARKER"'\*/[`"'"'"']win32[`"'"'"']===process\.platform\|\|"linux"===process\.platform\)&&Object\.assign' \
 	"$BUNDLE"; then
 	echo "ERROR: widened predicate not in expected form. Restoring backup." >&2
 	cp -p "$BUNDLE.orig" "$BUNDLE"
@@ -206,7 +226,8 @@ echo "OK: Linux frameless window-config branch widened in $BUNDLE"
 echo
 echo "Patched window config now does (conceptually):"
 echo "  isMac ? {frame:false,titleBarStyle:'hidden',...}"
-echo "        : (isWin32 || isLinux) && {titleBarStyle:'hidden',autoHideMenuBar:true};"
+echo "        : (isWin32 || isLinux) && {titleBarStyle:'hidden',frame:false,"
+echo "                                   autoHideMenuBar:true};"
 echo
 echo "Linux now gets the same hidden-title-bar chrome as Windows; the renderer"
 echo "CSS patch's .win32 min/max/close controls render in a frameless window."

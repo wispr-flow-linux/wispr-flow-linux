@@ -272,12 +272,34 @@ step3_patch_bundle() {
     auto "Running linux-window-frame.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-window-frame.sh" "$target_bundle" \
       || warn "Window-frame patch failed -- see linux-window-frame.sh output above."
+    # Make the Hub window focusable on Linux: upstream creates it focusable:!1
+    # on every platform and only restores focus behind isMac gates. On X11 a
+    # focusable:false BrowserWindow is created override-redirect (unmanaged):
+    # always on top, no Alt+Tab/move/minimize (issue #36). See
+    # linux-hub-focusable.sh.
+    auto "Running linux-hub-focusable.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-hub-focusable.sh" "$target_bundle" \
+      || warn "Hub-focusable patch failed -- see linux-hub-focusable.sh output above."
     # Parse the wispr-flow: deep-link URL out of argv at cold start on Linux too
     # (the parse was win32-only; the warm-start second-instance path already works).
     auto "Running linux-deeplink.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-deeplink.sh" "$target_bundle" \
       || warn "Deep-link patch failed -- see linux-deeplink.sh output above."
-    # Disable the status-pill drag gesture on Linux. It can never complete under native Wayland and strands an input-blocking dimming overlay.
+    # Take the Electron single-instance lock at the very top of the bundle,
+    # before ANY init runs. The vendor only requests the lock at the end of
+    # its ~8.3 MB bundle, so a second launch fully initializes (native .node
+    # modules, better-sqlite3, helper IPC) and then quits -- teardown of that
+    # half-initialized native state aborts with V8 FATAL napi_throw (9
+    # SIGABRT coredumps observed 2026-08-18/26, incl. a 4-in-6s crash loop).
+    # With the early guard the second instance exits before executing another
+    # byte; the primary still gets `second-instance` (argv handshake happens
+    # during the failed lock request) and focuses its hub window. See
+    # patches/linux-early-singleton.sh.
+    auto "Running linux-early-singleton.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-early-singleton.sh" "$target_bundle" \
+      || warn "Early-singleton patch failed -- see linux-early-singleton.sh output above."
+    # Disable the status-pill drag gesture on Linux: it can never complete
+    # under native Wayland and strands an input-blocking dimming overlay.
     auto "Running linux-disable-pill-drag.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-disable-pill-drag.sh" "$target_bundle" \
       || warn "linux-disable-pill-drag.sh failed -- see its output above."
