@@ -322,8 +322,9 @@ patch's own marker. `linux-window-frame.sh` keys its `WISPR_LINUX_FRAMELESS`
 marker *inside* the widened predicate for exactly this reason. Test it
 explicitly: run the whole patch stage twice against one tree and assert the
 second run is a no-op and the repacked asar is byte-identical
-(`linux-patches.bats` does this per patch on fixtures; nothing does it yet
-against the real bundle).
+(`linux-patches.bats` does this per patch on fixtures;
+`tests/test-patch-stage.sh` does it against the real pinned bundle, and
+also parses every repacked `.webpack/` file and checks every marker).
 
 ## Resolve the target file, don't name it
 

@@ -722,4 +722,9 @@ main() {
   echo "                final .deb/.rpm/.AppImage packaging (all network/toolchain)."
 }
 
-main "$@"
+# Run the pipeline only when executed. Sourced (tests/test-patch-stage.sh),
+# the file defines its steps and globals and returns, so a test can point
+# WORK_DIR/STAGE/RESOURCES_SRC at a temp tree and call the steps it needs.
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+  main "$@"
+fi
