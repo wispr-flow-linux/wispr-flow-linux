@@ -23,6 +23,7 @@ decision date, and an owner.
 | [D-007](#d-007--clean-room-v8-148-patch-for-better-sqlite3-multiple-ciphers) | 2026-06-04 | Accepted | Clean-room V8 14.8 patch for `better-sqlite3-multiple-ciphers` |
 | [D-008](#d-008--async-zbus-on-tokio-never-zbusblocking-for-services) | 2026-06-04 | Accepted | Async zbus on tokio, never `zbus::blocking` for services |
 | [D-010](#d-010--the-installer-is-pinned-in-tree-not-resolved-at-build-time) | 2026-09-21 | Accepted | The installer is pinned in-tree, not resolved at build time |
+| [D-011](#d-011--the-publish-chain-is-ungated-and-fails-closed) | 2026-09-22 | Accepted | The publish chain is ungated and fails closed |
 
 ---
 
@@ -519,3 +520,99 @@ publishes no digest never bumps.
   manifest resolver, by @khamsakamal48),
   [learnings/patching-minified-js.md](learnings/patching-minified-js.md#end-to-end-verification-post-build),
   [learnings/test-methodology.md](learnings/test-methodology.md).
+
+---
+
+## D-011 — The publish chain is ungated and fails closed
+
+- **Status:** Accepted
+- **Decided:** 2026-09-22
+- **Owner:** @aaddrick
+
+### Context
+
+[D-010](#d-010--the-installer-is-pinned-in-tree-not-resolved-at-build-time)
+left one question open: once the pin is in and the nightly
+`check-wispr-version` workflow is re-armed, it pushes a `v*` tag with no human
+between it and the APT, DNF and AUR repos. The chain in
+[`ci.yml`](../.github/workflows/ci.yml) builds both architectures, runs the
+artifact tests, creates the Release and publishes, all from that one tag push.
+The candidates for a gate were a GitHub environment with a required reviewer
+on the publish jobs, a bot-opened pull request instead of a tag, or nothing.
+
+The sibling project (claude-desktop-debian) runs the same shape with no gate
+and has for months: its bump bot tags, the chain publishes, and a red job is
+the only thing that stops a release.
+
+### Decision
+
+**No gate.** The chain stays automatic from the bump workflow's tag push to
+the package repos, and it fails closed. What already makes it fail closed:
+
+- `release` needs `build-amd64`, `build-arm64` and `test-artifacts`; the
+  three publish jobs need `release`. A red job anywhere ships nothing.
+- Each build downloads the pinned installer and refuses it on a SHA-256
+  mismatch.
+- Every bundle patch asserts its anchor count and aborts on drift.
+- `verify-patches.sh` greps the shipped asar for every marker after repack.
+- The launch smoke test fails when the helper reports the `stub` injection
+  backend.
+
+The manual look-first path is a **release-candidate tag**: an `-rc` suffix on
+the wrapper version (`v1.0.4-rc.1+wispr1.6.897`) builds, tests and creates a
+GitHub pre-release with the assets the final tag would ship, and the APT, DNF
+and AUR jobs skip it. The bump workflow never produces rc tags. A bad release
+that shipped is marked pre-release and followed by a new tag, never deleted
+([`RELEASING.md`](../RELEASING.md)).
+
+### Rationale
+
+- **One maintainer.** A gate that waits on a person is a daily click with
+  nothing new to look at, and the click stops happening. Bumps then pile up
+  and the port drifts from upstream, which is the failure the bot exists to
+  prevent.
+- **Every failure that matters is already a red job.** Wrong bytes, a moved
+  anchor, a missing marker and the silent stub backend are all machine checks.
+  The one class a human gate would have caught, semantic drift behind a
+  matching anchor, is caught by the fixture tests and the smoke test, not by
+  someone eyeballing a diff of minified JS.
+- **The rc path keeps the option.** When a bump does deserve a look (a new
+  Electron major, a patch cluster landing), a hand-pushed rc tag gives the
+  full build and a pre-release to inspect without touching the repos.
+- **Proven shape.** The sibling has run it without incident.
+
+### Alternatives considered
+
+- **GitHub environment with a required reviewer on the publish jobs.**
+  Blocks the three repo jobs until approved. Rejected: the approval has no
+  evidence to weigh beyond the green run that already exists, and an
+  unapproved run leaves a Release with assets that no repo serves.
+- **Bot-opened pull request instead of a tag.** Turns the bump into a
+  reviewable diff. Rejected: the diff is three lines of pin plus a Nix
+  version, the review would still rest on the same CI checks, and the merge
+  would then need its own path to a tag.
+- **Hold the bump until a manual audit.** This is what the rc tag is for on
+  the occasions it is wanted; as the default it is the gate above with worse
+  ergonomics.
+
+### Consequences
+
+- Merging a working pin to `main` re-arms the bot, and the first tag it
+  pushes ships if it is green. That is the intended outcome.
+- Every new bundle patch must carry its `MARKERS` entry in
+  `verify-patches.sh`, its `MARKER_SAMPLES` twin in
+  `tests/verify-patches.bats` and its apply / idempotent / bail fixtures in
+  `tests/linux-patches.bats`. With no human gate, those tests are the audit.
+- `ci.yml` gates the three publish jobs on `!contains(github.ref_name,
+  '-rc')`, marks rc Releases `prerelease`, and skips pre-releases when
+  choosing the previous tag for release notes. `build.sh` drops the `-rc.N`
+  from the package version.
+- A red run leaves no partial publish; the fix goes to `main` and a new tag
+  (`+rebuild.N` if upstream has not moved) re-runs the chain.
+
+### References
+
+- [D-010](#d-010--the-installer-is-pinned-in-tree-not-resolved-at-build-time),
+  [`RELEASING.md`](../RELEASING.md),
+  [`.github/workflows/ci.yml`](../.github/workflows/ci.yml),
+  [#84](https://github.com/wispr-flow-linux/wispr-flow-linux/pull/84).

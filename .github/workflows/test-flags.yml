@@ -96,3 +96,14 @@ jobs:
           echo "$OUTPUT"
           echo "$OUTPUT" | grep -q "Package version:${ver}-1.0.0" || (echo "::error::Expected 'Package version:${ver}-1.0.0'" && exit 1)
           echo "OK Test Case 7"
+
+      # Test Case 8: an -rc pre-release suffix on the wrapper version is dropped
+      # from the package version, so rc assets are named like the final tag's.
+      - name: Test Case 8 - --release-tag drops the -rc suffix
+        run: |
+          ver=$(grep -oP "^WISPR_VERSION='\K[^']+" scripts/setup/installer-pin.sh)
+          echo "--- ./build.sh --release-tag v1.0.0-rc.1+wispr${ver} --test-flags ---"
+          OUTPUT=$(./build.sh --release-tag "v1.0.0-rc.1+wispr${ver}" --test-flags)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "Package version:${ver}-1.0.0" || (echo "::error::Expected 'Package version:${ver}-1.0.0'" && exit 1)
+          echo "OK Test Case 8"
