@@ -50,6 +50,7 @@ MARKERS=(
   "hub-focusable: linux hub window focusable/WM-managed|F|WISPR_LINUX_HUB_FOCUSABLE"
   "treat-as-windows: linux widens renderer isWindows bind|F|WISPR_LINUX_RENDERER_ISWIN"
   "deeplink: linux cold-start argv parse|F|WISPR_LINUX_DEEPLINK"
+  "early-singleton: second instance exits before init|F|WISPR_LINUX_EARLY_SINGLETON_V1"
 )
 
 missing=0

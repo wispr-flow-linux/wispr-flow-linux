@@ -28,6 +28,15 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   `linux-hub-focusable.sh` patch rewrites the Hub config so `focusable` is
   true on Linux only, leaving the shipped macOS and Windows behavior
   untouched. (#36)
+- Launching a second instance while the app was running crashed with
+  `SIGABRT` (`V8 FATAL: Error::ThrowAsJavaScriptException napi_throw`).
+  Upstream only requests the single-instance lock at the end of its main
+  bundle, so a second launch fully initialised native modules, the database
+  and the helper before quitting, and tearing that down aborted. The new
+  `linux-early-singleton.sh` patch takes the lock before the webpack IIFE
+  and exits at once when it is not acquired; the running primary still gets
+  `second-instance` and focuses its Hub, and `--quit-app` and `wispr-flow:`
+  deep links still reach it (#51, by @jcartu).
 
 ### Added
 
