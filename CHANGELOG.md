@@ -86,6 +86,11 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Changed
 
+- A `-rc` suffix on the wrapper version (`v1.0.4-rc.1+wispr1.6.897`) builds,
+  tests and creates a GitHub pre-release, but the APT, DNF and AUR publish jobs
+  skip it. The suffix is dropped from the package version so the rc assets are
+  the ones the final tag would ship. This is the manual look-first path for a
+  publish chain that is otherwise automatic and fails closed (D-011).
 - `check-wispr-version.yml` is now the only thing that resolves upstream. It
   reads `latest.json`, rewrites the pin (version, URL, sha256 together) and
   the Nix version, commits, updates `WISPR_FLOW_VERSION`, and tags; it also

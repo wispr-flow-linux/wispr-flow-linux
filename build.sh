@@ -84,6 +84,11 @@ source "$script_dir/scripts/setup/download.sh"
 # no-tag builds the package version stays just <wisprVer> (the APP_VERSION
 # constant), and APP_VERSION itself is NEVER altered -- staging always sees the
 # bare upstream version.
+#
+# A pre-release tag (v1.0.4-rc.1+wispr1.6.897) drops its -suffix here, so an
+# rc builds the exact assets the final tag would. Those assets only ever
+# reach a GitHub pre-release, never a package repo (ci.yml skips the repo
+# jobs on -rc tags), so the filename never has to round-trip to the rc tag.
 #===============================================================================
 derive_pkg_version() {
 	pkg_version="$APP_VERSION"
@@ -91,7 +96,7 @@ derive_pkg_version() {
 
 	local repo_ver
 	repo_ver="$(printf '%s' "$release_tag" \
-		| sed -nE 's/^v([0-9]+(\.[0-9]+)*)\+wispr.*/\1/p')"
+		| sed -nE 's/^v([0-9]+(\.[0-9]+)*)(-[0-9A-Za-z.]+)?\+wispr.*/\1/p')"
 
 	if [[ -n $repo_ver ]]; then
 		pkg_version="${APP_VERSION}-${repo_ver}"

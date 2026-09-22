@@ -72,7 +72,7 @@ Before the first real release:
   APT/DNF jobs keep the binaries in `gh-pages` and the smoke tests skip; once
   live, binaries are stripped and served by 302-redirect to Release assets.
 
-## Two release flavors
+## Release flavors
 
 - **Upstream-tracking retag (no human action).** `check-wispr-version` runs
   daily: it reads upstream's release manifest
@@ -99,6 +99,16 @@ Before the first real release:
 - **Project release.** You bumped `REPO_VERSION` because you shipped wrapper or
   packaging changes. Follow the checklist below.
 
+- **Release candidate (manual look-first).** Push a tag with an `-rc` suffix
+  on the wrapper version, e.g. `v1.0.4-rc.1+wispr1.6.897`. CI runs the full
+  build and artifact tests and creates a GitHub **pre-release** carrying the
+  same assets the final tag would (the `-rc.N` is dropped from the package
+  version), but the APT, DNF and AUR jobs skip it, so nothing reaches a
+  package repo. Inspect the pre-release, then push the real tag. The bump
+  workflow never produces rc tags, and release notes skip pre-releases when
+  picking the previous tag. See D-011 in
+  [`docs/decisions.md`](docs/decisions.md).
+
 ## Pre-release checklist (project release)
 
 1. **CI is green on `main`** (`gh run list --branch main --limit 5`).
@@ -120,7 +130,8 @@ After the gate jobs pass, the [`ci.yml`](.github/workflows/ci.yml) chain:
 2. Runs the format validators (`tests/test-artifact-*.sh`).
 3. Creates the GitHub Release and attaches the six packages.
 4. Hands off to `update-apt-repo`, `update-dnf-repo`, and `update-aur-repo`,
-   which sign and publish to the Cloudflare-fronted package repos.
+   which sign and publish to the Cloudflare-fronted package repos. These
+   three skip `-rc` tags; the Release is created as a pre-release instead.
 
 ## After the release lands
 
