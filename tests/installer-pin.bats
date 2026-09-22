@@ -477,3 +477,97 @@ fake_tree() {
 	[[ $status -eq 0 ]]
 	[[ $output == *'Reusing existing extracted tree'* ]]
 }
+
+# =============================================================================
+# fetch_electron: the dist survives between builds (build-linux.sh step 2
+# keeps downloads/), so its version stamp decides whether it is reused.
+# =============================================================================
+
+# A minimal Electron dist zip: the launcher to rename, plus Electron's own
+# resources/default_app.asar.
+_electron_zip() {
+	python3 - "$1" <<'PY'
+import sys, zipfile
+with zipfile.ZipFile(sys.argv[1], 'w') as z:
+    z.writestr('electron', '#!/bin/sh\n')
+    z.writestr('resources/default_app.asar', 'x')
+PY
+}
+
+# A previously staged dist: renamed launcher, a file only that build had.
+_staged_dist() {
+	mkdir -p "$1"
+	printf 'old' > "$1/wispr-flow"
+	chmod +x "$1/wispr-flow"
+	printf 'stale' > "$1/stale.txt"
+}
+
+# source_download for the Electron path: only the zip URL is served; the
+# best-effort SHASUMS256.txt fetch fails, which fetch_electron tolerates.
+source_download_electron() {
+	source_download
+	electron_version='42.3.0'
+	electron_arch='x64'
+	_electron_zip "$TEST_TMP/electron.zip"
+	_fetch() {
+		printf '%s\n' "$1" >> "$TEST_TMP/fetch-calls"
+		[[ $1 == *.zip ]] || return 1
+		cp "$TEST_TMP/electron.zip" "$2"
+	}
+}
+
+@test "fetch_electron: a stamped dist of the wanted version is reused, no fetch" {
+	source_download_electron
+	local dest="$work_dir/downloads/electron-dist"
+	_staged_dist "$dest"
+	printf '42.3.0\n' > "$dest.version"
+
+	fetch_electron "$dest" >/dev/null 2>&1
+
+	[[ ! -e $TEST_TMP/fetch-calls ]]
+	[[ $(< "$dest/wispr-flow") == 'old' ]]
+	[[ -f $dest/stale.txt ]]
+}
+
+@test "fetch_electron: a dist stamped with another version is re-staged" {
+	source_download_electron
+	local dest="$work_dir/downloads/electron-dist"
+	_staged_dist "$dest"
+	printf '41.0.0\n' > "$dest.version"
+
+	fetch_electron "$dest" >/dev/null 2>&1
+
+	grep -q 'electron-v42.3.0-linux-x64.zip' "$TEST_TMP/fetch-calls"
+	[[ -x $dest/wispr-flow ]]
+	[[ $(< "$dest/wispr-flow") == '#!/bin/sh' ]]
+	[[ ! -e $dest/stale.txt ]]
+	[[ ! -e $dest/electron ]]
+	[[ $(< "$dest.version") == '42.3.0' ]]
+}
+
+@test "fetch_electron: an unstamped dist is re-staged once and stamped" {
+	source_download_electron
+	local dest="$work_dir/downloads/electron-dist"
+	_staged_dist "$dest"
+
+	fetch_electron "$dest" >/dev/null 2>&1
+
+	grep -q 'electron-v42.3.0-linux-x64.zip' "$TEST_TMP/fetch-calls"
+	[[ $(< "$dest.version") == '42.3.0' ]]
+	[[ ! -e $dest/stale.txt ]]
+}
+
+@test "fetch_electron: a fresh fetch renames the launcher and writes the stamp" {
+	source_download_electron
+	local dest="$work_dir/downloads/electron-dist"
+
+	fetch_electron "$dest" >/dev/null 2>&1
+
+	[[ -x $dest/wispr-flow ]]
+	[[ ! -e $dest/electron ]]
+	[[ -f $dest/resources/default_app.asar ]]
+	[[ $(< "$dest.version") == '42.3.0' ]]
+	# The stamp is beside the dist, never inside the tree the makers copy.
+	[[ ! -e $dest/.version ]]
+}
+

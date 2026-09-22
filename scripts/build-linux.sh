@@ -201,7 +201,17 @@ DOC
 #===============================================================================
 step2_stage_resources() {
   say "Step 2: stage resources and unpack app.asar"
-  rm -rf "$WORK_DIR"
+  # Clear the previous run's outputs but keep downloads/: it caches the
+  # verified installer, the Electron zip and the unpacked electron-dist, and
+  # a full wipe re-fetched all three on every local build (~450 MB). Nothing
+  # from a previous build leaks through the survivor: the packaging makers
+  # clear their own work dirs, build.sh's sync_stage_to_dist mirrors the
+  # staged tree into electron-dist exactly, and fetch_electron re-stages a
+  # dist whose version stamp is not the wanted Electron.
+  if [[ -d "$WORK_DIR" ]]; then
+    find "$WORK_DIR" -mindepth 1 -maxdepth 1 ! -name 'downloads' \
+      -exec rm -rf {} +
+  fi
   mkdir -p "$STAGE"
 
   # Copy the non-asar resources (Release/, assets, migrations, etc.) but NOT the

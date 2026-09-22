@@ -140,11 +140,19 @@ sync_stage_to_dist() {
 	[[ -f "$stage_dir/app.asar" ]] \
 		|| die "staged app.asar missing at $stage_dir -- staging incomplete"
 
+	# An exact mirror: electron-dist survives between builds (step 2 of
+	# build-linux.sh keeps downloads/), so a file the previous stage had and
+	# this one does not must go. Electron's own default_app.asar is the one
+	# file the dist put there itself; it stays.
 	mkdir -p "$res_dir"
 	if command -v rsync >/dev/null 2>&1; then
-		rsync -a "$stage_dir/" "$res_dir/" \
+		rsync -a --delete --exclude 'default_app.asar' \
+			"$stage_dir/" "$res_dir/" \
 			|| die 'rsync of staged tree into resources failed'
 	else
+		find "$res_dir" -mindepth 1 -maxdepth 1 ! -name 'default_app.asar' \
+			-exec rm -rf {} + \
+			|| die 'clearing electron-dist/resources failed'
 		cp -a "$stage_dir/." "$res_dir/" \
 			|| die 'copy of staged tree into resources failed'
 	fi
@@ -331,5 +339,9 @@ main() {
 	[[ -n $final_output_path ]] && echo "Output: $final_output_path"
 }
 
-main "$@"
-exit 0
+# Run only when executed. Sourced (tests/build-workdir.bats), the file
+# defines its functions and globals and returns.
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+	main "$@"
+	exit 0
+fi

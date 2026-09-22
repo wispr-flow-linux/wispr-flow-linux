@@ -10,6 +10,17 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Fixed
 
+- Every local build re-downloaded the installer (~350 MB) and the Electron
+  runtime (~100 MB): `build-linux.sh` step 2 wiped all of `build-linux/`,
+  including the `downloads/` cache `download.sh` had just verified, and
+  any package built for another format. Step 2 now keeps `downloads/` and
+  clears the rest. Because the Electron dist can now survive a build,
+  `build.sh` mirrors the staged tree into it exactly (a file the previous
+  stage had and this one does not is removed; Electron's own
+  `default_app.asar` stays) and `fetch_electron` stamps the dist with its
+  Electron version and re-stages one that is stale or unstamped.
+  `tests/build-workdir.bats` and new `installer-pin.bats` cases pin all
+  three.
 - Every package carried the patch scripts' backup copies inside `app.asar`:
   each patch keeps a `<bundle>.orig` beside the file it rewrites, and the
   repack packed them, so nine pristine copies of the main and renderer
