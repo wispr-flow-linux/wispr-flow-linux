@@ -152,6 +152,7 @@ backup, `node --check`s the result, and is idempotent (re-run = byte-identical).
 | Chrome window fell to default framed + visible menu bar → make it frameless like win32 (1.5.695: the meeting_recorder window; the Hub/scratchpad windows now self-frame Linux via a two-way else branch) | [`linux-window-frame.sh`](../../scripts/patches/linux-window-frame.sh) | `WISPR_LINUX_FRAMELESS` |
 | Fresh installs seeded macOS `fn`/⌘ shortcut defaults + skipped the onboarding Permissions step → widen each renderer's `isWindows` **bind** to also be true on linux (bridge stays honest) | [`linux-renderer-treat-as-windows.sh`](../../scripts/patches/linux-renderer-treat-as-windows.sh) | `WISPR_LINUX_RENDERER_ISWIN` |
 | Cold-start `wispr-flow:` deep links dropped (parse was win32-only) → widen the argv-parse guard | [`linux-deeplink.sh`](../../scripts/patches/linux-deeplink.sh) | `WISPR_LINUX_DEEPLINK` |
+| Status-pill drag-to-reposition can never complete (client-side absolute window positioning has no native-Wayland equivalent) and strands an input-blocking dimming overlay → force the drag-overlay activation flag false on Linux | [`linux-disable-pill-drag.sh`](../../scripts/patches/linux-disable-pill-drag.sh) | `WISPR_LINUX_DISABLE_PILL_DRAG` |
 
 `linux-renderer-treat-as-windows.sh` is the high-leverage one: per renderer it
 widens the *one* place `isWindows` is bound into a module-local

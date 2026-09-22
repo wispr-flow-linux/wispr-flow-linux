@@ -37,6 +37,12 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   and exits at once when it is not acquired; the running primary still gets
   `second-instance` and focuses its Hub, and `--quit-app` and `wispr-flow:`
   deep links still reach it (#51, by @jcartu).
+- Dragging the status pill on Wayland never moved it and left a dimming
+  overlay that swallowed clicks and scroll until Escape was pressed: the
+  drag moves the window to absolute coordinates, which native Wayland
+  ignores. The new `linux-disable-pill-drag.sh` patch forces the drag-overlay
+  activation flag false on Linux at the one handler that enacts it, so the
+  gesture is a no-op and no overlay appears (#66, by @crafteraadarsh).
 
 ### Added
 

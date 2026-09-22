@@ -10,6 +10,7 @@
 #   * linux-deeplink.sh                  -> cold-start wispr-flow: argv parse on Linux
 #   * linux-early-singleton.sh           -> take the single-instance lock before init
 #   * helper-env.sh                      -> spreads process.env into the helper env
+#   * linux-disable-pill-drag.sh         -> force the drag-overlay flag false on Linux
 #
 # The real bundle is the proprietary, gitignored app -- not available in CI -- so
 # each test drives a hermetic minified-JS FIXTURE carrying the exact anchor the
@@ -409,4 +410,46 @@ JS
 	run bash "$PATCH_DIR/helper-env.sh" "$FIX"
 	[[ "$status" -ne 0 ]]
 	! grep -q 'WISPR_LINUX_HELPER_ENV' "$FIX"
+}
+
+# =============================================================================
+# linux-disable-pill-drag.sh
+# =============================================================================
+
+@test "pill-drag: forces the handler's flag false on Linux, leaves the blackout site alone" {
+	# Shipped 1.6.897 bytes: the drag-overlay handler opens with `let t,n;if(`
+	# and the sibling blackout-overlay handler beside it has the same log
+	# shape with a different developer string and no `let` prelude.
+	cat > "$FIX" <<'JS'
+var i={globalShortcut:{isRegistered:()=>!1,register:()=>!0,unregister:()=>{}}},o=()=>({info(){},warn(){}}),Y,Z,ke=()=>{};
+const Ie=(e,t)=>{o().info(`[Blackout Overlay]: Setting blackout overlay state to ${e} (source: ${t})`),Y=e,ke()},Le=e=>{let t,n;if(o().info(`[Drag Overlay]: Setting drag overlay state to ${e}`),Z=e,e?i.globalShortcut.isRegistered("Escape")||i.globalShortcut.register("Escape",()=>Le(!1)):i.globalShortcut.isRegistered("Escape")&&i.globalShortcut.unregister("Escape"),ke(),e){t=1,n=2}};
+JS
+	run bash "$PATCH_DIR/linux-disable-pill-drag.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'Le=e=>{let t,n;e=(/*WISPR_LINUX_DISABLE_PILL_DRAG*/"linux"===process.platform)?!1:e;if(o().info(`[Drag Overlay]: Setting drag overlay state to ${e}`),Z=e,' "$FIX"
+	# exactly one insertion; the blackout handler is untouched
+	[[ "$(grep -o 'WISPR_LINUX_DISABLE_PILL_DRAG' "$FIX" | wc -l)" -eq 1 ]]
+	grep -qF 'const Ie=(e,t)=>{o().info(`[Blackout Overlay]' "$FIX"
+	node_check "$FIX"
+}
+
+@test "pill-drag: idempotent on second run" {
+	cat > "$FIX" <<'JS'
+var o=()=>({info(){}}),Z;
+const Le=e=>{let t,n;if(o().info(`[Drag Overlay]: Setting drag overlay state to ${e}`),Z=e,e){t=1,n=2}};
+JS
+	bash "$PATCH_DIR/linux-disable-pill-drag.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-disable-pill-drag.sh" "$FIX"
+}
+
+@test "pill-drag: bails non-zero when the log string is present but the handler shape is not" {
+	# The 1.5.789 shape: same developer string, no `let` prelude. A decoy
+	# with the literal but not the call shape must not be patched.
+	cat > "$FIX" <<'JS'
+var o=()=>({info(){}}),R;
+const U=e=>{o().info(`[Drag Overlay]: Setting drag overlay state to ${e}`),R=e};
+JS
+	run bash "$PATCH_DIR/linux-disable-pill-drag.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_DISABLE_PILL_DRAG' "$FIX"
 }

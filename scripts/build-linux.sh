@@ -298,6 +298,11 @@ step3_patch_bundle() {
     auto "Running linux-early-singleton.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-early-singleton.sh" "$target_bundle" \
       || warn "Early-singleton patch failed -- see linux-early-singleton.sh output above."
+    # Disable the status-pill drag gesture on Linux: it can never complete
+    # under native Wayland and strands an input-blocking dimming overlay.
+    auto "Running linux-disable-pill-drag.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-disable-pill-drag.sh" "$target_bundle" \
+      || warn "linux-disable-pill-drag.sh failed -- see its output above."
 
     # Renderer + preload patches live alongside the main bundle under .webpack/.
     local webpack_root="${target_bundle%/main/index.js}"
