@@ -43,7 +43,7 @@ Phase 6  pill strategy + helper v0.1.3         (needs a decision first)
 
 | PR | Author | Verdict | Notes |
 |---|---|---|---|
-| #55 | khamsakamal48 | cherry-pick | 4 commits, one per fix. Author silent since Sept 6. Take helper-env re-anchor, resolver, appdata icon; drop the version-bump hunk. |
+| #55 | khamsakamal48 | closed 09-22 with credit | 4 commits: helper-env re-anchor landed in #80, resolver + appdata icon in #84, shortcut map in #88 (re-checked on 1.6.897, 8 ternary sites). Version-bump hunk superseded by the pin. |
 | #70 | crafteraadarsh | keep open, redirect | Ask for RELEASES + direct nupkg fetch verified by the manifest sha1 as the fallback path; credit #55. |
 | #59 | nihalebr | closed 09-21 | Stale one-line bump to 1.6.827; credited to #84. |
 | #40 | Anirudh-K96 | merged 09-22 | Bumped to helper v0.1.2; hash derived by NAR-hashing the tarball (reproduces the v0.1.0 hash). |
@@ -152,6 +152,9 @@ deleted (RELEASING.md). Two follow-ups carry the decision:
    manual look-first path; the bot never produces rc tags. Say so in
    RELEASING.md.
 2. Record it as D-011 in `docs/decisions.md` (Phase 5 item 10).
+
+**Status (2026-09-22, second session): both follow-ups are PR #89, stacked
+on #84's branch; rebase onto main after #84 lands.**
 
 ### Phase 3 — merge the clean PRs, close the duplicates
 
