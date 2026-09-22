@@ -6,7 +6,7 @@ work is used, in the order the work landed.
 
 | Who | What |
 |---|---|
-| @khamsakamal48 | Re-anchored `helper-env.sh` on `{sentryDSN:` after 1.6.774 moved the helper's spawn env into a factory (#55, carried in #80). The `latest.json` installer resolver and the AppStream icon fix (#55, carried in #84). |
+| @khamsakamal48 | Re-anchored `helper-env.sh` on `{sentryDSN:` after 1.6.774 moved the helper's spawn env into a factory (#55, carried in #80). The `latest.json` installer resolver and the AppStream icon fix (#55, carried in #84). `linux-main-shortcut-defaults.sh`: the `-1` push-to-talk keycode that fresh Linux profiles were seeded with (#55, fixes #33 and #46). |
 | @jaikr-dev | `linux-hub-focusable.sh`: the Hub window came up override-redirect on X11 (#39, fixes #36). |
 | @Techyid613 | Reported #36 and sent an independent, byte-identical fix (#45). |
 | @bits-orio | Reported #56, the same override-redirect Hub on another X11 desktop. |
