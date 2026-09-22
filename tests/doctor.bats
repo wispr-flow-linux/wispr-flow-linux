@@ -26,6 +26,7 @@ setup() {
 	unset XDG_SESSION_TYPE
 	unset XDG_CURRENT_DESKTOP
 	unset WISPR_USE_WAYLAND
+	unset WISPR_USE_X11
 
 	# shellcheck source=scripts/doctor.sh
 	source "$SCRIPT_DIR/../scripts/doctor.sh"
@@ -157,6 +158,33 @@ command() {
 	WISPR_USE_WAYLAND='1'
 	run _doctor_check_display
 	[[ $output == *"native Wayland forced"* ]]
+}
+
+@test "_doctor_check_display: notes XWayland mode when WISPR_USE_X11=1" {
+	WAYLAND_DISPLAY='wayland-0'
+	WISPR_USE_X11='1'
+	run _doctor_check_display
+	[[ $output == *"XWayland forced (WISPR_USE_X11=1)"* ]]
+	[[ $output != *"native Wayland forced"* ]]
+	[[ $output != *"auto-detect"* ]]
+}
+
+@test "_doctor_check_display: X11 override wins over Wayland override in the mode line" {
+	# Mirrors build_electron_args: the doctor must report what the launch does.
+	WAYLAND_DISPLAY='wayland-0'
+	WISPR_USE_WAYLAND='1'
+	WISPR_USE_X11='1'
+	run _doctor_check_display
+	[[ $output == *"XWayland forced"* ]]
+	[[ $output != *"native Wayland forced"* ]]
+}
+
+@test "_doctor_check_display: WISPR_USE_X11 on an X11 session prints no mode line" {
+	DISPLAY=':0'
+	WISPR_USE_X11='1'
+	run _doctor_check_display
+	[[ $output == *"X11 (DISPLAY=:0)"* ]]
+	[[ $output != *"Mode:"* ]]
 }
 
 # =============================================================================

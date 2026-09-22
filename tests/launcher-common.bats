@@ -37,6 +37,7 @@ setup() {
 	unset DISPLAY
 	unset WAYLAND_DISPLAY
 	unset WISPR_USE_WAYLAND
+	unset WISPR_USE_X11
 	unset WISPR_DISABLE_GPU
 	unset XDG_CURRENT_DESKTOP
 	unset XDG_SESSION_TYPE
@@ -131,6 +132,7 @@ teardown() {
 	DISPLAY=':0'
 	XDG_CURRENT_DESKTOP='KDE'
 	WISPR_USE_WAYLAND='1'
+	WISPR_USE_X11='1'
 	WISPR_DISABLE_GPU='1'
 	log_session_env
 
@@ -142,8 +144,9 @@ teardown() {
 	[[ "${lines[3]}" == '  DISPLAY=:0' ]]
 	[[ "${lines[4]}" == '  XDG_CURRENT_DESKTOP=KDE' ]]
 	[[ "${lines[5]}" == '  WISPR_USE_WAYLAND=1' ]]
-	[[ "${lines[6]}" == '  WISPR_DISABLE_GPU=1' ]]
-	[[ "${lines[7]}" == '}' ]]
+	[[ "${lines[6]}" == '  WISPR_USE_X11=1' ]]
+	[[ "${lines[7]}" == '  WISPR_DISABLE_GPU=1' ]]
+	[[ "${lines[8]}" == '}' ]]
 }
 
 @test "log_session_env: unset values render as 'KEY=' (no value)" {
@@ -158,7 +161,8 @@ teardown() {
 	[[ "${lines[3]}" == '  DISPLAY=' ]]
 	[[ "${lines[4]}" == '  XDG_CURRENT_DESKTOP=' ]]
 	[[ "${lines[5]}" == '  WISPR_USE_WAYLAND=' ]]
-	[[ "${lines[6]}" == '  WISPR_DISABLE_GPU=' ]]
+	[[ "${lines[6]}" == '  WISPR_USE_X11=' ]]
+	[[ "${lines[7]}" == '  WISPR_DISABLE_GPU=' ]]
 }
 
 # =============================================================================
@@ -314,6 +318,62 @@ teardown() {
 	build_electron_args deb
 	# shellcheck disable=SC2314
 	! has_electron_arg '--ozone-platform=wayland'
+}
+
+@test "build_electron_args: WISPR_USE_X11=1 pins Ozone X11 on a Wayland session" {
+	is_wayland=true
+	WISPR_USE_X11=1
+	setup_logging
+	build_electron_args deb
+	has_electron_arg '--ozone-platform=x11'
+	run has_electron_arg '--ozone-platform=wayland'
+	[[ $status -ne 0 ]]
+	run has_electron_arg '--enable-wayland-ime'
+	[[ $status -ne 0 ]]
+	grep -qF 'WISPR_USE_X11=1 - XWayland (Ozone X11) backend' "$log_file"
+}
+
+@test "build_electron_args: WISPR_USE_X11=1 does not export GDK_BACKEND" {
+	# The X11 branch must not leak a toolkit backend into the app's
+	# children (xdg-open, the browser it launches); see the comment there.
+	is_wayland=true
+	WISPR_USE_X11=1
+	setup_logging
+	build_electron_args deb
+	[[ -z ${GDK_BACKEND:-} ]]
+}
+
+@test "build_electron_args: WISPR_USE_X11 wins over WISPR_USE_WAYLAND when both set" {
+	is_wayland=true
+	WISPR_USE_WAYLAND=1
+	WISPR_USE_X11=1
+	setup_logging
+	build_electron_args deb
+	has_electron_arg '--ozone-platform=x11'
+	run has_electron_arg '--ozone-platform=wayland'
+	[[ $status -ne 0 ]]
+	[[ -z ${GDK_BACKEND:-} ]]
+	grep -qF 'both set - X11 wins' "$log_file"
+}
+
+@test "build_electron_args: WISPR_USE_X11 ignored on X11 (is_wayland=false)" {
+	# Already X11: Ozone's default is right, and the flag stays out of argv.
+	is_wayland=false
+	WISPR_USE_X11=1
+	setup_logging
+	build_electron_args deb
+	run has_electron_arg '--ozone-platform=x11'
+	[[ $status -ne 0 ]]
+}
+
+@test "build_electron_args: WISPR_USE_X11 must be exactly '1'" {
+	# Near miss: a truthy-looking value is not the opt-in.
+	is_wayland=true
+	WISPR_USE_X11=true
+	setup_logging
+	build_electron_args deb
+	run has_electron_arg '--ozone-platform=x11'
+	[[ $status -ne 0 ]]
 }
 
 # =============================================================================

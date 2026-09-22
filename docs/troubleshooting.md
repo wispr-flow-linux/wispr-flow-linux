@@ -306,6 +306,37 @@ rm -f ~/.config/Wispr\ Flow/SingletonLock
 And yes, `--doctor` flags a stale lock under its singleton-lock check, so you
 don't have to go looking for it yourself.
 
+## Clicks near the status pill are swallowed, or the pill's buttons don't respond, on Wayland
+
+The status pill sits in a transparent always-on-top window that is larger
+than the pill you see. On X11 the launcher can shape that window so only the
+painted pill takes input; on native Wayland there is no input-shaping
+protocol, so a compositor either treats the whole transparent box as
+clickable (clicks near the pill never reach the app underneath) or, once the
+window is set click-through, keeps the pill's own hover buttons out of reach.
+GNOME can get shaping back through the helper's shell extension; KDE,
+Hyprland and the other wlroots compositors have nothing yet.
+
+### Fix
+
+Run the app under XWayland, which brings the X11 behaviour back on every
+compositor. The trade-off is blurry HiDPI scaling on a fractional-scale
+display.
+
+```bash
+# One-off:
+WISPR_USE_X11=1 wispr-flow
+
+# Persistent:
+echo 'export WISPR_USE_X11=1' >> ~/.profile
+```
+
+Only the toolkit backend changes. Text injection still goes through the
+Wayland path (`/dev/uinput` and `wl-clipboard`), so nothing else in
+`--doctor` should move; its display line reports `Mode: XWayland forced`.
+If the dead zone is still there under XWayland, that is a different bug:
+open an issue with `--doctor` output and say which compositor.
+
 ## Selection reads come back empty
 
 `GetSelectedTextViaCopy` returns nothing in some apps.
