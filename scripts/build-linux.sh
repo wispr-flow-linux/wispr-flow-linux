@@ -356,6 +356,23 @@ step3_patch_bundle() {
   fi
 }
 
+# Drop the patch scripts' in-tree backups from an asar contents tree before
+# it is packed. Every patch keeps a <bundle>.orig (mac-gates: .macgate.orig)
+# beside the file it rewrites, which is right for an in-place patch of
+# extract/app and wrong for the asar: on 1.6.897 nine pristine copies of the
+# main and renderer bundles (102 MB) rode into a 192 MB asar and into every
+# package. Step 7 calls this before packing and tests/test-patch-stage.sh
+# before its own repack; the artifact tests assert the packed header lists
+# no such entry (assert_asar_no_patch_backups).
+drop_patch_backups() {
+  local contents="$1" backups
+  backups=$(find "$contents" -type f -name '*.orig' 2>/dev/null | wc -l)
+  if (( backups > 0 )); then
+    find "$contents" -type f -name '*.orig' -delete
+    auto "Dropped $backups patch backup file(s) (*.orig) before repack"
+  fi
+}
+
 # Return the 4-byte ELF magic of $1 as lowercase hex (empty on read failure).
 elf_magic() {
   LC_ALL=C od -An -j0 -N4 -tx1 "$1" 2>/dev/null | tr -d ' \n'
@@ -625,6 +642,8 @@ step7_helper_and_repack() {
   #     NOTHING in @electron/asar and silently leaves the .node packed in-archive.
   local contents="$WORK_DIR/app.asar.contents"
   if [[ -d "$contents" ]] && command -v npx >/dev/null; then
+    # 7b-pre. Drop the patch scripts' in-tree backups; see drop_patch_backups.
+    drop_patch_backups "$contents"
     auto "Repacking app.asar (with --unpack '*.node')..."
     if npx --yes @electron/asar pack "$contents" "$STAGE/app.asar" \
       --unpack '*.node'; then
