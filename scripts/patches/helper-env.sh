@@ -93,7 +93,7 @@ fi
 
 # --- Patch (anchored on stable string/property literals, no minified ids) -----
 python3 - "$BUNDLE" "$ENV_MARKER" <<'PY'
-import sys, io
+import sys, io, re
 path, marker = sys.argv[1], sys.argv[2]
 with io.open(path, "r", encoding="utf-8", errors="surrogateescape") as f:
     data = f.read()
@@ -101,13 +101,16 @@ with io.open(path, "r", encoding="utf-8", errors="surrogateescape") as f:
 # The telemetry-only replacement env object handed to the helper spawn. Anchored
 # on its first property name (a preserved developer identifier), so it is found
 # whether the object sits inline at the spawn site (<=1.6.7) or inside a factory
-# the spawn calls (>=1.6.774). Asserted unique; if upstream ever spreads
-# process.env itself, the check below makes this a clean no-op.
-anchor = '{sentryDSN:'
-n = data.count(anchor)
+# the spawn calls (>=1.6.774). Asserted unique. The optional group tolerates an
+# upstream that already spreads process.env: the object is then rewritten to
+# the same marked shape (one spread, marker in front), so the fix stays a
+# no-op in effect while verify-patches.sh still finds its marker.
+anchor = re.compile(r'\{(?:\.\.\.process\.env,)?sentryDSN:')
+matches = list(anchor.finditer(data))
+n = len(matches)
 if n != 1:
     sys.exit(f"ERROR: expected exactly 1 telemetry env object anchor "
-             f"('{anchor}'), found {n}.")
+             f"('{{sentryDSN:'), found {n}.")
 
 # Sanity-check the object really is the helper spawn's env: the 4-pipe stdio
 # spawn (fd 3 = the helper IPC channel) must exist too. Cheap, and it fails
@@ -116,16 +119,13 @@ if data.count('stdio:["pipe","pipe","pipe","pipe"]') != 1:
     sys.exit('ERROR: expected exactly 1 four-pipe helper spawn site; '
              'the bundle layout may have changed -- inspect manually.')
 
-after = data[data.find(anchor) + len(anchor):]
-if after.startswith("...process.env") or after.startswith(f"/*{marker}*/"):
-    sys.exit(0)  # already spreads the parent env -- nothing to do
-
 # Insert the marker comment + spread at the front of the env object literal --
 # i.e. just inside the `{`, BEFORE the property name the anchor also spans.
 # (Appending after the whole anchor would land inside the `sentryDSN:` value
 # position and produce `{sentryDSN:...process.env,`, a syntax error.)
-repl = "{" + f"/*{marker}*/" + "...process.env," + anchor[1:]
-data = data.replace(anchor, repl, 1)
+repl = "{" + f"/*{marker}*/" + "...process.env,sentryDSN:"
+m = matches[0]
+data = data[:m.start()] + repl + data[m.end():]
 
 with io.open(path, "w", encoding="utf-8", errors="surrogateescape") as f:
     f.write(data)

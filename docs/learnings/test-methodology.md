@@ -219,9 +219,12 @@ took the Linux branch, `isPackaged` was true so migrations ran, and the helper
 completed its handshake. It does **not** show the helper got a usable session
 environment: the [helper-spawn-env](helper-spawn-env.md) bug leaves the app
 recording and the helper answering while injection falls to the no-op `stub`
-backend, and the smoke test stays green. The cheap assert that closes that gap
-is a second grep for the helper's backend line and a failure if it reads
-`stub`. Known residual gaps are flagged, not hidden: rpm launch stays SKIP
+backend, and the readiness marker alone stays green. `_smoke_check_backend`
+closes that gap: after the marker it reads the helper's
+`::backend] injection:` line out of `launcher.log` and fails on `stub`, and
+fails again if no backend line ever appears (a PASS is read from the log,
+never inferred from silence). Known residual gaps are flagged, not hidden:
+rpm launch stays SKIP
 where the container denies the sandbox, and a renderer crash leaves the main
 process alive under Xvfb's SwiftShader fallback.
 
@@ -302,7 +305,7 @@ to 6 comes out "no" while CI stays green.
   on the patch side: exactly-one assertions, idempotent re-runs, verify
   against real bytes, and why a marker cannot see a behavioural regression.
 - [helper-spawn-env.md](helper-spawn-env.md) — the silent-`stub` failure the
-  launch smoke test does not currently catch.
+  launch smoke test's backend assert exists to catch.
 - [platform-gates.md](platform-gates.md) — the per-version re-audit that
   stands in for a real-bundle patch test.
 - claude-desktop-debian `docs/learnings/test-methodology-and-coverage.md` —

@@ -8,7 +8,26 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+### Fixed
+
+- Two bundle patches silently stopped matching the Wispr 1.6.7xx+ main
+  bundle, and the marker gate correctly refused to build 1.6.897:
+  `helper-env.sh` (upstream hoisted the helper's telemetry-only spawn env
+  into a factory, so the `env:{` spawn-site anchor found nothing and the
+  helper fell to the no-op `stub` injection backend) now anchors on the
+  `{sentryDSN:` object itself, wherever it lives (#55, by @khamsakamal48);
+  `linux-window-frame.sh` (upstream inserted `frame:!1` between the two keys
+  the anchor spanned) now matches the win32 window config as a brace-fenced
+  property bag instead of exact text. Both carry near-miss bats fixtures
+  copied from the shipped 1.6.897 bytes.
+
 ### Added
+
+- The headless launch smoke test in `tests/test-artifact-common.sh` now reads
+  the helper's injection-backend line from `launcher.log` after the readiness
+  marker and fails on `stub` (or on no backend line at all). This is the
+  assert that would have caught the `helper-env.sh` no-op: the app reached
+  helper-ready and recorded fine while nothing was ever typed.
 
 - `docs/learnings/test-methodology.md`: the shell-test discipline ported from
   claude-desktop-debian (the `run`-subshell counter trap, near-miss fixtures,

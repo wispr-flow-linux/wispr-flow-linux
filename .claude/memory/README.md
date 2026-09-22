@@ -17,3 +17,6 @@ learnings here.
 - [`pr-triage-plan-2026-09.md`](pr-triage-plan-2026-09.md) — the September
   2026 plan for the 17 open PRs, the 1.6.897 audit, and the pipeline
   practices to transfer from claude-desktop-debian.
+- [`wispr-1.6.897-audit.md`](wispr-1.6.897-audit.md) — Phase 1 results: which
+  anchors drifted on 1.6.897 and how they were re-anchored, runtime smoke
+  results, and the build-tree gotchas hit along the way.
