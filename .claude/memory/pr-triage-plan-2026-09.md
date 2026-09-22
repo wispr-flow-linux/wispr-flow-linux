@@ -116,6 +116,11 @@ Authors get shellcheck and bats results without maintainer time.
 
 ### Phase 2 — pin the installer, land the resolver
 
+**Status (2026-09-21): built and verified in PR #84, unmerged.** Merge
+re-arms the nightly tag push; the publish-gate decision below is the
+maintainer's call before merging (or merge and dispatch by hand at once).
+#59 closed with credit; #70 redirected to the `RELEASES`+nupkg fallback.
+
 Transferred from cdd: the build reads a pin file; only the bump workflow
 resolves live.
 
