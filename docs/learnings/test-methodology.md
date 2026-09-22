@@ -22,6 +22,9 @@ lessons over and grounds them on this repo's suite.
   omit-one marker matrix for `scripts/verify-patches.sh`
 - [`tests/test-artifact-common.sh`](../../tests/test-artifact-common.sh) —
   `run_launch_smoke_test`, the shared headless launch harness
+- [`tests/test-artifact-common.bats`](../../tests/test-artifact-common.bats)
+  — the harness driven through PATH shims: the CI-only `pkill` sweep and the
+  backend assert
 - [`tests/test-artifact-{deb,rpm,appimage}.sh`](../../tests/) — per-format
   structural and launch smoke tests
 - [`.github/workflows/tests.yml`](../../.github/workflows/tests.yml) — runs
@@ -178,11 +181,20 @@ machines while passing in CI. Stub it.
 ### `pkill` sweeps must match the real exec path, and only in CI
 
 `run_launch_smoke_test` ends with `pkill -KILL -f "$pkill_match"` to reap
-children that PAM re-`setsid`s out of the process group under `runuser`. That
-sweep runs unconditionally today. The sibling guarded the same sweep behind
-`[[ -n ${CI:-} ]]` after a developer's Ctrl-C killed their live local
-AppImage; local runs fall back to the process-group kill alone. This suite
-should do the same.
+children that PAM re-`setsid`s out of the process group under `runuser`. The
+sibling guarded the same sweep behind `[[ -n ${CI:-} ]]` after a developer's
+Ctrl-C killed their live local AppImage: every caller's pattern (the
+`/usr/lib/wispr-flow` install root, the AppImage path) also matches the real
+app on a developer's desktop. The harness clears the pattern outside CI in
+one place, so the end-of-run sweep and the cleanup trap read the same
+decision, and local runs fall back to the process-group kill alone.
+[`tests/test-artifact-common.bats`](../../tests/test-artifact-common.bats)
+drives the harness with a `setsid` shim that writes the readiness marker and
+a `pkill` shim that records its argv, and asserts the sweep is absent with
+`CI` unset or empty and present with the pattern under `CI`; each sweep
+test first asserts the harness actually reached the sweep (two passes, no
+failure), so a missing `pkill` line is never mistaken for a guard that
+worked.
 
 ## Artifact launch-smoke methodology
 
