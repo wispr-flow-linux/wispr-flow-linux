@@ -276,7 +276,13 @@ turn; Wispr's suite has already met the first.
 **Adjacency.** An anchor that spans two tokens assumes they stay next to each
 other. PR #73's always-on-top watchdog anchors on `performance.now();if(`; the
 1.5.789 bundle reads `performance.now();var t;if(`. One inserted statement,
-zero matches. The sibling's version of this was a function head glued to its
+zero matches. The suite's own instance landed on 1.6.897:
+`linux-window-frame.sh` spanned `{titleBarStyle:"hidden",autoHideMenuBar:!0}`
+as exact text, upstream inserted `frame:!1` between the two keys, and the
+count assertion failed the build. The fix matches the object literal as a
+brace-fenced bag of properties (`\{(?=[^{}]*titleBarStyle:"hidden")(?=[^{}]*autoHideMenuBar:!0)[^{}]*\}`),
+so key order and extra keys no longer matter but a `}` still ends the search.
+The sibling's version of this was a function head glued to its
 first destructure until upstream put an `await` in front, which cost four
 consecutive upstream bumps with no release. Leave a bounded prelude between
 the tokens you span, and fence it on braces rather than on `.`:
