@@ -105,6 +105,12 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Changed
 
+- The artifact tests' headless launch harness runs its `pkill -f` sweep only
+  under `CI`. The sweep's patterns (`/usr/lib/wispr-flow`, the AppImage path)
+  also match a live Wispr Flow on a developer's desktop, so a local run that
+  reaped by pattern would have killed it; locally the process-group kill is
+  the only reaper. `tests/test-artifact-common.bats` drives the harness
+  through PATH shims and pins the guard.
 - A `-rc` suffix on the wrapper version (`v1.0.4-rc.1+wispr1.6.897`) builds,
   tests and creates a GitHub pre-release, but the APT, DNF and AUR publish jobs
   skip it. The suffix is dropped from the package version so the rc assets are

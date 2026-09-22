@@ -170,7 +170,8 @@ validate_app_contents() {
 # Usage:
 #   run_launch_smoke_test <label> <pkill_match> <run_as> <cmd> [args...]
 #     label        human name for pass/fail messages
-#     pkill_match  pattern for the pkill -f child sweep (may be empty)
+#     pkill_match  pattern for the pkill -f child sweep (may be empty).
+#                  Honoured only when CI is set; see the note below.
 #     run_as       unprivileged user to drop to, or '' to run as-is. The
 #                  deb/rpm install chrome-sandbox setuid-root and the launcher
 #                  does NOT pass --no-sandbox, so Electron refuses to run as
@@ -189,6 +190,14 @@ validate_app_contents() {
 # helper logs its backend choice on stderr before it answers, and the app
 # relays that into launcher.log; _smoke_check_backend reads that line after
 # the marker and fails on `stub`. See docs/learnings/helper-spawn-env.md.
+#
+# The pkill -f sweep runs only under CI. Every caller's pattern (the
+# /usr/lib/wispr-flow install root, the AppImage path) also matches a
+# developer's live Wispr Flow, so a local run that reaped by pattern would
+# take the real app down with the test's; the sibling project shipped
+# exactly that regression. Locally the process-group kill is the only
+# reaper, which is enough because the install tier (the one path where PAM
+# re-setsid()s the child out of the group) is itself CI-only.
 
 _smoke_launch_pid=''
 _smoke_cache_root=''
@@ -258,6 +267,10 @@ _smoke_sandbox_denied() {
 run_launch_smoke_test() {
 	local label="$1" pkill_match="$2" run_as="$3"
 	shift 3
+
+	# CI-only sweep (see the header). Cleared here so both the end-of-run
+	# sweep and the cleanup trap read the same decision.
+	[[ -n ${CI:-} ]] || pkill_match=''
 
 	local skip="Skipping launch smoke test for $label"
 	if ! { command -v xvfb-run && command -v dbus-run-session \
@@ -343,7 +356,8 @@ run_launch_smoke_test() {
 	wait "$_smoke_launch_pid" 2>/dev/null || true
 	# Sweep any electron/helper child that escaped the group (PAM re-setsid
 	# under runuser puts the child in its own session, so the group kill
-	# above misses it — this sweep is the actual reaper there).
+	# above misses it — this sweep is the actual reaper there). Empty
+	# outside CI, so a local run never reaps by pattern.
 	if [[ -n $pkill_match ]]; then
 		pkill -KILL -f "$pkill_match" 2>/dev/null || true
 	fi
