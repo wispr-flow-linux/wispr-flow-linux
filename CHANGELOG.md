@@ -78,6 +78,14 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Added
 
+- `tests/test-patch-stage.sh` runs the real patch stage over the real
+  bundle: it sources `scripts/build-linux.sh` (whose `main` is now guarded
+  so the file can be sourced), unpacks the pinned pristine `app.asar` into
+  a temp dir, runs every main and renderer patch, and asserts no `[WARN]`
+  from any patch, a byte-identical second pass, no packed `*.orig`,
+  `node --check` on every `.webpack/` file of the repacked asar, and every
+  `verify-patches.sh` marker. Not in CI (the installer is ~350 MB); the
+  release checklist asks for it when a patch changed.
 - `WISPR_USE_X11=1` runs the app under XWayland on a Wayland session
   (`--ozone-platform=x11`), the opt-in that brings the status pill X11-style
   click-through back on compositors with no Wayland input-shaping path, at

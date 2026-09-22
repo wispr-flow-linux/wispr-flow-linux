@@ -116,6 +116,9 @@ Before the first real release:
    `[v{REPO_VERSION}]` heading with today's date.
 3. **Local lint/tests pass** — `bats tests/` and the shellcheck command in
    [`CLAUDE.md`](CLAUDE.md).
+   If a bundle patch changed since the last release, also
+   `tests/test-patch-stage.sh` (the real patch stage over the pinned bundle;
+   see [`tests/README.md`](tests/README.md)).
 4. **Versions in sync** — `gh variable get WISPR_FLOW_VERSION` matches
    `WISPR_VERSION` in `scripts/setup/installer-pin.sh`. If not, pull `main`
    (the `check-wispr-version` workflow may have bumped it).

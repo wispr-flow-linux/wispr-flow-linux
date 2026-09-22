@@ -27,6 +27,8 @@ lessons over and grounds them on this repo's suite.
   backend assert
 - [`tests/test-artifact-{deb,rpm,appimage}.sh`](../../tests/) — per-format
   structural and launch smoke tests
+- [`tests/test-patch-stage.sh`](../../tests/test-patch-stage.sh) — the real
+  patch stage over the real pinned bundle, run locally before a patch ships
 - [`.github/workflows/tests.yml`](../../.github/workflows/tests.yml) — runs
   `bats tests/*.bats` on every push and PR
 - [`.github/workflows/test-artifacts.yml`](../../.github/workflows/test-artifacts.yml)
@@ -46,9 +48,15 @@ The unit suite is fast and standalone on purpose: a red "BATS Tests" check
 means *your code broke a test*, not *the build fell over before tests ran*.
 The artifact matrix gates the release job, so a launch regression cannot ship.
 Nothing in CI exercises the real Wispr bundle; `linux-patches.bats` runs the
-patch scripts against fixtures copied from shipped bytes, which is why a
-version bump still needs the local re-audit in
-[platform-gates.md](platform-gates.md).
+patch scripts against fixtures copied from shipped bytes.
+[`tests/test-patch-stage.sh`](../../tests/test-patch-stage.sh) is the local
+bridge: it sources `build-linux.sh` and runs its real unpack and patch steps
+over the pinned pristine asar, asserts no `[WARN]` from any patch, a
+byte-identical second pass, no packed `*.orig`, `node --check` on every
+`.webpack/` file of the repacked asar, and every marker. Run it before a
+patch ships and on every bump; a version bump still needs the semantic
+re-audit in [platform-gates.md](platform-gates.md), since a matching anchor
+is not correctness.
 
 The rest of this page is the methodology that keeps those green checks
 honest. Read [the half-pinned-test failure class](#the-half-pinned-test-failure-class)

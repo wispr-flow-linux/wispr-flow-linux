@@ -59,7 +59,30 @@ tests/test-artifact-appimage.sh  build-linux/appimage   # extracts AppImage or u
 If you go digging, the shared assertion lib plus `validate_app_contents` /
 `run_launch_smoke_test` all live in `test-artifact-common.sh`.
 
-## 3. Helper tests (separate repo)
+## 3. Patch-stage test against the real bundle (local, before a patch ships)
+
+The bats tier pins each patch against fixtures copied from shipped bytes.
+Fixtures can drift from the bundle the pin ships, and a fixture cannot say
+whether the *repacked asar* still parses. This runs the real thing:
+`scripts/build-linux.sh`'s unpack and patch steps over a pristine
+`app.asar`, then the repack, in a temp dir.
+
+```bash
+tests/test-patch-stage.sh               # pinned version; reuses extract/
+                                        # when it holds it, else downloads
+tests/test-patch-stage.sh <resources>   # a dir with a pristine app.asar
+                                        # (+ app.asar.unpacked beside it)
+```
+
+It asserts that step 3 logs no `[WARN]` (a missed anchor is a warning there,
+not an exit code), that a second pass is a no-op and leaves the tree
+byte-identical, that no `*.orig` backup is packed, that every JS file under
+`.webpack/` in the repacked asar passes `node --check`, and that
+`scripts/verify-patches.sh` finds every marker in it. It is not in CI (the
+installer is ~350 MB); run it before a patch change ships and on every
+upstream bump. It never writes `build-linux/stage` or `extract/`.
+
+## 4. Helper tests (separate repo)
 
 You won't find the helper tests here anymore — I moved the clean-room Rust helper
 into its own repo,
