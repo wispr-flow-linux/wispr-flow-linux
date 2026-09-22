@@ -135,12 +135,23 @@ resolves live.
 5. Dispatch the bump workflow and watch the first 1.6.897 tag build.
 6. Close #59. Redirect #70 to the RELEASES/nupkg fallback.
 
-Optional gate: put the `release` and `update-*-repo` jobs behind a GitHub
-`environment:` with a required reviewer, or have the bot open a PR instead of
-tagging. cdd runs ungated and relies on fail-closed anchors; roughly one in
-three of its auto-bumps goes red and ships nothing. The gate matters most for
-the first bump after a multi-version jump; drop it after that if it becomes
-friction.
+**Publish gate decision (2026-09-22, maintainer): none. The chain stays
+automatic and fails closed**, on the sibling's model. What already makes it
+fail closed here: `release` needs `build-amd64`, `build-arm64` and
+`test-artifacts`; the three publish jobs need `release`; the build verifies
+the pinned installer's sha256, every patch asserts its anchor count, the
+`verify-patches.sh` marker gate runs on the shipped asar, and the launch
+smoke test fails on the `stub` backend. A red run ships nothing; a bad
+release that shipped gets marked pre-release and a follow-up tag, never
+deleted (RELEASING.md). Two follow-ups carry the decision:
+
+1. Add `!contains(github.ref_name, '-rc')` to `update-apt-repo`,
+   `update-dnf-repo` and `update-aur-repo`, and `prerelease:` on rc tags in
+   `release`, so a hand-pushed `v*-rc*` tag builds, tests and creates a
+   pre-release without touching the package repos. That is the sibling's
+   manual look-first path; the bot never produces rc tags. Say so in
+   RELEASING.md.
+2. Record it as D-011 in `docs/decisions.md` (Phase 5 item 10).
 
 ### Phase 3 — merge the clean PRs, close the duplicates
 
@@ -217,9 +228,10 @@ Do these after the first clean auto-bump, each as its own PR.
    prompt-injection scan, deterministic validation, adversarial review,
    public comment + labels. Takes first response off the one maintainer.
    Port after the pipeline work; needs an API key secret.
-10. **Decision log entries.** Record in `docs/decisions.md`: installer is
-    pinned not resolved at build time; Wayland pill input shaping lives in
-    the compositor extension (or not, per Phase 6); PR policy above.
+10. **Decision log entries.** Record in `docs/decisions.md`: the publish
+    chain is ungated and fails closed (D-011, decided 2026-09-22); Wayland
+    pill input shaping lives in the compositor extension (or not, per
+    Phase 6); PR policy above. D-010 (pinned installer) is already in.
 
 ### Phase 6 — pill strategy and helper v0.1.3
 
