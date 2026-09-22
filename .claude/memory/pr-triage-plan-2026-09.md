@@ -153,8 +153,10 @@ deleted (RELEASING.md). Two follow-ups carry the decision:
    RELEASING.md.
 2. Record it as D-011 in `docs/decisions.md` (Phase 5 item 10).
 
-**Status (2026-09-22, second session): both follow-ups are PR #89, stacked
-on #84's branch; rebase onto main after #84 lands.**
+**Status (2026-09-22, end of day): #84 merged as `21846fe`, the bump
+dispatched, and `v1.0.3+wispr1.6.897` shipped end to end (run 35682177014:
+digest OK, 12 markers OK, smoke test `X11 (XTEST)`, six assets, APT/DNF/AUR
+published). Both follow-ups landed as #89.**
 
 ### Phase 3 — merge the clean PRs, close the duplicates
 
