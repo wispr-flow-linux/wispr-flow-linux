@@ -88,9 +88,9 @@ jobs:
       # package/filename version <wisprVer>-<repoVer>.
       - name: Test Case 7 - --release-tag derives package version
         run: |
-          # Derive the expected version from build.sh so this stays correct
-          # across upstream bumps (APP_VERSION changes over time).
-          ver=$(grep -oP "readonly APP_VERSION='\K[^']+" build.sh)
+          # Derive the expected version from the installer pin so this stays
+          # correct across upstream bumps (the pin moves over time).
+          ver=$(grep -oP "^WISPR_VERSION='\K[^']+" scripts/setup/installer-pin.sh)
           echo "--- ./build.sh --release-tag v1.0.0+wispr${ver} --test-flags ---"
           OUTPUT=$(./build.sh --release-tag "v1.0.0+wispr${ver}" --test-flags)
           echo "$OUTPUT"

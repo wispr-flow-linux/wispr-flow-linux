@@ -10,6 +10,17 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Fixed
 
+- `./build.sh` without `--exe` works again. Wispr repointed the stable
+  "latest" redirect at a versionless web-bootstrap stub with no payload, so
+  `resolve-installer-url.sh` died on every build and the nightly bump workflow
+  failed since 2026-09-14 (#83). The resolver now reads the JSON manifest the
+  stub itself uses (`latest.json`: versioned full-installer URL plus a
+  published SHA-256) and emits `SHA256=` as a third key (#55, by
+  @khamsakamal48).
+- The AppImage build no longer fails AppStream validation on hosts with
+  `appstream-glib` (Arch): the generated metadata dropped the `<icon>`
+  element `appstream-util` rejects; the icon resolves from the `.desktop`
+  file's `Icon=` key (#55, by @khamsakamal48).
 - Two bundle patches silently stopped matching the Wispr 1.6.7xx+ main
   bundle, and the marker gate correctly refused to build 1.6.897:
   `helper-env.sh` (upstream hoisted the helper's telemetry-only spawn env
@@ -22,6 +33,22 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   copied from the shipped 1.6.897 bytes.
 
 ### Added
+
+- The upstream installer is pinned in-tree: `scripts/setup/installer-pin.sh`
+  holds the version, download URL and SHA-256 the build downloads and
+  verifies. `build.sh` reads `APP_VERSION` from it, the CI build workflows
+  download and `sha256sum -c` it, and a digest mismatch is fatal. `--exe`
+  stays the local override (warned about, never rejected, when its digest is
+  not the pin's; `WISPR_EXE_SHA256` enforces one). `docs/decisions.md` D-010
+  records the decision (#83).
+- `scripts/setup/write-installer-pin.sh` rewrites the pin from the resolver's
+  `URL=`/`VERSION=`/`SHA256=` output, validating every field and refusing a
+  partial write. `tests/installer-pin.bats` covers the pin's shape, the
+  writer, the manifest resolver (driven over `file://`), the pinned fetch's
+  digest gate and cache, the `--exe` warning, and the `extract/` reuse check.
+- `extract_installer` refuses to reuse an `extract/` tree holding a different
+  Wispr version than the build wants (read from the nupkg name inside it),
+  instead of silently staging the wrong bundle under the pinned label.
 
 - The headless launch smoke test in `tests/test-artifact-common.sh` now reads
   the helper's injection-backend line from `launcher.log` after the readiness
@@ -36,6 +63,13 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Changed
 
+- `check-wispr-version.yml` is now the only thing that resolves upstream. It
+  reads `latest.json`, rewrites the pin (version, URL, sha256 together) and
+  the Nix version, commits, updates `WISPR_FLOW_VERSION`, and tags; it also
+  re-pins when upstream re-publishes the same version with new bytes (no
+  re-tag) and refuses to bump onto a manifest without a digest. The hardcoded
+  `APP_VERSION` constant in `build.sh` is gone; `test-flags.yml` and
+  `build-linux.sh`'s standalone default read the pin.
 - `docs/learnings/patching-minified-js.md` gains the sibling project's newer
   lessons: quote classes for string anchors, callee-indirection call shapes,
   bounded `[^{}]` preludes (adjacency), developer-literal terminators, anchors

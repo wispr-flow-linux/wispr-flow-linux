@@ -44,20 +44,32 @@ that one isn't a system package you install ahead of time.
 
 ## Obtaining the installer
 
-By default `build.sh` resolves and downloads the installer from Wispr's official
-endpoint (`scripts/setup/resolve-installer-url.sh`) — the same path CI uses. The
-proprietary installer is never committed to the repo.
+By default `build.sh` downloads the **pinned** installer — the exact version,
+URL and SHA-256 in
+[`scripts/setup/installer-pin.sh`](../scripts/setup/installer-pin.sh) — and
+refuses the file unless its digest matches. That is the same path CI uses, and
+the proprietary installer is never committed to the repo. The build never asks
+upstream what "latest" is: only the nightly `check-wispr-version` workflow does,
+and it moves the pin in a reviewable commit (see
+[`RELEASING.md`](../RELEASING.md)). The pinned version is the one the Linux
+patches were last audited against; the app version the package carries comes
+from the same file.
 
-To build against a specific installer instead, grab
+To build against a different installer, grab
 `Wispr Flow Setup-v<version>.exe` from [wisprflow.ai](https://wisprflow.ai) and
-pass it with `--exe`. The pinned version is **1.5.695** (set in `build.sh` as
-`APP_VERSION`); the auto-download verifies the upstream latest matches it and
-aborts on a mismatch, since a different installer version can drift the patch
-anchors.
+pass it with `--exe`. A local `--exe` is never rejected, but the build warns
+when its digest is not the pin's, since a different bundle can drift the patch
+anchors (the marker gate in `scripts/verify-patches.sh` still catches a patch
+that stops matching). Set `WISPR_EXE_SHA256` to enforce a digest of your own on
+a local installer.
+
+The extracted tree in `extract/` is reused across builds. If it holds a
+different version than the one you are building (the nupkg inside is named
+`WisprFlow-<version>-full.nupkg`), the build stops and tells you to remove it.
 
 ## Building
 
-By default `build.sh` fetches the latest installer; pass `--exe` to use your own.
+By default `build.sh` fetches the pinned installer; pass `--exe` to use your own.
 
 ```bash
 # Auto-detect format from your distro (downloads the installer):
