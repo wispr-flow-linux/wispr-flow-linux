@@ -146,6 +146,8 @@ URLs, and alt text can run over when breaking them hurts readability.
 - Branch: `fix/123-description` or `feature/123-description`.
 - PR body links the issue: `Fixes #123` or `Refs #123`.
 - AI-assisted? Say so (see below).
+- Merged external PRs, and issues whose diagnosis or snippet a fix uses, get
+  a line in [`ACKNOWLEDGMENTS.md`](ACKNOWLEDGMENTS.md).
 
 ## Letting maintainers edit your PR
 
