@@ -55,3 +55,44 @@ branch already frames Linux.
 - The app logs `Error checking for override release … SyntaxError: Unexpected
   token '<'` at startup on 1.6.897: an upstream endpoint returning HTML, not a
   Linux issue.
+
+## Gate audit of the new `"win32"===process.platform` reads (2026-09-22)
+
+36 reads on 1.6.897 against 23 on 1.5.789. 22 pair up by developer string
+(14 vendored libs, the platform-consts module, `getClientInfo`, the
+meeting_recorder window config, the Squirrel "already running" guard, the
+Sentry manufacturer probe, the Crashpad dirs, the Squirrel argv block and
+the GPU switches); one 1.5.789 read (a vendored process-list helper) is
+gone; 14 are new. Classified with the three rules in
+`docs/learnings/platform-gates.md`:
+
+| Site (1.6.897 order) | Shape | Linux lands on | Verdict |
+|---|---|---|---|
+| 17 session guard: `if(win32){session-end listeners}` | rule 3 | `powerMonitor.on("shutdown")`, which is registered for every platform just before | no action |
+| 18 `Or` = meeting auto-detect enabled iff darwin or win32 | rule 3 | feature off | keep off: the clean-room helper has no meeting-window detection; document as a known gap |
+| 19-25 meeting end-state / conference matching (`win32 ? A.rA : A.yt`, `wi()`, the `never_ran_*` outcomes, `isWin32` in the lane picker) | rule 2 | mac branches | unreachable while 18 is off; no action |
+| 26 AX snapshot capabilities `n||r`, `hostPlatform:"other"` | consistent | everything false | no action |
+| 27 `focusOrOpenConference`: darwin or win32 try the helper's window focus first | rule 3 | opens the URL | acceptable; a later helper active-app feature could add Linux |
+| 28 `setDisplayMediaRequestHandler` | explicit Linux skip with a log line | skipped | no action |
+| 29 `meetingRecorder:zoomWindow`: `win32 ? maximize/unmaximize : setFullScreen` | rule 2 | mac fullscreen toggle | **candidate**: `linux-window-frame.sh` gives that window the win32 frameless chrome, so a title-bar double-click should maximize like Windows; only worth a patch if the meeting_recorder window is reachable on Linux (auto-detect is off), which is unverified |
+| 31 release type: win32 "squirrel", darwin "macos", else "unknown" | rule 2-ish | "unknown" | desirable: the in-app updater stays inert and updates come from APT/DNF/AUR; no action |
+
+Pre-existing reads re-examined on the way, because #82's target lives
+beside them:
+
+- The platform-consts module (81609) exports `H8` (isWin32), `tD` (isMac),
+  `ut()` (client type: "desktop_mac" / "desktop_windows" / **"desktop_mac"
+  for Linux**, telemetry only), and two path constants built as
+  `win32 ? AppData : ~/Library`: `q0` (app data) and `Jy` (logs). Both are
+  rule 2. `q0` has 36 consumers and is what the packaged data-dir function
+  returns, so on Linux **`flow.sqlite`, `meetings/`, `backups/` and all
+  extension state live under `~/Library/Application Support/Wispr Flow`**;
+  both isolated-profile launches on this host created it. `Jy` feeds
+  electron-log's file transport, which packaged builds keep off. A third
+  gate of the same shape puts a `Flow` dir under the same roots. Filed as
+  #100 with the migration requirement (the database is in there).
+- #82's gate is the `o.H8&&prefs.openAtLogin&&onboardingCompleted` arm of
+  the launch decision that logs "Not showing hub window at launch: auto
+  launch at login is enabled"; widening `o.H8` there to include Linux is the
+  whole patch, anchored on that developer string.
+
