@@ -136,17 +136,20 @@ _assert_exact_mirror() {
 @test "sync_stage_to_dist: the cp fallback mirrors the same way" {
 	_source_build_sh
 	_stage_and_dist
-	# Hide rsync: a PATH holding only the tools the fallback needs.
+	# Hide rsync: a PATH holding only the tools the fallback needs, set in
+	# a subshell so bats' own teardown keeps its PATH (the temp bin dir is
+	# gone by then, and a leaked PATH broke `rm` for bats itself in CI).
 	local tool
 	mkdir -p "$TEST_TMP/bin"
 	for tool in cp find mkdir chmod rm; do
 		ln -s "$(command -v "$tool")" "$TEST_TMP/bin/$tool"
 	done
-	PATH="$TEST_TMP/bin"
-	run command -v rsync
-	[[ $status -ne 0 ]]
-
-	sync_stage_to_dist >/dev/null 2>&1
+	(
+		PATH="$TEST_TMP/bin"
+		command -v rsync >/dev/null 2>&1 && exit 99
+		sync_stage_to_dist >/dev/null 2>&1
+	)
+	[[ $? -eq 0 ]]
 
 	_assert_exact_mirror
 }
