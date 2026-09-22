@@ -142,8 +142,9 @@ URLs, and alt text can run over when breaking them hurts readability.
   [helper repo](https://github.com/wispr-flow-linux/helper), not here.
 - For packaging/launcher/patch changes, build locally and run the artifact's
   `wispr-flow --doctor`. See [docs/building.md](docs/building.md). **Do not run
-  `scripts/build-linux.sh` blindly** — its step 2 does `rm -rf build-linux/`,
-  which destroys the validated staged tree. I've nuked mine that way more than
+  `scripts/build-linux.sh` blindly** — its step 2 clears everything under
+  `build-linux/` except `downloads/`, which destroys a validated staged tree
+  and any package output sitting there. I've nuked mine that way more than
   once.
 - Branch: `fix/123-description` or `feature/123-description`.
 - PR body links the issue: `Fixes #123` or `Refs #123`.

@@ -39,10 +39,11 @@ branch already frames Linux.
 
 ## Gotchas hit
 
-- `scripts/build-linux.sh` step 2 does `rm -rf "$WORK_DIR"` (= `build-linux/`),
-  which deletes `build-linux/downloads/` (the installer and Electron zip
-  `download.sh` just cached) and any earlier package output. Keep a local
-  `--exe` outside `build-linux/`, and copy artifacts out before the next
+- `scripts/build-linux.sh` step 2 used to `rm -rf "$WORK_DIR"` (=
+  `build-linux/`), deleting `build-linux/downloads/` (the installer and
+  Electron zip `download.sh` just cached) and any earlier package output.
+  Fixed 2026-09-22: step 2 keeps `downloads/`; the staged tree and package
+  outputs are still regenerated, so copy artifacts out before the next
   format's build.
 - `extract_installer` reuses an existing `extract/` tree without checking its
   version. Move the old tree aside before building a new Wispr version.

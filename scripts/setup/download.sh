@@ -234,11 +234,21 @@ Remove it (rm -rf '${extract_dir}') to re-extract from the installer."
 #-------------------------------------------------------------------------------
 fetch_electron() {
 	local dest_dir="${1:-$work_dir/downloads/electron-dist}"
+	# The version stamp sits beside the dist, not inside it (the makers copy
+	# the dist tree into the package). A dist that survived from a previous
+	# build is reused only when the stamp names this Electron version; a
+	# dist with no stamp predates stamps and is re-staged once.
+	local stamp="${dest_dir}.version" staged=''
 	say "Fetch Linux Electron ${electron_version} (${electron_arch})"
 
 	if [[ -x "$dest_dir/wispr-flow" ]]; then
-		auto "Electron already staged + renamed at $dest_dir/wispr-flow; skipping fetch."
-		return 0
+		[[ -f $stamp ]] && staged=$(<"$stamp")
+		if [[ $staged == "$electron_version" ]]; then
+			auto "Electron ${electron_version} already staged + renamed at $dest_dir/wispr-flow; skipping fetch."
+			return 0
+		fi
+		warn "Staged electron-dist is Electron ${staged:-of unknown version}, not ${electron_version}; re-staging."
+		rm -rf "$dest_dir" "$stamp" || die "cannot remove stale $dest_dir"
 	fi
 
 	local zip_name="electron-v${electron_version}-linux-${electron_arch}.zip"
@@ -298,4 +308,5 @@ fetch_electron() {
 	else
 		die "No 'electron' launcher found under $dest_dir after extraction"
 	fi
+	printf '%s\n' "$electron_version" > "$stamp" || die "cannot write $stamp"
 }
