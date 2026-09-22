@@ -48,8 +48,8 @@ _call() {  # _call <tool_name> <command>
 }
 
 @test "hook: a push over a clean tree passes and names the gates it ran" {
-	command -v shellcheck >/dev/null
-	command -v codespell >/dev/null
+	command -v shellcheck >/dev/null || skip 'shellcheck not installed'
+	command -v codespell >/dev/null || skip 'codespell not installed'
 	run _call Bash 'git push -u origin main'
 	[[ $status -eq 0 ]]
 	[[ $output == 'Lint gates passed:'*' shellcheck'* ]]
@@ -57,7 +57,7 @@ _call() {  # _call <tool_name> <command>
 }
 
 @test "hook: a push is blocked when the CI shellcheck line fails" {
-	command -v shellcheck >/dev/null
+	command -v shellcheck >/dev/null || skip 'shellcheck not installed'
 	# SC2034 is warning-level, which is what --severity=warning gates on
 	# (an unquoted expansion, SC2086, is only info and would pass).
 	printf '#!/usr/bin/env bash\nunused_here=1\necho done\n' > bad.sh
@@ -70,7 +70,7 @@ _call() {  # _call <tool_name> <command>
 }
 
 @test "hook: a push is blocked when codespell flags a tracked file" {
-	command -v codespell >/dev/null
+	command -v codespell >/dev/null || skip 'codespell not installed'
 	printf 'This is definately a typo.\n' > notes.md  # codespell:ignore definately
 	git add notes.md && git commit -q -m 'typo'
 	run _call Bash 'git push'
@@ -80,7 +80,7 @@ _call() {  # _call <tool_name> <command>
 }
 
 @test "hook: an untracked scratch file is not scanned" {
-	command -v codespell >/dev/null
+	command -v codespell >/dev/null || skip 'codespell not installed'
 	# Near miss for the tracked-files-only rule: the same typo, untracked.
 	printf 'This is definately a typo.\n' > scratch.md  # codespell:ignore definately
 	run _call Bash 'git push'
@@ -88,8 +88,8 @@ _call() {  # _call <tool_name> <command>
 }
 
 @test "hook: a shell change against main runs bats and reports a red test" {
-	command -v bats >/dev/null
-	command -v shellcheck >/dev/null
+	command -v bats >/dev/null || skip 'bats not installed'
+	command -v shellcheck >/dev/null || skip 'shellcheck not installed'
 	git checkout -q -b topic
 	mkdir -p tests
 	printf '#!/usr/bin/env bats\n@test "always red" { false; }\n' \
@@ -103,7 +103,7 @@ _call() {  # _call <tool_name> <command>
 }
 
 @test "hook: no shell change against main skips bats" {
-	command -v bats >/dev/null
+	command -v bats >/dev/null || skip 'bats not installed'
 	git checkout -q -b topic
 	mkdir -p tests
 	printf '#!/usr/bin/env bats\n@test "always red" { false; }\n' \
