@@ -61,10 +61,12 @@ direction, and anything we add we'd have to carry across every re-minified
 upstream release. That's a real maintenance cost, so open an issue before you
 invest in one.
 
-**Not accepted: package-hosting, release, or publishing infrastructure.** This
-repo is local-build-only by design — it ships no built packages, no APT/DNF
-repo, no GitHub Releases, and no publish workflows. Don't open PRs that
-reintroduce any of that.
+**The release and publishing layer is maintainer-owned.** The tag-driven
+publish chain ([`RELEASING.md`](RELEASING.md)), the APT, DNF and AUR repos,
+the nightly version-bump workflow and the package-repo worker are run by one
+person and fail closed by design ([D-011](docs/decisions.md)). Open an issue
+before touching any of it; a PR that changes what gets published, or where,
+is not merged without that conversation.
 
 ## What goes upstream, not here
 
@@ -148,6 +150,32 @@ URLs, and alt text can run over when breaking them hurts readability.
 - AI-assisted? Say so (see below).
 - Merged external PRs, and issues whose diagnosis or snippet a fix uses, get
   a line in [`ACKNOWLEDGMENTS.md`](ACKNOWLEDGMENTS.md).
+
+## Pull request policy
+
+How open PRs are handled, so nobody is surprised by a close or a cherry-pick
+([D-012](docs/decisions.md)):
+
+- **Duplicates close with credit.** When two PRs fix the same thing, the
+  earliest one that is mergeable lands and the other is closed with a comment
+  naming it. If the closed PR's diagnosis or diff was used, its author gets a
+  line in [`ACKNOWLEDGMENTS.md`](ACKNOWLEDGMENTS.md).
+- **Thirty days of silence.** A PR whose author has not replied to a review
+  for 30 days may be finished under the maintainer-edits policy below (your
+  commit stays yours; the maintainer's changes go in a second commit) or
+  closed with a comment. Either way it can be reopened.
+- **First-time contributors need CI approved.** GitHub holds a first-time
+  contributor's workflow runs until a maintainer approves them, on every
+  push. If a run stays pending, say so in the PR and it gets approved.
+- **Stacked PRs say so in the first line.** Name the PR you are based on.
+  CI only runs on PRs against `main`, so a stacked PR gets its checks by
+  hand until the base lands, then rebases onto `main`.
+- **Say which bundle you verified against.** A patch regex is only known to
+  match the Wispr version you ran it on; name it. The pinned version in
+  [`scripts/setup/installer-pin.sh`](scripts/setup/installer-pin.sh) is the
+  one that ships, so a PR verified on an older bundle gets re-checked there
+  before merge and may need its anchor loosened (see
+  [`docs/learnings/patching-minified-js.md`](docs/learnings/patching-minified-js.md)).
 
 ## Letting maintainers edit your PR
 
