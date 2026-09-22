@@ -184,7 +184,7 @@ _assert_reached_sweep() {
 @test "assert_asar_no_patch_backups: a header that spans past 4 KiB is read whole" {
 	# The length field, not a fixed prefix, bounds the read: an entry listed
 	# deep in a long header must still be found.
-	local filler i json='{"files":{'
+	local i json='{"files":{'
 	for ((i = 0; i < 300; i++)); do
 		json+="\"module-$i-with-a-long-name.js\":{\"size\":1,\"offset\":\"$i\"},"
 	done
