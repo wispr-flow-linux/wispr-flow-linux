@@ -14,3 +14,6 @@ learnings here.
   microphone, keybind).
 - [`issue-32-validation.md`](issue-32-validation.md) — live status of the issue
   #32 manual UX validation: what's tested where, results, and decisions.
+- [`pr-triage-plan-2026-09.md`](pr-triage-plan-2026-09.md) — the September
+  2026 plan for the 17 open PRs, the 1.6.897 audit, and the pipeline
+  practices to transfer from claude-desktop-debian.
