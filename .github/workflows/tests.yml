@@ -25,7 +25,9 @@ jobs:
       - name: Install BATS
         run: |
           sudo apt-get update
-          sudo apt-get install -y bats
+          # Also the two linters: tests/hooks.bats drives the pre-push
+          # hook, which runs both; without them those cases skip.
+          sudo apt-get install -y bats shellcheck codespell
 
       - name: Run BATS test suite
         run: bats --print-output-on-failure tests/*.bats

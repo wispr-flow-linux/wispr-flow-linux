@@ -137,7 +137,9 @@ URLs, and alt text can run over when breaking them hurts readability.
 
 ## Before submitting a PR
 
-- Run `shellcheck` + `actionlint` on touched scripts/workflows. Helper changes
+- Run `shellcheck` + `actionlint` on touched scripts/workflows (Claude Code
+  users get this for free: `.claude/hooks/pre-pr-lint.sh` runs the CI gates
+  before every `git push` and blocks the push on a failure). Helper changes
   (and their `cargo fmt` + `cargo clippy` + `cargo test` gates) go to the
   [helper repo](https://github.com/wispr-flow-linux/helper), not here.
 - For packaging/launcher/patch changes, build locally and run the artifact's

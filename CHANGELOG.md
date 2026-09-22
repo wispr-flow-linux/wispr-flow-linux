@@ -89,6 +89,14 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Added
 
+- Claude Code hooks, wired by a committed `.claude/settings.json`:
+  `.claude/hooks/pre-pr-lint.sh` runs the CI shellcheck line, codespell over
+  tracked files, actionlint on changed workflows and `bats tests/*.bats`
+  when a shell or bats file changed, before any `git push`, and blocks the
+  push on a failure; `.claude/hooks/session-start.sh` installs the missing
+  lint and test tools at session start (apt or dnf, passwordless sudo only)
+  or lists what to install. `tests/hooks.bats` drives the pre-push hook
+  against throwaway git repos.
 - `tests/test-patch-stage.sh` runs the real patch stage over the real
   bundle: it sources `scripts/build-linux.sh` (whose `main` is now guarded
   so the file can be sourced), unpacks the pinned pristine `app.asar` into
