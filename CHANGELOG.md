@@ -10,6 +10,17 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Fixed
 
+- Fresh Linux profiles were seeded with the macOS shortcut map, so
+  push-to-talk landed on keycode `-1` (no such key on Linux): Settings showed
+  a blank binding, dictation could not be triggered, and the onboarding
+  shortcuts step could not be completed (#33, #46). The renderer already
+  showed Windows chords, but the main process writes the profile with its own
+  `"win32"===process.platform` flag. The new `linux-main-shortcut-defaults.sh`
+  widens that flag only where the shortcuts module reads it (eight ternary
+  chord selections on 1.6.897) and fails closed if any read there is not a
+  ternary, so the flag's other consumers keep the real platform (#55, by
+  @khamsakamal48). Only new profiles are affected; an existing profile keeps
+  its `-1` binding until the shortcut is re-recorded in Settings.
 - Two bundle patches silently stopped matching the Wispr 1.6.7xx+ main
   bundle, and the marker gate correctly refused to build 1.6.897:
   `helper-env.sh` (upstream hoisted the helper's telemetry-only spawn env

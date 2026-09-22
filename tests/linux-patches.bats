@@ -11,6 +11,7 @@
 #   * linux-early-singleton.sh           -> take the single-instance lock before init
 #   * helper-env.sh                      -> spreads process.env into the helper env
 #   * linux-disable-pill-drag.sh         -> force the drag-overlay flag false on Linux
+#   * linux-main-shortcut-defaults.sh   -> Linux seeds the Windows chord map in main
 #
 # The real bundle is the proprietary, gitignored app -- not available in CI -- so
 # each test drives a hermetic minified-JS FIXTURE carrying the exact anchor the
@@ -452,4 +453,66 @@ JS
 	run bash "$PATCH_DIR/linux-disable-pill-drag.sh" "$FIX"
 	[[ "$status" -ne 0 ]]
 	! grep -q 'WISPR_LINUX_DISABLE_PILL_DRAG' "$FIX"
+}
+
+# =============================================================================
+# linux-main-shortcut-defaults.sh
+# =============================================================================
+
+# The shipped 1.6.897 shape, trimmed: webpack module 28889 defines the Windows
+# chord map (`re`, ctrl+win+space Popo) and the macOS one (`Te`, fn+space  # codespell:ignore te
+# Popo), selects between them with `r.H8?re:Te`, and reads `r.H8` at two more  # codespell:ignore te
+# ternary sites (the display accessor and the modifier default). `lr.H8` in the same module is a DIFFERENT module-local (the
+# left-boundary decoy from the patch's own audit) and module 95001 reads
+# `r.H8` non-ternarily, which is outside the shortcuts module and must be
+# left alone.
+write_shortcut_fixture() {
+	cat > "$FIX" <<'JS'
+var lr={H8:!0};
+({0:1,28889(e,t,n){"use strict";var r={H8:!1},y={Ptt:1,Popo:2,Lens:3,PasteLastText:4,CopyLastText:5,Dismiss:6},s={ctrl:1,win:2,space:3,alt:4,shift:5,z:6,x:7,esc:8,fn:9,cmd:10,c:11,v:12},O=e=>e.join("+");const te=O([s.ctrl,s.win]),re={[te]:y.Ptt,[O([s.ctrl,s.win,s.space])]:y.Popo,[O([s.ctrl,s.win,s.alt])]:y.Lens,[O([s.shift,s.alt,s.z])]:y.PasteLastText,[O([s.shift,s.alt,s.x])]:y.CopyLastText,[O([s.esc])]:y.Dismiss},Ce=O([s.fn]),Te={[Ce]:y.Ptt,[O([s.fn,s.space])]:y.Popo,[O([s.fn,s.ctrl])]:y.Lens,[O([s.cmd,s.ctrl,s.v])]:y.PasteLastText,[O([s.cmd,s.ctrl,s.c])]:y.CopyLastText,[O([s.esc])]:y.Dismiss},ae=O([s.alt]),Ne=O([s.cmd]),H=e=>{const t=r.H8?te:Ce;return e||t},Pe=r.H8?re:Te,Qe=r.H8?ae:Ne,Re=lr.H8?1:2;t.x=[H,Pe,Qe,Re]},95001(e,t,n){"use strict";var r={H8:!1};if(r.H8)t.q=1}});// codespell:ignore te,Te
+JS
+}
+
+@test "shortcut-defaults: widens every r.H8 ternary in the shortcuts module, leaves the rest" {
+	write_shortcut_fixture
+	run bash "$PATCH_DIR/linux-main-shortcut-defaults.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	[[ "$output" == *'widened at 3 chord-selection site(s)'* ]]
+	# the marker sits on the first widened read, and the other two are widened too
+	grep -qF '(r.H8||"linux"===process.platform)/*WISPR_LINUX_MAIN_SHORTCUT_DEFAULTS*/?te:Ce' "$FIX" # codespell:ignore te
+	grep -qF 'Pe=(r.H8||"linux"===process.platform)?re:Te' "$FIX" # codespell:ignore te
+	grep -qF 'Qe=(r.H8||"linux"===process.platform)?ae:Ne' "$FIX"
+	[[ "$(grep -o '(r.H8||"linux"===process.platform)' "$FIX" | wc -l)" -eq 3 ]]
+	[[ "$(grep -o 'WISPR_LINUX_MAIN_SHORTCUT_DEFAULTS' "$FIX" | wc -l)" -eq 1 ]]
+	# the lr.H8 decoy and the neighbouring module's r.H8 are untouched
+	grep -qF 'Re=lr.H8?1:2' "$FIX"
+	grep -qF '95001(e,t,n){"use strict";var r={H8:!1};if(r.H8)t.q=1}' "$FIX"
+	node_check "$FIX"
+}
+
+@test "shortcut-defaults: idempotent on second run" {
+	write_shortcut_fixture
+	bash "$PATCH_DIR/linux-main-shortcut-defaults.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-main-shortcut-defaults.sh" "$FIX"
+}
+
+@test "shortcut-defaults: bails non-zero when the chord maps are absent" {
+	cat > "$FIX" <<'JS'
+({0:1,28889(e,t,n){"use strict";var r={H8:!1};t.x=r.H8?1:2}});
+JS
+	run bash "$PATCH_DIR/linux-main-shortcut-defaults.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_MAIN_SHORTCUT_DEFAULTS' "$FIX"
+}
+
+@test "shortcut-defaults: bails non-zero when a read in the module is not a ternary" {
+	# Near miss: same maps and selector, plus one `if(r.H8)` inside the module.
+	# That is the OS-API gate shape the patch must refuse to widen.
+	write_shortcut_fixture
+	sed -i 's/Re=lr\.H8?1:2;/Re=lr.H8?1:2;if(r.H8)t.w=1;/' "$FIX"
+	grep -qF 'if(r.H8)t.w=1;t.x=' "$FIX"
+	run bash "$PATCH_DIR/linux-main-shortcut-defaults.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *'NOT ternary selections'* ]]
+	! grep -q 'WISPR_LINUX_MAIN_SHORTCUT_DEFAULTS' "$FIX"
 }

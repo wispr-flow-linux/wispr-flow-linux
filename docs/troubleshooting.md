@@ -79,6 +79,33 @@ start.
 > running (`--doctor` shows the helper launch as OK), file a bug with the
 > full `--doctor` output.
 
+## Push-to-talk is blank in Settings, or bound to a key that does nothing
+
+Before the `linux-main-shortcut-defaults.sh` patch, a fresh Linux profile was
+seeded with the macOS shortcut map, and its push-to-talk key has no Linux
+keycode. The stored binding is the `-1` sentinel:
+
+```json
+"shortcuts": { "-1": "ptt", "-1+32": "popo", "-1+162": "lens" },
+"modifierShortcut": "9"
+```
+
+Settings renders that binding blank and no key can ever match it. Current
+builds seed `162+91` (Ctrl+Meta) instead, but the patch only changes what a
+**new** profile gets. A profile created by an older build keeps its `-1`
+entries across upgrades.
+
+### Fix
+
+Open Settings → Shortcuts and record a new push-to-talk key (Ctrl+Meta is the
+default the patch seeds). Do the same for any other shortcut that shows
+blank. If the recorder captures nothing, that is the helper key monitor, not
+this bug: see the section above.
+
+To start over instead, quit the app and delete the `shortcuts` and
+`modifierShortcut` keys from `~/.config/Wispr Flow/config.json`; the next
+launch reseeds them with the Linux map.
+
 ## Paste does nothing / transcription doesn't get typed into my app
 
 This is the whole reason the app exists, so when it goes silent it hurts. In my
