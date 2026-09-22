@@ -145,7 +145,7 @@ URLs, and alt text can run over when breaking them hurts readability.
   once.
 - Branch: `fix/123-description` or `feature/123-description`.
 - PR body links the issue: `Fixes #123` or `Refs #123`.
-- AI-assisted? Add the attribution block below.
+- AI-assisted? Say so (see below).
 
 ## Letting maintainers edit your PR
 
@@ -164,21 +164,17 @@ we pick right back up where we left off.
 
 ## AI-assisted contributions
 
-I'm fine with AI-assisted PRs, as long as you disclose. PR descriptions:
+I'm fine with AI-assisted PRs, as long as you disclose. One trailer line at
+the end of the PR body (and of an issue, if a model wrote it):
 
 ```
----
-Generated with [Claude Code](https://claude.ai/code)
 Co-Authored-By: Claude <model-name> <noreply@anthropic.com>
-XX% AI / YY% Human
-Claude: <what AI did>
-Human: <what human did>
 ```
 
-Use the real model name (e.g., "Claude Opus 4.8"). Keep the split honest. Those
-breakdown lines make the ratio auditable against the diff.
+Use the real model name (e.g., "Claude Opus 4.8"). Commits carry
+`Co-Authored-By: Claude <claude@anthropic.com>`.
 
-Commits: `Co-Authored-By: Claude <claude@anthropic.com>`.
-
-Issues/comments:
-`Written by Claude <model-name> via [Claude Code](https://claude.ai/code)`.
+Keep the PR short either way: what changed and why this way, in enough
+detail for a reviewer to decide where to look. The evidence goes in the
+commit bodies. A description that retells the diff gets read instead of the
+diff, and it is the copy that goes stale.

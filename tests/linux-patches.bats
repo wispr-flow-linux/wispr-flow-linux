@@ -4,11 +4,13 @@
 # Unit tests for the renderer/main bundle patches added for the Linux port:
 #   * linux-renderer-chrome.sh           -> remaps the <html> platform class linux->win32
 #   * linux-window-frame.sh              -> frameless hub/settings window on Linux
+#   * linux-hub-focusable.sh             -> hub window focusable/WM-managed on Linux
 #   * linux-renderer-treat-as-windows.sh -> widens each renderer's isWindows bind
 #                                           (bridge stays honest; no preload touched)
 #   * linux-deeplink.sh                  -> cold-start wispr-flow: argv parse on Linux
 #   * linux-early-singleton.sh           -> take the single-instance lock before init
-
+#   * helper-env.sh                      -> spreads process.env into the helper env
+#
 # The real bundle is the proprietary, gitignored app -- not available in CI -- so
 # each test drives a hermetic minified-JS FIXTURE carrying the exact anchor the
 # patch keys on. Every patch is asserted to: apply (marker + transformation),
@@ -126,6 +128,88 @@ JS
 	run bash "$PATCH_DIR/linux-window-frame.sh" "$FIX"
 	[[ "$status" -ne 0 ]]
 	! grep -q 'WISPR_LINUX_FRAMELESS' "$FIX"
+}
+
+@test "window-frame: matches the 1.6.897 site with frame:!1 between the keys" {
+	# Shipped 1.6.897 bytes: upstream inserted `frame:!1` between
+	# titleBarStyle and autoHideMenuBar at the meeting_recorder site (the
+	# exact-text anchor went to zero). The meeting_ax_inspector site alongside
+	# carries the same object in a two-way switch with NO win32 predicate; its
+	# else branch already covers Linux, so it must be left alone and the count
+	# must stay at exactly one.
+	cat > "$FIX" <<'JS'
+var c={tD:false},o={tD:false},t={},u={};
+c.tD?Object.assign(t,{frame:!1,titleBarStyle:"hidden",trafficLightPosition:{x:1e4,y:10},transparent:!0,hasShadow:!0}):"win32"===process.platform&&Object.assign(t,{titleBarStyle:"hidden",frame:!1,autoHideMenuBar:!0});
+o.tD?Object.assign(u,{titleBarStyle:"hidden",trafficLightPosition:{x:12,y:16}}):Object.assign(u,{titleBarStyle:"hidden",autoHideMenuBar:!0});
+JS
+	run bash "$PATCH_DIR/linux-window-frame.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF '/*WISPR_LINUX_FRAMELESS*/"win32"===process.platform||"linux"===process.platform)&&Object.assign(t,{titleBarStyle:"hidden",frame:!1,autoHideMenuBar:!0})' "$FIX"
+	# the ax-inspector two-way switch is untouched
+	grep -qF '):Object.assign(u,{titleBarStyle:"hidden",autoHideMenuBar:!0});' "$FIX"
+	[[ $(grep -o 'WISPR_LINUX_FRAMELESS' "$FIX" | wc -l) -eq 1 ]]
+	node_check "$FIX"
+}
+
+@test "window-frame: fence stops the loosened anchor at a brace boundary" {
+	# Near-miss for the `[^{}]` fence: the two keys sit in ADJACENT object
+	# literals of the same win32 branch. An unfenced `.*?` between the keys
+	# would match across `})&&Object.assign(t,{`; the fence must not.
+	cat > "$FIX" <<'JS'
+var t={};
+"win32"===process.platform&&Object.assign(t,{titleBarStyle:"hidden"})&&Object.assign(t,{autoHideMenuBar:!0});
+JS
+	run bash "$PATCH_DIR/linux-window-frame.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_FRAMELESS' "$FIX"
+}
+
+@test "window-frame: ignores a win32 assign that does not hide the menu bar" {
+	# One character from the anchor: autoHideMenuBar:!1 instead of !0.
+	cat > "$FIX" <<'JS'
+var t={};
+"win32"===process.platform&&Object.assign(t,{titleBarStyle:"hidden",frame:!1,autoHideMenuBar:!1});
+JS
+	run bash "$PATCH_DIR/linux-window-frame.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_FRAMELESS' "$FIX"
+}
+
+# =============================================================================
+# linux-hub-focusable.sh
+# =============================================================================
+
+@test "hub-focusable: rewrites the Hub focusable:!1, leaves overlays alone" {
+	cat > "$FIX" <<'JS'
+const t={title:"Flow Hub",center:!0,show:!1,webPreferences:{preload:require("path").resolve(__dirname,"../renderer","hub","preload.js"),devTools:"development"===_.M0||(0,N.Pv)(d.RA.prefs?.user.email||"")},focusable:!1};_.tD?Object.assign(t,{frame:!1,titleBarStyle:"hidden"}):Object.assign(t,{frame:!1,autoHideMenuBar:!0});
+const ov=new r.BrowserWindow({show:!1,transparent:!0,frame:!1,hasShadow:!1,focusable:!1,skipTaskbar:!0});
+JS
+	run bash "$PATCH_DIR/linux-hub-focusable.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -q 'WISPR_LINUX_HUB_FOCUSABLE' "$FIX"
+	# the Hub site now gates focusable on the platform
+	grep -qF 'focusable:/*WISPR_LINUX_HUB_FOCUSABLE*/"linux"===process.platform}' "$FIX"
+	# the overlay's intentional focusable:!1 is untouched (exactly one remains)
+	[[ "$(grep -c 'focusable:!1' "$FIX")" -eq 1 ]]
+	grep -qF 'hasShadow:!1,focusable:!1,skipTaskbar:!0' "$FIX"
+	node_check "$FIX"
+}
+
+@test "hub-focusable: idempotent on second run" {
+	cat > "$FIX" <<'JS'
+const t={title:"Flow Hub",center:!0,show:!1,webPreferences:{preload:require("path").resolve(__dirname,"../renderer","hub","preload.js"),devTools:"development"===_.M0},focusable:!1};
+JS
+	bash "$PATCH_DIR/linux-hub-focusable.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-hub-focusable.sh" "$FIX"
+}
+
+@test "hub-focusable: bails non-zero when the Hub anchor is absent" {
+	cat > "$FIX" <<'JS'
+const ov=new r.BrowserWindow({show:!1,transparent:!0,frame:!1,hasShadow:!1,focusable:!1,skipTaskbar:!0});
+JS
+	run bash "$PATCH_DIR/linux-hub-focusable.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_HUB_FOCUSABLE' "$FIX"
 }
 
 # =============================================================================
@@ -247,4 +331,82 @@ JS
 	[[ "$status" -eq 0 ]]
 	[[ -f "$FIX.earlysingleton.orig" ]]
 	cmp -s "$FIX.earlysingleton.orig" <(printf '!function(){console.log("app init")}()')
+}
+
+# =============================================================================
+# helper-env.sh
+# =============================================================================
+
+@test "helper-env: spreads process.env into the inline spawn env (<=1.6.7)" {
+	cat > "$FIX" <<'JS'
+var s="h",o={spawn:function(){}},f={kL:"",M0:""};
+o.spawn(s,{stdio:["pipe","pipe","pipe","pipe"],env:{sentryDSN:f.kL,environment:f.M0}});
+JS
+	run bash "$PATCH_DIR/helper-env.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'env:{/*WISPR_LINUX_HELPER_ENV*/...process.env,sentryDSN:f.kL,environment:f.M0}' "$FIX"
+	node_check "$FIX"
+}
+
+@test "helper-env: spreads process.env into the hoisted env factory (>=1.6.774)" {
+	# Shipped 1.6.897 shape: the object lives in a factory the spawn calls.
+	cat > "$FIX" <<'JS'
+var a={app:{isPackaged:!0}},f={kL:"",M0:"",iP:!1},o={spawn:function(){}},s="h";
+const N=(e=a.app.isPackaged)=>({sentryDSN:f.kL,environment:f.M0,sentryLocalDebug:f.iP?"true":"",developmentFileLogging:e?"false":"true"});
+o.spawn(s,{stdio:["pipe","pipe","pipe","pipe"],env:N()});
+JS
+	run bash "$PATCH_DIR/helper-env.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF '=>({/*WISPR_LINUX_HELPER_ENV*/...process.env,sentryDSN:f.kL,' "$FIX"
+	# the spawn site itself is untouched
+	grep -qF 'stdio:["pipe","pipe","pipe","pipe"],env:N()' "$FIX"
+	node_check "$FIX"
+}
+
+@test "helper-env: idempotent on second run" {
+	cat > "$FIX" <<'JS'
+var a={app:{isPackaged:!0}},f={kL:""},o={spawn:function(){}},s="h";
+const N=(e=a.app.isPackaged)=>({sentryDSN:f.kL});
+o.spawn(s,{stdio:["pipe","pipe","pipe","pipe"],env:N()});
+JS
+	bash "$PATCH_DIR/helper-env.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/helper-env.sh" "$FIX"
+}
+
+@test "helper-env: rewrites an upstream spread to the marked shape, once" {
+	# If upstream ever spreads process.env itself the fix is a no-op in effect,
+	# but the marker must still land so verify-patches.sh keeps its fingerprint.
+	cat > "$FIX" <<'JS'
+var f={kL:""},o={spawn:function(){}},s="h";
+o.spawn(s,{stdio:["pipe","pipe","pipe","pipe"],env:{...process.env,sentryDSN:f.kL}});
+JS
+	run bash "$PATCH_DIR/helper-env.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'env:{/*WISPR_LINUX_HELPER_ENV*/...process.env,sentryDSN:f.kL}' "$FIX"
+	[[ $(grep -o 'process.env' "$FIX" | wc -l) -eq 1 ]]
+	node_check "$FIX"
+}
+
+@test "helper-env: bails when the env object has no 4-pipe spawn beside it" {
+	# Near-miss: `{sentryDSN:` present, but the fd-3 helper spawn is not. The
+	# object is then not the helper env and must not be touched.
+	cat > "$FIX" <<'JS'
+var f={kL:""},o={spawn:function(){}},s="h";
+const T={sentryDSN:f.kL};
+o.spawn(s,{stdio:["pipe","pipe","pipe"],env:T});
+JS
+	run bash "$PATCH_DIR/helper-env.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_HELPER_ENV' "$FIX"
+}
+
+@test "helper-env: bails when the env object anchor is not unique" {
+	cat > "$FIX" <<'JS'
+var f={kL:""},o={spawn:function(){}},s="h";
+const A={sentryDSN:f.kL},B={sentryDSN:f.kL};
+o.spawn(s,{stdio:["pipe","pipe","pipe","pipe"],env:A});
+JS
+	run bash "$PATCH_DIR/helper-env.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_HELPER_ENV' "$FIX"
 }

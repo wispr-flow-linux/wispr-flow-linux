@@ -181,11 +181,54 @@ validate_app_contents() {
 # Missing tools (xvfb-run/dbus-run-session/setsid, or runuser when run_as is
 # set) -> skip, not failure: loud failure on tool absence belongs at the CI
 # workflow layer.
+#
+# The readiness marker alone is blind to one known failure: when the app
+# spawns the helper without the session env (helper-env.sh no-oping on a new
+# bundle), the helper still answers IsReady but picks the no-op `stub`
+# injection backend, so recording works and nothing is ever typed. The
+# helper logs its backend choice on stderr before it answers, and the app
+# relays that into launcher.log; _smoke_check_backend reads that line after
+# the marker and fails on `stub`. See docs/learnings/helper-spawn-env.md.
 
 _smoke_launch_pid=''
 _smoke_cache_root=''
 _smoke_xvfb_log=''
 _smoke_pkill_match=''
+
+# Assert the helper picked a real injection backend. The helper's startup
+# stderr is relayed into launcher.log as
+#   [... INFO  wispr_flow_linux_helper::backend] injection: X11 (...)
+#   [... WARN  wispr_flow_linux_helper::backend] injection: stub (no-op) ...
+# The line normally precedes the readiness marker (the helper logs it before
+# it answers IsReady), but the app relays stderr in chunks, so allow a short
+# grace period. No line at all is a failure too: a PASS must be read from
+# the log, never inferred from its absence.
+_smoke_check_backend() {
+	local label="$1" launcher_log="$2"
+	local needle='::backend] injection: '
+	local deadline line backend
+	deadline=$((SECONDS + 5))
+	while ((SECONDS < deadline)); do
+		[[ -f $launcher_log ]] && grep -qF "$needle" "$launcher_log" && break
+		sleep 0.5
+	done
+	line=$(grep -F -m1 "$needle" "$launcher_log" 2>/dev/null)
+	if [[ -z $line ]]; then
+		fail "$label: helper logged no injection backend" \
+			"(no '$needle' line in launcher.log)"
+		return
+	fi
+	backend="${line#*"$needle"}"
+	backend="${backend%%\\n*}"
+	backend="${backend%%\'*}"
+	if [[ $backend == stub* ]]; then
+		fail "$label: helper fell back to the stub injection backend" \
+			"($backend): the session env did not reach the helper" \
+			'(helper-env.sh no-op?)'
+	else
+		pass "$label helper injection backend: $backend"
+	fi
+}
 
 _launch_smoke_cleanup() {
 	if [[ -n $_smoke_launch_pid ]]; then
@@ -266,6 +309,7 @@ run_launch_smoke_test() {
 
 	if ((saw_marker == 1)); then
 		pass "$label reached helper-ready state under Xvfb"
+		_smoke_check_backend "$label" "$launcher_log"
 	else
 		local detail exit_code
 		if kill -0 "$_smoke_launch_pid" 2>/dev/null; then
