@@ -60,7 +60,9 @@ _doctor_config_dir() {
 _doctor_check_display() {
 	if [[ -n ${WAYLAND_DISPLAY:-} ]]; then
 		_pass "Display server: Wayland (WAYLAND_DISPLAY=$WAYLAND_DISPLAY)"
-		if [[ ${WISPR_USE_WAYLAND:-} == '1' ]]; then
+		if [[ ${WISPR_USE_X11:-} == '1' ]]; then
+			_info 'Mode: XWayland forced (WISPR_USE_X11=1)'
+		elif [[ ${WISPR_USE_WAYLAND:-} == '1' ]]; then
 			_info 'Mode: native Wayland forced (WISPR_USE_WAYLAND=1)'
 		else
 			_info 'Mode: Electron Ozone auto-detect (default)'

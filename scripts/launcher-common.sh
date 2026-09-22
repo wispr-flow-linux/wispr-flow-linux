@@ -11,6 +11,8 @@
 #
 # Env var convention: WISPR_* (not CLAUDE_*). Supported overrides:
 #   WISPR_USE_WAYLAND=1   force native Wayland (Electron Ozone)
+#   WISPR_USE_X11=1       force XWayland (Electron Ozone X11) on a Wayland
+#                         session; wins over WISPR_USE_WAYLAND when both set
 #   WISPR_DISABLE_GPU=1   disable GPU / software rasterizer (blank-window
 #                         workaround on broken drivers / remote sessions)
 #
@@ -67,6 +69,7 @@ log_session_env() {
 		DISPLAY \
 		XDG_CURRENT_DESKTOP \
 		WISPR_USE_WAYLAND \
+		WISPR_USE_X11 \
 		WISPR_DISABLE_GPU
 	do
 		log_message "  $key=${!key:-}"
@@ -88,7 +91,8 @@ check_display() {
 # uses an in-process /dev/uinput virtual keyboard (not X11 XTEST global
 # hotkeys), so native Wayland is the validated default. WISPR_USE_WAYLAND
 # is retained as an explicit override that maps to native Ozone Wayland
-# flags in build_electron_args.
+# flags in build_electron_args; WISPR_USE_X11 is the opposite override
+# (XWayland), for compositors with no Wayland input-shaping path.
 detect_display_backend() {
 	is_wayland=false
 	[[ -n ${WAYLAND_DISPLAY:-} ]] && is_wayland=true
@@ -148,7 +152,22 @@ build_electron_args() {
 	fi
 
 	# Wayland session.
-	if [[ ${WISPR_USE_WAYLAND:-} == '1' ]]; then
+	if [[ ${WISPR_USE_X11:-} == '1' ]]; then
+		# Explicit XWayland opt-in: pin the Ozone X11 platform so the app's
+		# windows are X11 clients under XWayland. That gives the status pill
+		# XShape click-through on every compositor (native Wayland has no
+		# input-shaping path outside a compositor extension) at the cost of
+		# HiDPI blur. Only the toolkit backend changes: the helper still
+		# sees WAYLAND_DISPLAY and keeps the uinput injection path. No
+		# GDK_BACKEND export here, unlike the Wayland branch: Chromium
+		# already pins GTK to its Ozone platform, and an exported x11 value
+		# would leak into every process the app spawns (xdg-open, the
+		# browser it launches for links).
+		[[ ${WISPR_USE_WAYLAND:-} == '1' ]] && log_message \
+			'WISPR_USE_WAYLAND=1 and WISPR_USE_X11=1 both set - X11 wins'
+		log_message 'WISPR_USE_X11=1 - XWayland (Ozone X11) backend'
+		electron_args+=('--ozone-platform=x11')
+	elif [[ ${WISPR_USE_WAYLAND:-} == '1' ]]; then
 		# Explicit native-Wayland opt-in: pin the Ozone Wayland platform
 		# and enable the Wayland IME path.
 		log_message 'WISPR_USE_WAYLAND=1 - native Wayland (Ozone) backend'

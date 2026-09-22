@@ -71,6 +71,14 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Added
 
+- `WISPR_USE_X11=1` runs the app under XWayland on a Wayland session
+  (`--ozone-platform=x11`), the opt-in that brings the status pill X11-style
+  click-through back on compositors with no Wayland input-shaping path, at
+  the cost of HiDPI blur. It wins over `WISPR_USE_WAYLAND` when both are set,
+  does nothing on an X11 session, and leaves the helper on the Wayland
+  injection path. `--doctor` reports `Mode: XWayland forced`, the launcher
+  log's env block lists the variable, and `docs/troubleshooting.md` gains
+  the pill dead-zone entry that points at it.
 - The upstream installer is pinned in-tree: `scripts/setup/installer-pin.sh`
   holds the version, download URL and SHA-256 the build downloads and
   verifies. `build.sh` reads `APP_VERSION` from it, the CI build workflows

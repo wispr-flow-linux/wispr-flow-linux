@@ -15,7 +15,7 @@ bats tests/*.bats
 
 | File | Covers |
 |------|--------|
-| `launcher-common.bats` | `scripts/launcher-common.sh`: logging paths, `check_display`, `detect_display_backend`, `build_electron_args` (sandbox/GPU/Wayland flag selection), `setup_electron_env`, `cleanup_stale_lock`, `wispr_config_dir`. |
+| `launcher-common.bats` | `scripts/launcher-common.sh`: logging paths, `check_display`, `detect_display_backend`, `build_electron_args` (sandbox/GPU/Wayland/XWayland flag selection), `setup_electron_env`, `cleanup_stale_lock`, `wispr_config_dir`. |
 | `doctor.bats` | `scripts/doctor.sh`: the `_pass`/`_fail`/`_warn` counter, display/clipboard/helper/singleton-lock checks (driven with stubbed tool presence and temp fixtures), and `run_doctor` exit status. |
 | `verify-patches.bats` | `scripts/verify-patches.sh`: PASS when every Linux patch marker is present in a fixture app.asar, exit 1 when any one is omitted (omit-one matrix), exit 2 on bad usage. |
 | `installer-pin.bats` | `scripts/setup/installer-pin.sh` is well-formed; `write-installer-pin.sh` rewrites it from resolver output and refuses bad or partial input; `resolve-installer-url.sh` parses `latest.json`-shaped fixtures over `file://`; `download.sh`'s pinned fetch verifies the digest, caches, and re-fetches a bad cache, the `--exe` path warns, and `extract_installer` refuses a wrong-version tree. |
