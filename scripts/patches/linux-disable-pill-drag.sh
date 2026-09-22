@@ -40,7 +40,7 @@
 # The renderer requests a drag-overlay state change over IPC; the main-process
 # handler that actually enacts it (registers/unregisters the Escape shortcut,
 # resizes the status window to the blackout-overlay bounds, and broadcasts the
-# new state to the renderer) opens with:
+# new state to the renderer) opens with (1.6.897):
 #
 #   <fn>=<e>=>{let <t>,<n>;if(<log>().info(`[Drag Overlay]: Setting drag
 #   overlay state to ${<e>}`),<U>=<e>,<e>?...
@@ -52,11 +52,24 @@
 # the captured parameter name, so it survives re-minification renaming them all
 # to something else next release.
 #
-# We inject one statement immediately after `let <t>,<n>;` and before the
-# `if(...)`, forcing the handler's own `<e>` parameter to `false` on Linux
-# before anything downstream reads it:
+# The `let <t>,<n>;` between the function's `{` and its `if(` is the
+# minifier's hoisted declaration, and it is not stable either: it is absent
+# on 1.5.789 and could be split, reordered or dropped by the next
+# re-minification. The anchor therefore spans it as a bounded prelude of up to
+# 80 non-brace characters (`[^{}]{0,80}`) rather than as exact text, per
+# docs/learnings/patching-minified-js.md ("adjacency"): the fence cannot
+# cross a nested block, and the developer literal after it keeps the match
+# unique. The prelude is captured and reproduced verbatim.
 #
-#   <e>=(/*WISPR_LINUX_DISABLE_PILL_DRAG*/"linux"===process.platform)?!1:<e>;
+# We inject one braced statement after the prelude and before the `if(...)`,
+# forcing the handler's own `<e>` parameter to `false` on Linux before
+# anything downstream reads it:
+#
+#   if(/*WISPR_LINUX_DISABLE_PILL_DRAG*/"linux"===process.platform){<e>=!1}
+#
+# The braces are deliberate: they put the injected code outside what the
+# `[^{}]` prelude can absorb, so a re-run that got past the marker guard
+# would find no anchor and fail closed instead of patching twice.
 #
 # With <e> forced false on Linux: the Escape-shortcut branch always takes its
 # harmless "unregister if registered" arm, the block that computes drag insets
@@ -93,10 +106,12 @@ with io.open(path, "r", encoding="utf-8", errors="surrogateescape") as f:
 
 # Anchor: the drag-overlay-state-change handler's opening, keyed on the
 # preserved developer log string. Captures every minified identifier instead
-# of hardcoding any of them (they churn every release; see
+# of hardcoding any of them (they churn every release), and spans whatever
+# declaration prelude sits between the `{` and the `if(` as a bounded,
+# brace-fenced run rather than as exact text (see
 # docs/learnings/patching-minified-js.md).
 anchor = re.compile(
-	r'=(?P<fn>[\w$]+)=>\{let (?P<t>[\w$]+),(?P<n>[\w$]+);'
+	r'=(?P<fn>[\w$]+)=>\{(?P<prelude>[^{}]{0,80}?)'
 	r'if\((?P<log>[\w$]+)\(\)\.info\('
 	r'`\[Drag Overlay\]: Setting drag overlay state to \$\{(?P=fn)\}`\),'
 )
@@ -116,8 +131,8 @@ print("Backup written:", path + ".pilldrag.orig")
 def widen(m):
 	fn = m.group("fn")
 	return (
-		"=" + fn + "=>{let " + m.group("t") + "," + m.group("n") + ";"
-		+ fn + "=(/*" + marker + '*/"linux"===process.platform)?!1:' + fn + ";"
+		"=" + fn + "=>{" + m.group("prelude")
+		+ "if(/*" + marker + '*/"linux"===process.platform){' + fn + "=!1}"
 		+ "if(" + m.group("log") + "().info("
 		+ "`[Drag Overlay]: Setting drag overlay state to ${" + fn + "}`),"
 	)

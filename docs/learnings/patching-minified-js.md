@@ -297,6 +297,12 @@ would happily reach past an `if(e){t()}` into an unrelated site. Loosening
 buys back the match at the cost of the uniqueness the tight version got for
 free, so pay for it twice: keep a discriminator past the loosened joint (a
 developer string, a distinctive call) and assert exactly one match.
+`linux-disable-pill-drag.sh` is the suite's instance: it spanned the
+minifier's hoisted `let t,n;` between the handler's `{` and its `if(` as
+exact text (absent on 1.5.789), and now captures that prelude as
+`[^{}]{0,80}?` and reproduces it, with the developer log literal after it
+as the discriminator; its fixtures pin the fence (a `{}` in the prelude
+finds nothing) and the budget (80 characters match, 81 do not).
 
 **Terminus.** The end of an anchor is an assumption too. The sibling's patch
 ended on a `();return` statement shape; the next release moved the value into
