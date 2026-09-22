@@ -77,12 +77,16 @@ Run `--doctor` and work the failures top-down:
    pgrep -x wl-copy                               # stray copies piling up
    ```
 
-   Mutter implements no data-control protocol, so `wl-clipboard` falls back to
-   mapping a surface that has to take keyboard focus before it can own the
-   selection. When that focus never lands, `wl-copy` never returns and
-   `PasteText` times out behind it. Route `wl-copy` through `xclip`, which
-   reaches the clipboard over Xwayland, using a shim earlier in `PATH` than
-   `/usr/bin` (needs `xclip` and a running Xwayland):
+   Why it hangs is not established. On a compositor with no data-control
+   protocol, `wl-clipboard` falls back to mapping a surface that has to take
+   keyboard focus before it can own the selection, and a daemon's `wl-copy`
+   never gets that focus. Mutter has advertised `ext-data-control` since
+   GNOME 48, though, and the helper's own in-process clipboard source relies
+   on it (see [wayland-injection.md](learnings/wayland-injection.md)), so on
+   a current GNOME that fallback should not be in play. Whatever the cause,
+   routing `wl-copy` through `xclip`, which reaches the clipboard over
+   Xwayland, gets around it. Use a shim earlier in `PATH` than `/usr/bin`
+   (needs `xclip` and a running Xwayland):
 
    ```bash
    #!/bin/bash
