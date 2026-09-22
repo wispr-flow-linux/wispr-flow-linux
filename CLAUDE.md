@@ -190,20 +190,26 @@ knowledge.
   and bats, run on every push/PR. On a `v*` tag, the same workflow runs the
   build→test→release→APT/DNF/AUR publish chain. See [`RELEASING.md`](RELEASING.md).
 
-### Attribution
+### Issues, PRs, and commits
 
-For PR descriptions, include full attribution:
+Keep them short and plain. An issue says what is wrong and what should be
+true instead, in a few sentences. A PR says what changed and why this way,
+enough for a reviewer to decide where to look. The evidence (test counts,
+command output, the reasoning that ruled out the obvious approach) goes in
+the commit body, where someone deep-diving is already reading, and the diff
+is the authority over both. No headers, no checklists, no bullet retelling of
+the diff, no em-dashes. Say what was deliberately left out.
+
+Reference the issue with `Fixes #123` (or `Refs #123`). A commit subject
+states what changed; the body states why, with the evidence. Credit reused or
+cherry-picked contributor work by handle, in the body.
+
+AI-assisted work discloses with one trailer line at the end of a PR or issue
+body, using the actual model name:
 
 ```
----
-Generated with [Claude Code](https://claude.ai/code)
-Co-Authored-By: Claude <model-name> <noreply@anthropic.com>
-<XX>% AI / <YY>% Human
-Claude: <what AI did>
-Human: <what human did>
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
 ```
 
-Use the actual model name (e.g., `Claude Opus 4.8`); keep the split honest. For
-issues/comments use the simplified form
-`Written by Claude <model-name> via [Claude Code](https://claude.ai/code)`. For
-commits, include a `Co-Authored-By: Claude <claude@anthropic.com>` trailer.
+Commits carry `Co-Authored-By: Claude <claude@anthropic.com>`. Comments carry
+no trailer.
