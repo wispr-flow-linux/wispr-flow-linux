@@ -165,6 +165,11 @@ when you discover something non-obvious that would save the next contributor
   for identifiers, anchor on developer strings over churning names, assert the
   match count, inject a marker for idempotency, and verify against shipped bytes
   (not a beautified copy). Read before touching `scripts/patches/`.
+- [`test-methodology.md`](docs/learnings/test-methodology.md) — how a green
+  shell test earns its colour: `run` subshells away counter mutations, anchors
+  need a near-miss fixture, one FAIL branch must hit the real tool, `[PASS]`
+  only on parsed data, and the mutation check (revert the fix, watch a test go
+  red). Read before adding or reviewing a bats test.
 
 ## Cross-VM testing memory
 

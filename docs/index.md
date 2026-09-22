@@ -66,6 +66,9 @@ the ways it bites.
 
 - [**Testing overview**](../tests/README.md) — bats unit tests, artifact tests,
   the Rust helper suite, and the manual VM-matrix validators
+- [**Test methodology**](learnings/test-methodology.md) — how a green shell
+  test earns its colour: the half-pinned-test traps, host isolation, the
+  launch smoke test's blind spots, and the mutation check
 
 ## Style guides
 

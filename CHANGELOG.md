@@ -8,6 +8,22 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+### Added
+
+- `docs/learnings/test-methodology.md`: the shell-test discipline ported from
+  claude-desktop-debian (the `run`-subshell counter trap, near-miss fixtures,
+  real-tool FAIL branches, host-state isolation, launch-smoke blind spots, the
+  mutation check), grounded on this repo's bats and artifact suites.
+
+### Changed
+
+- `docs/learnings/patching-minified-js.md` gains the sibling project's newer
+  lessons: quote classes for string anchors, callee-indirection call shapes,
+  bounded `[^{}]` preludes (adjacency), developer-literal terminators, anchors
+  that survive their own patch, per-anchor file resolution, and the
+  shared-gate rule (grep every consumer before flipping a predicate), each
+  regrounded on a patch or PR in this repo.
+
 ## [v1.0.3] - 2026-06-11
 
 ### Fixed
