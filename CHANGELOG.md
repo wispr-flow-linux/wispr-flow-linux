@@ -93,6 +93,14 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   assert that would have caught the `helper-env.sh` no-op: the app reached
   helper-ready and recorded fine while nothing was ever typed.
 
+- `CONTRIBUTING.md` gains a pull request policy (duplicates close with credit
+  to the earliest mergeable PR, 30 days of author silence allows a
+  cherry-pick under maintainer edits or a close, first-time contributors get
+  CI approved on request, stacked PRs say so in the first line, a patch
+  names the bundle it was verified against), recorded as D-012 in
+  `docs/decisions.md`. The stale "local-build-only, no publish
+  infrastructure" paragraph is replaced with the actual rule: the release
+  layer is maintainer-owned and changes to it start with an issue.
 - `docs/learnings/test-methodology.md`: the shell-test discipline ported from
   claude-desktop-debian (the `run`-subshell counter trap, near-miss fixtures,
   real-tool FAIL branches, host-state isolation, launch-smoke blind spots, the

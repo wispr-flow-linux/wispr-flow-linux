@@ -57,8 +57,10 @@ The project spans **two repositories** under the `wispr-flow-linux` org:
   via the `HELPER_BIN` env var (build-linux.sh resolves it).
 
 > The hosted distribution layer — the `gh-pages` APT/DNF tree, the `v*` tag
-> Releases, the gated publish/heartbeat workflows, and a `wispr-flow-linux/worker`
-> Cloudflare Worker fronting `pkg.wispr-flow-linux.dev`
+> Releases, the publish/heartbeat workflows, and a `wispr-flow-linux/worker`
+> Cloudflare Worker fronting `pkg.wispr-flow-linux.dev` — is maintainer-run
+> and fails closed with no human gate (D-011). See `RELEASING.md` and the
+> "Pull request policy" in `CONTRIBUTING.md` before touching it.
 
 This repo's tree:
 
