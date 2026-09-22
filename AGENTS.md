@@ -195,6 +195,12 @@ knowledge.
 - CI gates (`.github/workflows/ci.yml`): shellcheck, codespell, flag-parsing,
   and bats, run on every push/PR. On a `v*` tag, the same workflow runs the
   build→test→release→APT/DNF/AUR publish chain. See [`RELEASING.md`](RELEASING.md).
+- Claude Code hooks (`.claude/settings.json`): `.claude/hooks/pre-pr-lint.sh`
+  runs the CI shellcheck line, codespell over tracked files, actionlint on
+  changed workflows and (when a shell or bats file changed) `bats tests/*.bats`
+  before any `git push`, and blocks the push on a failure;
+  `.claude/hooks/session-start.sh` installs the missing tools at session start
+  with a passwordless sudo, or says which are missing.
 
 ### Issues, PRs, and commits
 
