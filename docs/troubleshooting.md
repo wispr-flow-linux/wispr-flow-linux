@@ -277,6 +277,36 @@ mv flow.sqlite flow.sqlite-wal flow.sqlite-shm ../wispr-flow-after-update/ 2>/de
 
 The next start moves the old directory in.
 
+## Wispr Flow starts at login but no window opens
+
+After logging in, the status pill is there, but the Hub window doesn't open.
+
+### Fix
+
+That is the intended login start. "Open at login" launches with `--hidden`,
+the same as on Windows and macOS. Open the Hub from the tray icon, or start
+Wispr Flow again from your app launcher. A second launch brings up the Hub
+of the running instance. Stock GNOME has no tray without an extension, so
+there the app launcher is the way in.
+
+To stop starting at login, turn off "Open at login" in Settings, or disable
+the entry in your desktop's startup-apps settings. `wispr-flow --doctor`
+shows which applies. It also warns when an AppImage entry points at a file
+that has moved; starting the AppImage once from its new location repairs it.
+
+## "Open at login" is on but Wispr Flow does not start at login
+
+The toggle in Settings shows the saved preference, which is on by default,
+and an older build never wrote an autostart entry for it.
+
+### Fix
+
+Turn "Open at login" off and on again. That writes
+`~/.config/autostart/wispr-flow.desktop`, and `wispr-flow --doctor` then
+reports `Open at login: on`. Disabling the entry in your desktop's
+startup-apps settings does not change the toggle, which keeps showing the
+preference.
+
 ## App won't start from a terminal
 
 Launching from an SSH session or bare TTY does nothing, or the launcher log says

@@ -48,6 +48,7 @@ echo 'export WISPR_DISABLE_GPU=1' >> ~/.profile
 |---|---|
 | `~/.config/Wispr Flow/` | Electron app config + state (the productName is `Wispr Flow`, so the config dir has a space). Includes `SingletonLock`, the `flow.sqlite` database, and the `meetings/` and `backups/` directories. Follows `$XDG_CONFIG_HOME`. |
 | `~/Library/Application Support/Wispr Flow/` | Where earlier builds kept the database (#100). The launcher moves it into `~/.config/Wispr Flow/` on the first start after the update, and `--doctor` warns while it remains. |
+| `~/.config/autostart/wispr-flow.desktop` | The "Open at login" entry, written when you turn the setting on and removed when you turn it off. Its `Exec=` passes `--hidden`, so a login start keeps the Hub closed. Your desktop's startup-apps settings can disable it. |
 | `~/.cache/wispr-flow/launcher.log` | Launcher log — display backend, GPU decision, session env block, stale-lock cleanup. Attach this to bug reports. |
 
 ```bash

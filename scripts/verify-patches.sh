@@ -18,6 +18,8 @@
 #       PTT key has no Linux keycode)
 #     * linux-xdg-data-dir.sh -> app data and logs dirs under
 #       XDG_CONFIG_HOME on Linux instead of ~/Library
+#     * linux-autostart.sh -> login items backed by an XDG autostart entry
+#       with --hidden, so "Open at login" works and starts hidden
 #   renderer bundles:
 #     * linux-renderer-chrome.sh -> remaps the <html> platform class linux->win32
 #     * linux-renderer-treat-as-windows.sh -> widens each renderer's isWindows
@@ -60,6 +62,7 @@ MARKERS=(
   "disable-pill-drag: linux drag-overlay activation forced false|F|WISPR_LINUX_DISABLE_PILL_DRAG"
   "shortcut-defaults: linux seeds the Windows PTT map|F|WISPR_LINUX_MAIN_SHORTCUT_DEFAULTS"
   "xdg-data-dir: linux app data and logs under XDG_CONFIG_HOME|F|WISPR_LINUX_XDG_DATA_DIR"
+  "autostart: linux login items backed by an XDG autostart entry|F|WISPR_LINUX_AUTOSTART"
 )
 
 missing=0

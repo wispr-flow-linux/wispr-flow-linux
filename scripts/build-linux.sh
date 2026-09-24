@@ -354,6 +354,12 @@ step3_patch_bundle() {
     auto "Running linux-xdg-data-dir.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-xdg-data-dir.sh" "$target_bundle" \
       || die "XDG data-dir patch failed -- see linux-xdg-data-dir.sh output above."
+    # Back Electron's login-item API with an XDG autostart entry on Linux,
+    # so "Open at login" writes one (Exec=... --hidden) and the Hub stays
+    # hidden when the app was started by it (issue #81).
+    auto "Running linux-autostart.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-autostart.sh" "$target_bundle" \
+      || die "Autostart patch failed -- see linux-autostart.sh output above."
 
     # Renderer + preload patches live alongside the main bundle under .webpack/.
     local webpack_root="${target_bundle%/main/index.js}"

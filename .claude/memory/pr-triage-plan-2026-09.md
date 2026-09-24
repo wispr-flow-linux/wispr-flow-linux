@@ -48,10 +48,10 @@ Phase 6  pill strategy + helper v0.1.3         (needs a decision first)
 | #59 | nihalebr | closed 09-21 | Stale one-line bump to 1.6.827; credited to #84. |
 | #40 | Anirudh-K96 | merged 09-22 | Bumped to helper v0.1.2; hash derived by NAR-hashing the tarball (reproduces the v0.1.0 hash). |
 | #39 | jaikr-dev | merged 09-22 as 528b096 | Hub `focusable` gate; one site on 1.5.789 and 1.6.897. Closed #36 #56 #72. |
-| #45 | Techyid613 | closed 09-22 | Byte-identical to #39; credited in ACKNOWLEDGMENTS.md. |
+| #45 | Techyid613 | closed 09-22 | Byte-identical to #39; credited in the close comment. |
 | #74 | vascode2 | closed 09-22 | Same fix; anchor matched 0 sites; the `_NET_WM_ALLOWED_ACTIONS` diagnosis is credited. |
 | #51 | jcartu | merged 09-22 as 77f1bbb | Early singleton lock; banner shape holds on 1.6.897; changelog trimmed and credited. |
-| #69 | crafteraadarsh | closed 09-24 with credit | Autostart shim; carried forward in #114 (XDG entry with `--hidden`, `wasOpenedAtLogin` from argv) with the round-trip asks done: desktop-disabled entries, AppImage `Exec=` repair, one-time sync, tests, `--doctor` line. |
+| #69 | crafteraadarsh | closed 09-24 with credit | Autostart shim; carried forward in #114, merged as 55c8710 (XDG entry with `--hidden` and `TryExec=`, `wasOpenedAtLogin` from argv, repair when the target is gone, no sync of existing profiles, tests, `--doctor` line). |
 | #66 | crafteraadarsh | merged 09-22 as 23c53b5 | Disable pill drag; anchor is 1 site on 1.6.897, 0 on 1.5.789 (`let t,n;if(` adjacency, fails closed). Added the linux-patches.bats trio. |
 | #67 | crafteraadarsh | drop | 200x110 on all Linux clips toasts for X11 users; moot once #78 lands. |
 | #68 | crafteraadarsh | round-trip posted 09-22 | Asked for a main-bundle patch on the `ShowAutoPolishPicker`/`ShowFetchLinkPicker` forwarding handlers adding `statusWindow.getBounds()`. |
@@ -161,16 +161,14 @@ published). Both follow-ups landed as #89.**
 ### Phase 3 — merge the clean PRs, close the duplicates
 
 **Status (2026-09-22): done.** #39, #37, #42, #51, #66, #40 merged in that
-order; #45, #74, #77 closed with credit; `ACKNOWLEDGMENTS.md` landed as
-#87 with a CONTRIBUTING bullet.
+order; #45, #74, #77 closed with credit. (`ACKNOWLEDGMENTS.md` landed as
+#87 and was removed on 2026-09-24; credit lives in commit bodies.)
 
 - Push the small edits yourself (all PRs allow maintainer edits): #40 pin
   bump, #42 wording, #51 changelog, #66 comment wrap.
 - Merge #39, #37, #42, #51, #66, #40 in that order.
 - Close #45, #74, #77, #59 with one comment each naming the surviving PR and
-  crediting the author. Add each merged external author to a new
-  `ACKNOWLEDGMENTS.md` (cdd convention: updated on every merged external PR
-  and whenever an issue author's snippet is used).
+  crediting the author.
 
 ### Phase 4 — contributor round-trips
 
@@ -189,7 +187,7 @@ order; #45, #74, #77 closed with credit; `ACKNOWLEDGMENTS.md` landed as
 Do these after the first clean auto-bump, each as its own PR.
 
 **Status (2026-09-22, second session):** items 2 (#96), 3 (#92), 7 (#98),
-8 and 10 (#93, D-012) landed. Item 6 is covered by `extract_installer`'s
+8 and 10 (#93) landed. Item 6 is covered by `extract_installer`'s
 nupkg-name check from #84 (the pin's sha256 fixes the bytes; the name
 fixes the label), so no further code. Item 5 is applied as patches are
 touched (#99 added the pill-drag near misses). Items 1, 4 and 9 are open.
@@ -201,9 +199,10 @@ unfiled audit items are done: step 2 (#97), the pill-drag prelude (#99),
 the gate audit (recorded in `wispr-1.6.897-audit.md`).
 
 **Status (2026-09-24, second session):** #100 landed as #112 (XDG data
-dir, launcher migration by move). #114 (fixes #81, open for review) backs
-Electron's login-item API with an XDG autostart entry, superseding #69 and
-#82, both closed with credit. Item 9 is still the only Phase 5 item open.
+dir, launcher migration by move). #114 (fixes #81) merged as 55c8710: it
+backs Electron's login-item API with an XDG autostart entry, superseding
+#69 and #82, both closed with credit. A real desktop login is still
+untested. Item 9 is still the only Phase 5 item open.
 From this session on, PRs are opened for review and left unmerged.
 
 **Status (2026-09-24):** items 1 and 4 landed as #108 (`_lib.sh`,
