@@ -34,6 +34,9 @@ linux-main-shortcut-defaults	main	P	1	the Windows chord map (ctrl+win+space)	\.c
 linux-main-shortcut-defaults	main	P	1	the macOS chord map (fn+space)	\.fn,[\w$]+\.space\]
 linux-xdg-data-dir	main	F	1	the macOS app-data dir join	"Library","Application Support","Wispr Flow")
 linux-xdg-data-dir	main	F	1	the macOS logs dir join	"Library","Logs","Wispr Flow")
+linux-autostart	main	F	1	the Hub launch decision's opened-at-login read	getLoginItemSettings().wasOpenedAtLogin
+linux-autostart	main	F	1	the Settings open-at-login toggle	setLoginItemSettings({openAtLogin:e})
+linux-autostart	main	F	1	the new-user open-at-login default	setLoginItemSettings({openAtLogin:!0})
 linux-renderer-chrome	renderer/hub	F	2	the platform class added to <html>	classList.add(window.electron.platform.os)
 linux-renderer-treat-as-windows	renderer/*	F	1+	the per-renderer isWindows bind	platform?.isWindows??!1
 upstream	main	F	4	upstream's own Linux platform reads (a new one means a re-audit)	"linux"===process.platform

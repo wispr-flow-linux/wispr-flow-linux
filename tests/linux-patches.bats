@@ -13,6 +13,7 @@
 #   * linux-disable-pill-drag.sh         -> force the drag-overlay flag false on Linux
 #   * linux-main-shortcut-defaults.sh   -> Linux seeds the Windows chord map in main
 #   * linux-xdg-data-dir.sh             -> app data and logs dirs under XDG_CONFIG_HOME
+#   * linux-autostart.sh                -> login items backed by an XDG autostart entry
 #   * helper-resolver.sh                 -> prepends a Linux case to the helper-path
 #                                           ternary (inline and exported shapes)
 #
@@ -834,4 +835,169 @@ JS
 	[[ "$output" == *'app data join, found 2'* ]]
 	run grep -q 'WISPR_LINUX_XDG_DATA_DIR' "$FIX"
 	[[ "$status" -ne 0 ]]
+}
+
+# =============================================================================
+# linux-autostart.sh (+ linux-autostart.js)
+# =============================================================================
+
+# A bundle whose only job is to hand back electron's app after the shim ran,
+# and a stand-in electron module whose own getter returns what stock
+# Electron does on Linux (plus a field the shim must pass through).
+_as_setup() {
+	command -v node >/dev/null || skip 'node not installed'
+	mkdir -p "$TEST_TMP/nm/electron" "$TEST_TMP/home"
+	cat > "$TEST_TMP/nm/electron/index.js" <<'JS'
+module.exports={app:{getLoginItemSettings(){return{openAtLogin:false,wasOpenedAtLogin:false,launchItems:["stock"]}},setLoginItemSettings(){}}};
+JS
+	printf '%s\n' '/*! For license information please see index.js.LICENSE.txt */' \
+		'module.exports=require("electron").app;' > "$FIX"
+	export NODE_PATH="$TEST_TMP/nm" HOME="$TEST_TMP/home"
+	export XDG_CONFIG_HOME="$TEST_TMP/cfg"
+	unset APPIMAGE
+	ENTRY="$XDG_CONFIG_HOME/autostart/wispr-flow.desktop"
+	bash "$PATCH_DIR/linux-autostart.sh" "$FIX" >/dev/null
+}
+
+# _as_node <js> [argv...]: load the patched bundle as `app` in a fresh
+# process (so once-per-launch state starts clean) and run <js>.
+_as_node() {
+	local js="$1"
+	shift
+	node -e "const app=require(process.env.FIX);$js" -- "$@"
+}
+
+@test "autostart: injects the shim after the license banner, once" {
+	printf '%s\n' '/*! For license information please see index.js.LICENSE.txt */' \
+		'!function(){var e=1}();' > "$FIX"
+	run bash "$PATCH_DIR/linux-autostart.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	[[ "$(head -1 "$FIX")" == '/*! For license information please see index.js.LICENSE.txt */' ]]
+	[[ "$(sed -n 2p "$FIX")" == '/*WISPR_LINUX_AUTOSTART*/' ]]
+	[[ "$(tail -1 "$FIX")" == '!function(){var e=1}();' ]]
+	[[ "$(grep -c 'WISPR_LINUX_AUTOSTART' "$FIX")" -eq 1 ]]
+	node_check "$FIX"
+}
+
+@test "autostart: injects at byte 0 when there is no banner" {
+	printf '%s\n' '!function(){var e=1}();' > "$FIX"
+	run bash "$PATCH_DIR/linux-autostart.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	[[ "$(head -1 "$FIX")" == '/*WISPR_LINUX_AUTOSTART*/' ]]
+	node_check "$FIX"
+}
+
+@test "autostart: idempotent on second run" {
+	printf '%s\n' '/*! banner */' '!function(){}();' > "$FIX"
+	bash "$PATCH_DIR/linux-autostart.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-autostart.sh" "$FIX"
+}
+
+@test "autostart: the toggle writes and removes the entry, and the getter reads it" {
+	_as_setup
+	run _as_node 'console.log(app.getLoginItemSettings().openAtLogin)'
+	[[ "$output" == 'false' ]]
+	_as_node 'app.setLoginItemSettings({openAtLogin:true})'
+	[[ -f $ENTRY ]]
+	grep -qx 'Exec=wispr-flow --hidden' "$ENTRY"
+	grep -qx 'X-Wispr-Flow-Linux-Autostart=true' "$ENTRY"
+	grep -qx 'X-GNOME-Autostart-enabled=true' "$ENTRY"
+	run _as_node 'const s=app.getLoginItemSettings();console.log(s.openAtLogin,s.executableWillLaunchAtLogin,s.launchItems[0])'
+	[[ "$output" == 'true true stock' ]]
+	_as_node 'app.setLoginItemSettings({openAtLogin:false})'
+	[[ ! -e $ENTRY ]]
+}
+
+@test "autostart: wasOpenedAtLogin is the --hidden flag" {
+	_as_setup
+	run _as_node 'console.log(app.getLoginItemSettings().wasOpenedAtLogin)'
+	[[ "$output" == 'false' ]]
+	run _as_node 'console.log(app.getLoginItemSettings().wasOpenedAtLogin)' --hidden
+	[[ "$output" == 'true' ]]
+}
+
+@test "autostart: an entry the desktop disabled reads as off" {
+	_as_setup
+	mkdir -p "${ENTRY%/*}"
+	printf '[Desktop Entry]\nExec=wispr-flow --hidden\nHidden=true\n' > "$ENTRY"
+	run _as_node 'console.log(app.getLoginItemSettings().openAtLogin)'
+	[[ "$output" == 'false' ]]
+	printf '[Desktop Entry]\nExec=wispr-flow --hidden\nX-GNOME-Autostart-enabled=false\n' > "$ENTRY"
+	run _as_node 'console.log(app.getLoginItemSettings().openAtLogin)'
+	[[ "$output" == 'false' ]]
+	# near miss: a key that merely starts the same way is not a disable
+	printf '[Desktop Entry]\nExec=wispr-flow --hidden\nHidden=trueish\n' > "$ENTRY"
+	run _as_node 'console.log(app.getLoginItemSettings().openAtLogin)'
+	[[ "$output" == 'true' ]]
+}
+
+@test "autostart: an AppImage path is quoted per the Desktop Entry spec" {
+	_as_setup
+	export APPIMAGE='/opt/My Apps/a"b$c%d\e.AppImage'
+	_as_node 'app.setLoginItemSettings({openAtLogin:true})'
+	grep -qxF 'Exec="/opt/My Apps/a\\"b\\$c%%d\\\\e.AppImage" --hidden' "$ENTRY"
+}
+
+@test "autostart: repairs a moved AppImage's Exec= and keeps the user's disable" {
+	_as_setup
+	mkdir -p "${ENTRY%/*}"
+	printf '%s\n' '[Desktop Entry]' 'Exec="/old/wispr.AppImage" --hidden' \
+		'X-GNOME-Autostart-enabled=false' 'X-Wispr-Flow-Linux-Autostart=true' > "$ENTRY"
+	export APPIMAGE='/new/wispr.AppImage'
+	_as_node 'app.getLoginItemSettings()'
+	grep -qxF 'Exec="/new/wispr.AppImage" --hidden' "$ENTRY"
+	grep -qx 'X-GNOME-Autostart-enabled=false' "$ENTRY"
+	[[ "$(grep -c '^Exec=' "$ENTRY")" -eq 1 ]]
+}
+
+@test "autostart: leaves an entry it did not write alone" {
+	_as_setup
+	mkdir -p "${ENTRY%/*}"
+	printf '%s\n' '[Desktop Entry]' 'Exec=/usr/local/bin/my-wispr' > "$ENTRY"
+	cp "$ENTRY" "$TEST_TMP/before"
+	_as_node 'app.getLoginItemSettings()'
+	cmp -s "$ENTRY" "$TEST_TMP/before"
+}
+
+@test "autostart: an existing profile with the preference on gets its entry once" {
+	_as_setup
+	mkdir -p "$XDG_CONFIG_HOME/Wispr Flow"
+	printf '{"prefs":{"user":{"openAtLogin":true}}}' \
+		> "$XDG_CONFIG_HOME/Wispr Flow/config.json"
+	run _as_node 'console.log(app.getLoginItemSettings().openAtLogin)'
+	[[ "$output" == 'true' ]]
+	grep -qx 'Exec=wispr-flow --hidden' "$ENTRY"
+	# the user removes it through their desktop: it stays removed
+	rm "$ENTRY"
+	run _as_node 'console.log(app.getLoginItemSettings().openAtLogin)'
+	[[ "$output" == 'false' ]]
+	[[ ! -e $ENTRY ]]
+}
+
+@test "autostart: the one-time sync writes nothing when the preference is off" {
+	_as_setup
+	mkdir -p "$XDG_CONFIG_HOME/Wispr Flow"
+	printf '{"prefs":{"user":{"openAtLogin":false}}}' \
+		> "$XDG_CONFIG_HOME/Wispr Flow/config.json"
+	_as_node 'app.getLoginItemSettings()'
+	[[ ! -e $ENTRY ]]
+	[[ -e "$XDG_CONFIG_HOME/Wispr Flow/.linux-autostart-synced" ]]
+}
+
+@test "autostart: loading the bundle writes nothing until the getter runs" {
+	_as_setup
+	mkdir -p "$XDG_CONFIG_HOME/Wispr Flow"
+	printf '{"prefs":{"user":{"openAtLogin":true}}}' \
+		> "$XDG_CONFIG_HOME/Wispr Flow/config.json"
+	# a second instance exits before the Hub launch decision calls the getter
+	_as_node 'app.setLoginItemSettings'
+	[[ ! -e "$XDG_CONFIG_HOME/Wispr Flow/.linux-autostart-synced" ]]
+	[[ ! -e $ENTRY ]]
+}
+
+@test "autostart: off Linux the stock methods are left in place" {
+	_as_setup
+	run node -e 'Object.defineProperty(process,"platform",{value:"darwin"});const app=require(process.env.FIX);app.setLoginItemSettings({openAtLogin:true});console.log(JSON.stringify(app.getLoginItemSettings()))'
+	[[ "$output" == '{"openAtLogin":false,"wasOpenedAtLogin":false,"launchItems":["stock"]}' ]]
+	[[ ! -e $ENTRY ]]
 }

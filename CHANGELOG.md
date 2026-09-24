@@ -8,6 +8,19 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+### Added
+
+- "Open at login" works on Linux (#81). `linux-autostart.sh` backs
+  Electron's login-item API with an XDG autostart entry,
+  `~/.config/autostart/wispr-flow.desktop`, whose `Exec=` carries
+  `--hidden`, as Anthropic's official Claude Desktop for Linux does. A login
+  start now keeps the Hub hidden through upstream's own "opened at login"
+  branch, and a manual launch still shows it. The first start after the
+  update writes the entry once for profiles whose setting is already on. An
+  AppImage entry's path is repaired on each start after the file moves.
+  `--doctor` reports the entry. Builds on @crafteraadarsh's shim in #69 and
+  @vascode2's diagnosis in #81.
+
 ### Fixed
 
 - The database, meetings, backups and extension state now live in

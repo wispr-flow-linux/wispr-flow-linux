@@ -404,3 +404,46 @@ command() {
 	[[ $output == *"[WARN]"*"is left over"* ]]
 	[[ $output == *"reads $XDG_CONFIG_HOME/Wispr Flow/flow.sqlite"* ]]
 }
+
+# =============================================================================
+# _doctor_check_autostart
+# =============================================================================
+
+_write_autostart() {
+	mkdir -p "$XDG_CONFIG_HOME/autostart"
+	printf '[Desktop Entry]\n%s\n' "$@" \
+		> "$XDG_CONFIG_HOME/autostart/wispr-flow.desktop"
+}
+
+@test "_doctor_check_autostart: silent when there is no entry" {
+	run _doctor_check_autostart
+	[[ -z $output ]]
+}
+
+@test "_doctor_check_autostart: passes on a packaged-launcher entry" {
+	_write_autostart 'Exec=wispr-flow --hidden'
+	run _doctor_check_autostart
+	[[ $output == *"[PASS] Open at login: on"* ]]
+}
+
+@test "_doctor_check_autostart: reports an entry the desktop disabled" {
+	_write_autostart 'Exec=wispr-flow --hidden' 'X-GNOME-Autostart-enabled=false'
+	run _doctor_check_autostart
+	[[ $output == *"Open at login: off"* ]]
+}
+
+@test "_doctor_check_autostart: warns when the AppImage it starts is gone" {
+	_write_autostart "Exec=\"$TEST_TMP/gone.AppImage\" --hidden"
+	run _doctor_check_autostart
+	[[ $output == *"[WARN]"*"$TEST_TMP/gone.AppImage, which is gone"* ]]
+	_doctor_failures=0
+	_doctor_check_autostart >/dev/null
+	[[ $_doctor_failures -eq 0 ]]
+}
+
+@test "_doctor_check_autostart: passes when the AppImage is there (real file)" {
+	: > "$TEST_TMP/Wispr Flow.AppImage"
+	_write_autostart "Exec=\"$TEST_TMP/Wispr Flow.AppImage\" --hidden"
+	run _doctor_check_autostart
+	[[ $output == *"[PASS] Open at login: on"* ]]
+}

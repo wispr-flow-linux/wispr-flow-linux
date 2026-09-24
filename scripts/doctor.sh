@@ -433,6 +433,36 @@ _doctor_check_legacy_data_dir() {
 }
 
 #------------------------------------------------------------------------------
+# Open at login — the XDG autostart entry linux-autostart.sh writes when the
+# setting is turned on. Silent when there is none. An AppImage entry names
+# the AppImage's path; after the file moves, logins start nothing until the
+# app is started once from the new path (which rewrites Exec=).
+#------------------------------------------------------------------------------
+_doctor_check_autostart() {
+	local entry exec_line target
+	entry="${XDG_CONFIG_HOME:-$HOME/.config}/autostart/wispr-flow.desktop"
+	[[ -f $entry ]] || return 0
+
+	if grep -qE '^(Hidden=true|X-GNOME-Autostart-enabled=false)[[:space:]]*$' \
+		"$entry"; then
+		_pass "Open at login: off (disabled in $entry)"
+		return
+	fi
+	exec_line="$(grep -m1 '^Exec=' "$entry")"
+	# Only the plain quoted form is checked; an escaped path is skipped
+	# rather than guessed at.
+	if [[ $exec_line =~ ^Exec=\"([^\"\\\`\$]+)\"\ --hidden$ ]]; then
+		target="${BASH_REMATCH[1]//%%/%}"
+		if [[ ! -e $target ]]; then
+			_warn "Open at login: $entry starts $target, which is gone"
+			_info 'Start Wispr Flow once from its new location to repair it.'
+			return
+		fi
+	fi
+	_pass "Open at login: on ($entry)"
+}
+
+#------------------------------------------------------------------------------
 # Electron runtime — the renamed Electron binary the launcher exec's must exist
 # and be executable. Version is read from the sibling 'version' file rather than
 # launching Electron (which can hang).
@@ -591,6 +621,7 @@ run_doctor() {
 	_doctor_check_disk_space
 	_doctor_check_singleton_lock
 	_doctor_check_legacy_data_dir
+	_doctor_check_autostart
 	_doctor_check_recent_crashes
 	echo
 

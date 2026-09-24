@@ -16,3 +16,5 @@ work is used, in the order the work landed.
 | @jcartu | `linux-early-singleton.sh`: SIGABRT on a second launch, found through `coredumpctl` (#51). |
 | @crafteraadarsh | `linux-disable-pill-drag.sh`: the stranded drag overlay on Wayland (#66). |
 | @Anirudh-K96 | The real fixed-output hash for the Nix helper fetch (#40). |
+| @crafteraadarsh | The Linux login-item shim behind `linux-autostart.sh`: an XDG autostart entry with `--hidden`, and `wasOpenedAtLogin` read from it (#69). |
+| @vascode2 | The #81 diagnosis: `wasOpenedAtLogin` is always false on Linux, so the Hub opened on every launch (#81, #82). |
