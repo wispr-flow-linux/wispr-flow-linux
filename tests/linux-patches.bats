@@ -12,6 +12,7 @@
 #   * helper-env.sh                      -> spreads process.env into the helper env
 #   * linux-disable-pill-drag.sh         -> force the drag-overlay flag false on Linux
 #   * linux-main-shortcut-defaults.sh   -> Linux seeds the Windows chord map in main
+#   * linux-xdg-data-dir.sh             -> app data and logs dirs under XDG_CONFIG_HOME
 #   * helper-resolver.sh                 -> prepends a Linux case to the helper-path
 #                                           ternary (inline and exported shapes)
 #
@@ -707,5 +708,130 @@ JS
 	[[ "$status" -ne 0 ]]
 	[[ "$output" == *'could not uniquely derive logger symbol'* ]]
 	run grep -q 'WISPR_LINUX_HELPER_BRANCH' "$FIX"
+	[[ "$status" -ne 0 ]]
+}
+
+# =============================================================================
+# linux-xdg-data-dir.sh
+# =============================================================================
+
+# The platform-consts module as shipped in 1.6.897 and 1.6.937 (identifiers
+# from 1.6.937), plus the pre-rename "Flow" dir from its sibling module,
+# made loadable: the interop getters return the real path and os modules so
+# the patched joins can be evaluated, not just grepped.
+_xdg_fixture() {
+	cat > "$FIX" <<'JS'
+var o=()=>require("path"),i=()=>require("os"),a=o,s=i,u="win32"===process.platform;
+const m=u?o().join(i().homedir(),"AppData","Roaming","Wispr Flow","Logs"):o().join(i().homedir(),"Library","Logs","Wispr Flow"),f=(u?o().join(i().homedir(),"AppData","Roaming","Wispr Flow","session.json"):o().join(i().homedir(),"Library","Application Support","Wispr Flow","session.json"),u?o().join(process.env.APPDATA||"","Wispr Flow"):o().join(i().homedir(),"Library","Application Support","Wispr Flow"));
+const l=u?a().join(process.env.APPDATA||"","Flow"):a().join(s().homedir(),"Library","Application Support","Flow");
+module.exports={m,f,l};
+JS
+}
+
+# Print the fixture's data, logs and Flow dirs, one per line, as node
+# resolves them under the current HOME / XDG_CONFIG_HOME.
+_xdg_eval() {
+	node -e 'const r=require(process.argv[1]);console.log(r.f);console.log(r.m);console.log(r.l)' "$FIX"
+}
+
+@test "xdg-data-dir: wraps the data and logs joins, leaves session.json and Flow alone" {
+	_xdg_fixture
+	run bash "$PATCH_DIR/linux-xdg-data-dir.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF ':("linux"===process.platform/*WISPR_LINUX_XDG_DATA_DIR*/?o().join(process.env.XDG_CONFIG_HOME||o().join(i().homedir(),".config"),"Wispr Flow"):o().join(i().homedir(),"Library","Application Support","Wispr Flow")))' "$FIX"
+	grep -qF ':("linux"===process.platform/*WISPR_LINUX_XDG_DATA_DIR*/?o().join(process.env.XDG_CONFIG_HOME||o().join(i().homedir(),".config"),"Wispr Flow","logs"):o().join(i().homedir(),"Library","Logs","Wispr Flow"))' "$FIX"
+	[[ "$(grep -o 'WISPR_LINUX_XDG_DATA_DIR' "$FIX" | wc -l)" -eq 2 ]]
+	grep -qF ':o().join(i().homedir(),"Library","Application Support","Wispr Flow","session.json"),u?' "$FIX"
+	grep -qF ':a().join(s().homedir(),"Library","Application Support","Flow");' "$FIX"
+	node_check "$FIX"
+}
+
+@test "xdg-data-dir: the patched dirs are the launcher's wispr_config_dir on Linux" {
+	command -v node >/dev/null || skip 'node not installed'
+	_xdg_fixture
+	bash "$PATCH_DIR/linux-xdg-data-dir.sh" "$FIX"
+	local launcher="$SCRIPT_DIR/../scripts/launcher-common.sh" want
+	export HOME="$TEST_TMP/home"
+
+	export XDG_CONFIG_HOME="$TEST_TMP/cfg"
+	want=$(bash -c 'source "$1"; wispr_config_dir' _ "$launcher")
+	[[ $want == "$TEST_TMP/cfg/Wispr Flow" ]]
+	run _xdg_eval
+	[[ "$status" -eq 0 ]]
+	[[ "${lines[0]}" == "$want" ]]
+	[[ "${lines[1]}" == "$want/logs" ]]
+	[[ "${lines[2]}" == "$HOME/Library/Application Support/Flow" ]]
+
+	# empty counts as unset on both sides
+	export XDG_CONFIG_HOME=''
+	want=$(bash -c 'source "$1"; wispr_config_dir' _ "$launcher")
+	[[ $want == "$HOME/.config/Wispr Flow" ]]
+	run _xdg_eval
+	[[ "${lines[0]}" == "$want" ]]
+	[[ "${lines[1]}" == "$want/logs" ]]
+}
+
+@test "xdg-data-dir: the unpatched module puts both dirs under ~/Library (the bug)" {
+	command -v node >/dev/null || skip 'node not installed'
+	_xdg_fixture
+	export HOME="$TEST_TMP/home" XDG_CONFIG_HOME="$TEST_TMP/cfg"
+	run _xdg_eval
+	[[ "${lines[0]}" == "$HOME/Library/Application Support/Wispr Flow" ]]
+	[[ "${lines[1]}" == "$HOME/Library/Logs/Wispr Flow" ]]
+}
+
+@test "xdg-data-dir: matches any string delimiter and the (0,x.join) callee shape" {
+	cat > "$FIX" <<'JS'
+var o={join:(...a)=>a.join("/")},i={homedir:()=>"/h"},u=!1;
+const m=u?"":(0,o.join)((0,i.homedir)(),`Library`,`Logs`,`Wispr Flow`),f=u?"":(0,o.join)((0,i.homedir)(),'Library','Application Support','Wispr Flow');
+JS
+	run bash "$PATCH_DIR/linux-xdg-data-dir.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'u?"":("linux"===process.platform/*WISPR_LINUX_XDG_DATA_DIR*/?(0,o.join)(process.env.XDG_CONFIG_HOME||(0,o.join)((0,i.homedir)(),".config"),"Wispr Flow","logs"):(0,o.join)((0,i.homedir)(),`Library`,`Logs`,`Wispr Flow`))' "$FIX"
+	grep -qF "u?\"\":(\"linux\"===process.platform/*WISPR_LINUX_XDG_DATA_DIR*/?(0,o.join)(process.env.XDG_CONFIG_HOME||(0,o.join)((0,i.homedir)(),\".config\"),\"Wispr Flow\"):(0,o.join)((0,i.homedir)(),'Library','Application Support','Wispr Flow'))" "$FIX"
+	node_check "$FIX"
+}
+
+@test "xdg-data-dir: idempotent on second run" {
+	_xdg_fixture
+	bash "$PATCH_DIR/linux-xdg-data-dir.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-xdg-data-dir.sh" "$FIX"
+}
+
+@test "xdg-data-dir: the session.json and Flow joins alone are not a data dir (near miss)" {
+	# One argument past the anchor, and one literal short of it: neither may
+	# stand in for the data-dir join.
+	cat > "$FIX" <<'JS'
+var o=()=>require("path"),i=()=>require("os"),u=!1;
+const m=u?"":o().join(i().homedir(),"Library","Logs","Wispr Flow"),f=u?"":o().join(i().homedir(),"Library","Application Support","Wispr Flow","session.json"),l=u?"":o().join(i().homedir(),"Library","Application Support","Flow");
+JS
+	cp "$FIX" "$TEST_TMP/before.js"
+	run bash "$PATCH_DIR/linux-xdg-data-dir.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *'app data join, found 0'* ]]
+	cmp -s "$FIX" "$TEST_TMP/before.js"
+}
+
+@test "xdg-data-dir: bails when the logs join is missing, and writes nothing" {
+	cat > "$FIX" <<'JS'
+var o=()=>require("path"),i=()=>require("os"),u=!1;
+const f=u?"":o().join(i().homedir(),"Library","Application Support","Wispr Flow");
+JS
+	cp "$FIX" "$TEST_TMP/before.js"
+	run bash "$PATCH_DIR/linux-xdg-data-dir.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *'logs join, found 0'* ]]
+	cmp -s "$FIX" "$TEST_TMP/before.js"
+}
+
+@test "xdg-data-dir: bails when the data-dir join is not unique" {
+	cat > "$FIX" <<'JS'
+var o=()=>require("path"),i=()=>require("os"),u=!1;
+const m=u?"":o().join(i().homedir(),"Library","Logs","Wispr Flow"),f=u?"":o().join(i().homedir(),"Library","Application Support","Wispr Flow"),g=o().join(i().homedir(),"Library","Application Support","Wispr Flow");
+JS
+	run bash "$PATCH_DIR/linux-xdg-data-dir.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *'app data join, found 2'* ]]
+	run grep -q 'WISPR_LINUX_XDG_DATA_DIR' "$FIX"
 	[[ "$status" -ne 0 ]]
 }

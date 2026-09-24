@@ -245,6 +245,38 @@ a table that was never created. The launcher has to be renamed to `wispr-flow`:
 I wrote the whole thing up in
 [learnings/ispackaged-rename.md](learnings/ispackaged-rename.md).
 
+## Dictation history is empty after an update
+
+The app starts signed in, but the Hub shows no past dictations, notes or
+dictionary words.
+
+### Fix
+
+Earlier builds kept the database in
+`~/Library/Application Support/Wispr Flow`. The launcher moves that directory
+into `~/.config/Wispr Flow` on the first start after the update. It skips the
+move while Wispr Flow is still running, and when any file in it would
+overwrite one already in `~/.config/Wispr Flow`. `--doctor` says which case
+you are in:
+
+```bash
+wispr-flow --doctor | grep -A3 'Legacy data dir'
+grep 'Legacy data dir' ~/.cache/wispr-flow/launcher.log
+```
+
+If Wispr Flow was running during the update, quit it from the tray and start
+it again. If a file clashes, the new database in `~/.config/Wispr Flow` only
+holds what you did since the update. To keep the old history instead, quit
+Wispr Flow and move the new copies aside:
+
+```bash
+cd ~/.config/Wispr\ Flow
+mkdir -p ../wispr-flow-after-update
+mv flow.sqlite flow.sqlite-wal flow.sqlite-shm ../wispr-flow-after-update/ 2>/dev/null
+```
+
+The next start moves the old directory in.
+
 ## App won't start from a terminal
 
 Launching from an SSH session or bare TTY does nothing, or the launcher log says

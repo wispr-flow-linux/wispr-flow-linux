@@ -144,6 +144,7 @@ fi
 setup_logging || exit 1
 setup_electron_env
 cleanup_stale_lock
+migrate_legacy_data_dir
 
 log_message '--- Wispr Flow Launcher Start (rpm) ---'
 log_message "Timestamp: \$(date)"

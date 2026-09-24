@@ -438,3 +438,136 @@ teardown() {
 	[[ $status -eq 0 ]]
 	[[ -f "$config_dir/SingletonLock" ]]
 }
+
+# =============================================================================
+# migrate_legacy_data_dir
+# =============================================================================
+
+# A legacy data dir shaped like a real pre-#100 profile: the database with
+# its WAL pair, the backups/ and meetings/ trees, and a dotfile.
+_seed_legacy() {
+	local legacy
+	legacy="$(wispr_legacy_data_dir)"
+	mkdir -p "$legacy/backups" "$legacy/meetings/m1"
+	printf 'db' > "$legacy/flow.sqlite"
+	printf 'wal' > "$legacy/flow.sqlite-wal"
+	printf 'shm' > "$legacy/flow.sqlite-shm"
+	printf 'b' > "$legacy/backups/flow-2026-09-01.sqlite"
+	printf 'm' > "$legacy/meetings/m1/audio.wav"
+	printf 'h' > "$legacy/.hidden"
+}
+
+@test "wispr_legacy_data_dir: the macOS path under HOME" {
+	[[ $(wispr_legacy_data_dir) == "$HOME/Library/Application Support/Wispr Flow" ]]
+}
+
+@test "migrate_legacy_data_dir: no legacy dir - no-op, creates nothing" {
+	setup_logging
+	run migrate_legacy_data_dir
+	[[ $status -eq 0 ]]
+	[[ ! -e "$(wispr_config_dir)" ]]
+	[[ ! -e "$HOME/Library" ]]
+}
+
+@test "migrate_legacy_data_dir: moves every entry and removes the empty legacy tree" {
+	local target
+	target="$(wispr_config_dir)"
+	_seed_legacy
+	setup_logging
+	migrate_legacy_data_dir
+	[[ $(< "$target/flow.sqlite") == 'db' ]]
+	[[ $(< "$target/flow.sqlite-wal") == 'wal' ]]
+	[[ $(< "$target/flow.sqlite-shm") == 'shm' ]]
+	[[ $(< "$target/backups/flow-2026-09-01.sqlite") == 'b' ]]
+	[[ $(< "$target/meetings/m1/audio.wav") == 'm' ]]
+	[[ $(< "$target/.hidden") == 'h' ]]
+	[[ ! -e "$HOME/Library" ]]
+	grep -qF "Moved 6 entries from $HOME/Library/Application Support/Wispr Flow" \
+		"$log_file"
+}
+
+@test "migrate_legacy_data_dir: merges into an existing config dir" {
+	# Electron creates ~/.config/Wispr Flow on first launch, so the target
+	# normally exists with Chromium state in it already.
+	local target
+	target="$(wispr_config_dir)"
+	mkdir -p "$target/Local Storage"
+	printf '{}' > "$target/config.json"
+	_seed_legacy
+	setup_logging
+	migrate_legacy_data_dir
+	[[ -f "$target/flow.sqlite" ]]
+	[[ $(< "$target/config.json") == '{}' ]]
+	[[ -d "$target/Local Storage" ]]
+	[[ ! -e "$HOME/Library" ]]
+}
+
+@test "migrate_legacy_data_dir: keeps a ~/Library that holds anything else" {
+	mkdir -p "$HOME/Library/Application Support/OtherApp" "$HOME/Library/Fonts"
+	_seed_legacy
+	setup_logging
+	migrate_legacy_data_dir
+	[[ -f "$(wispr_config_dir)/flow.sqlite" ]]
+	[[ ! -e "$(wispr_legacy_data_dir)" ]]
+	[[ -d "$HOME/Library/Application Support/OtherApp" ]]
+	[[ -d "$HOME/Library/Fonts" ]]
+}
+
+@test "migrate_legacy_data_dir: any name clash moves nothing" {
+	# A database already in the XDG dir must never be overwritten, and the
+	# WAL pair must never be split from its database.
+	local target legacy
+	target="$(wispr_config_dir)"
+	legacy="$(wispr_legacy_data_dir)"
+	mkdir -p "$target"
+	printf 'new' > "$target/flow.sqlite-wal"
+	_seed_legacy
+	setup_logging
+	migrate_legacy_data_dir
+	[[ ! -e "$target/flow.sqlite" ]]
+	[[ $(< "$target/flow.sqlite-wal") == 'new' ]]
+	[[ $(< "$legacy/flow.sqlite") == 'db' ]]
+	[[ $(< "$legacy/flow.sqlite-wal") == 'wal' ]]
+	[[ -d "$legacy/backups" ]]
+	grep -qF "Legacy data dir not moved: $target/flow.sqlite-wal exists" \
+		"$log_file"
+}
+
+@test "migrate_legacy_data_dir: a held SingletonLock moves nothing" {
+	# An older build still running from the legacy path during an upgrade.
+	local target legacy
+	target="$(wispr_config_dir)"
+	legacy="$(wispr_legacy_data_dir)"
+	mkdir -p "$target"
+	ln -s "myhost-$$" "$target/SingletonLock"
+	_seed_legacy
+	setup_logging
+	migrate_legacy_data_dir
+	[[ ! -e "$target/flow.sqlite" ]]
+	[[ -f "$legacy/flow.sqlite" ]]
+	grep -qF 'Legacy data dir not moved: an instance holds' "$log_file"
+}
+
+@test "migrate_legacy_data_dir: a stale lock cleared first does not block it" {
+	# The launchers run cleanup_stale_lock first; a dead owner's lock is gone
+	# by the time the migration looks.
+	local target
+	target="$(wispr_config_dir)"
+	mkdir -p "$target"
+	ln -s "myhost-99999999" "$target/SingletonLock"
+	_seed_legacy
+	setup_logging
+	cleanup_stale_lock
+	migrate_legacy_data_dir
+	[[ -f "$target/flow.sqlite" ]]
+}
+
+@test "migrate_legacy_data_dir: every launcher runs it after cleanup_stale_lock" {
+	local f
+	for f in scripts/packaging/deb.sh scripts/packaging/rpm.sh \
+		scripts/packaging/appimage.sh nix/wispr-flow.nix; do
+		run grep -A1 -x 'cleanup_stale_lock' "$SCRIPT_DIR/../$f"
+		[[ $status -eq 0 ]]
+		[[ ${lines[1]} == 'migrate_legacy_data_dir' ]]
+	done
+}

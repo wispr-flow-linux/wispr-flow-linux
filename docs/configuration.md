@@ -46,7 +46,8 @@ echo 'export WISPR_DISABLE_GPU=1' >> ~/.profile
 
 | Path | Contents |
 |---|---|
-| `~/.config/Wispr Flow/` | Electron app config + state (the productName is `Wispr Flow`, so the config dir has a space). Includes `SingletonLock`. |
+| `~/.config/Wispr Flow/` | Electron app config + state (the productName is `Wispr Flow`, so the config dir has a space). Includes `SingletonLock`, the `flow.sqlite` database, and the `meetings/` and `backups/` directories. Follows `$XDG_CONFIG_HOME`. |
+| `~/Library/Application Support/Wispr Flow/` | Where earlier builds kept the database (#100). The launcher moves it into `~/.config/Wispr Flow/` on the first start after the update, and `--doctor` warns while it remains. |
 | `~/.cache/wispr-flow/launcher.log` | Launcher log — display backend, GPU decision, session env block, stale-lock cleanup. Attach this to bug reports. |
 
 ```bash
