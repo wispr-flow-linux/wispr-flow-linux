@@ -132,9 +132,11 @@ source_download() {
 }
 
 @test "write: reports old -> new for every field on stderr" {
+	local old
+	old=$(sed -n "s/^WISPR_VERSION='\\(.*\\)'\$/\\1/p" "$PIN")
 	run "$WRITE_SH" --pin "$PIN" < <(resolver_output 1.7.42 "$FAKE_SHA")
 	[[ $status -eq 0 ]]
-	[[ $output == *"WISPR_VERSION:          1.6.897 -> 1.7.42"* ]]
+	[[ $output == *"WISPR_VERSION:          $old -> 1.7.42"* ]]
 	[[ $output == *"WISPR_INSTALLER_URL:    "*" -> https://dl.example/"* ]]
 	[[ $output == *"WISPR_INSTALLER_SHA256: "*" -> ${FAKE_SHA}"* ]]
 }
@@ -437,10 +439,10 @@ fake_tree() {
 
 @test "extract: reuses a tree holding the pinned version" {
 	source_download
-	fake_tree 1.6.897
+	fake_tree "$WISPR_VERSION"
 	run extract_installer
 	[[ $status -eq 0 ]]
-	[[ $output == *'Reusing existing extracted tree'*'(1.6.897)'* ]]
+	[[ $output == *'Reusing existing extracted tree'*"($WISPR_VERSION)"* ]]
 }
 
 @test "extract: refuses a tree holding another version on the pinned path" {
@@ -448,7 +450,7 @@ fake_tree() {
 	fake_tree 1.5.789
 	run extract_installer
 	[[ $status -eq 1 ]]
-	[[ $output == *'holds Wispr Flow 1.5.789 but this build wants 1.6.897'* ]]
+	[[ $output == *"holds Wispr Flow 1.5.789 but this build wants $WISPR_VERSION"* ]]
 }
 
 @test "extract: --exe with a versioned filename is checked against the tree" {

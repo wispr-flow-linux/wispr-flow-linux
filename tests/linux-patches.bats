@@ -12,6 +12,8 @@
 #   * helper-env.sh                      -> spreads process.env into the helper env
 #   * linux-disable-pill-drag.sh         -> force the drag-overlay flag false on Linux
 #   * linux-main-shortcut-defaults.sh   -> Linux seeds the Windows chord map in main
+#   * helper-resolver.sh                 -> prepends a Linux case to the helper-path
+#                                           ternary (inline and exported shapes)
 #
 # The real bundle is the proprietary, gitignored app -- not available in CI -- so
 # each test drives a hermetic minified-JS FIXTURE carrying the exact anchor the
@@ -569,4 +571,141 @@ JS
 	[[ "$status" -ne 0 ]]
 	[[ "$output" == *'NOT ternary selections'* ]]
 	! grep -q 'WISPR_LINUX_MAIN_SHORTCUT_DEFAULTS' "$FIX"
+}
+
+# =============================================================================
+# helper-resolver.sh
+# =============================================================================
+#
+# Fixtures are the shipped ternary with the template paths shortened. The
+# inline shape is 1.6.897's (the ternary is a `const s=` in the spawn
+# function, followed by the existsSync guard); the exported shape is
+# 1.6.937's (the same ternary is the body of `const l=()=>`). The anchor is
+# the ternary head, so both must patch to the same Linux case.
+
+# Evaluate the patched fixture under node with process.platform forced to $1
+# and process.resourcesPath set, then print what the resolver returns. The
+# fixtures derive their isMac flag from process.platform so the forced value
+# reaches the upstream arms. Callers guard on node being present.
+resolver_result() {
+	local platform="$1" expr="$2"
+	node -e "
+		Object.defineProperty(process,'platform',{value:'$platform'});
+		process.resourcesPath='/res';
+		$(cat "$FIX")
+		console.log($expr);"
+}
+
+@test "helper-resolver: prepends the Linux case to the inline ternary (<=1.6.897)" {
+	cat > "$FIX" <<'JS'
+var a={app:{isPackaged:!0}},f={tD:"darwin"===process.platform},E={ty:{isHelperProcessRunningManually:!1}},S={ZI:"/r"},l=function(){return{info:function(){},error:function(){}}},d=function(){return{existsSync:function(){return!0}}};
+const s=f.tD?E.ty.isHelperProcessRunningManually?(l().info("Running Dev Mac Helper service"),`${S.ZI}/swift-helper-app/DerivedData/Wispr Flow`):(l().info("Running packaged Mac Helper service"),`${S.ZI}/swift-helper-app-dist/Wispr Flow`):E.ty.isHelperProcessRunningManually||!a.app.isPackaged?(l().info("Running Dev Windows Helper service"),`${S.ZI}\\windows-helper-app\\Wispr Flow Helper.exe`):(l().info("Running packaged Windows Helper service"),`${S.ZI}\\Release\\Wispr Flow Helper.exe`);if(!d().existsSync(s))l().error("Helper service script path not found",{customAttributes:{serviceScriptPath:s}});
+JS
+	run bash "$PATCH_DIR/helper-resolver.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'const s="linux"===process.platform/*WISPR_LINUX_HELPER_BRANCH*/?(l().info("Running packaged Linux Helper service"),require("path").join(process.resourcesPath,"Release","wispr-flow-linux-helper")):f.tD?E.ty.isHelperProcessRunningManually?(l().info("Running Dev Mac Helper service")' "$FIX"
+	# the guard after the ternary is untouched
+	grep -qF ';if(!d().existsSync(s))l().error("Helper service script path not found"' "$FIX"
+	node_check "$FIX"
+	# behaviour: linux takes the new arm, win32 still lands on the packaged
+	# Windows path (the upstream arms are not rewritten)
+	if command -v node >/dev/null; then
+		[[ $(resolver_result linux s) == '/res/Release/wispr-flow-linux-helper' ]]
+		[[ $(resolver_result win32 s) == '/r\Release\Wispr Flow Helper.exe' ]]
+	fi
+}
+
+@test "helper-resolver: prepends the Linux case to the exported arrow resolver (>=1.6.937)" {
+	cat > "$FIX" <<'JS'
+var r={app:{isPackaged:!0}},o={tD:"darwin"===process.platform},a={ty:{isHelperProcessRunningManually:!1}},c={ZI:"/r"},s=function(){return{info:function(){}}};
+const l=()=>o.tD?a.ty.isHelperProcessRunningManually?(s().info("Running Dev Mac Helper service"),`${c.ZI}/swift-helper-app/DerivedData/Wispr Flow`):(s().info("Running packaged Mac Helper service"),`${c.ZI}/swift-helper-app-dist/Wispr Flow`):a.ty.isHelperProcessRunningManually||!r.app.isPackaged?(s().info("Running Dev Windows Helper service"),`${c.ZI}\\windows-helper-app\\Wispr Flow Helper.exe`):(s().info("Running packaged Windows Helper service"),`${c.ZI}\\Release\\Wispr Flow Helper.exe`);
+JS
+	run bash "$PATCH_DIR/helper-resolver.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'const l=()=>"linux"===process.platform/*WISPR_LINUX_HELPER_BRANCH*/?(s().info("Running packaged Linux Helper service"),require("path").join(process.resourcesPath,"Release","wispr-flow-linux-helper")):o.tD?a.ty.isHelperProcessRunningManually?(s().info("Running Dev Mac Helper service")' "$FIX"
+	node_check "$FIX"
+	if command -v node >/dev/null; then
+		[[ $(resolver_result linux 'l()') == '/res/Release/wispr-flow-linux-helper' ]]
+		[[ $(resolver_result darwin 'l()') == '/r/swift-helper-app-dist/Wispr Flow' ]]
+	fi
+}
+
+@test "helper-resolver: matches the log lines under any string delimiter" {
+	# A bundler swap can re-emit every "literal" as a `literal` (the sibling
+	# project lost four anchors that way). Both developer strings the anchor
+	# keys on are backticked here; the patch must still find the one site.
+	cat > "$FIX" <<'JS'
+var r={app:{isPackaged:!0}},o={tD:!1},a={ty:{isHelperProcessRunningManually:!1}},s=function(){return{info:function(){}}};
+const l=()=>o.tD?a.ty.isHelperProcessRunningManually?(s().info(`Running Dev Mac Helper service`),`m1`):(s().info(`Running packaged Mac Helper service`),`m2`):a.ty.isHelperProcessRunningManually||!r.app.isPackaged?(s().info(`Running Dev Windows Helper service`),`w1`):(s().info(`Running packaged Windows Helper service`),`w2`);
+JS
+	run bash "$PATCH_DIR/helper-resolver.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'const l=()=>"linux"===process.platform/*WISPR_LINUX_HELPER_BRANCH*/?(s().info("Running packaged Linux Helper service"),require("path").join(process.resourcesPath,"Release","wispr-flow-linux-helper")):o.tD?a.ty.isHelperProcessRunningManually?(s().info(`Running Dev Mac Helper service`)' "$FIX"
+	node_check "$FIX"
+}
+
+@test "helper-resolver: idempotent on second run" {
+	cat > "$FIX" <<'JS'
+var r={app:{isPackaged:!0}},o={tD:!1},a={ty:{isHelperProcessRunningManually:!1}},s=function(){return{info:function(){}}};
+const l=()=>o.tD?a.ty.isHelperProcessRunningManually?(s().info("Running Dev Mac Helper service"),"m1"):(s().info("Running packaged Mac Helper service"),"m2"):a.ty.isHelperProcessRunningManually||!r.app.isPackaged?(s().info("Running Dev Windows Helper service"),"w1"):(s().info("Running packaged Windows Helper service"),"w2");
+JS
+	bash "$PATCH_DIR/helper-resolver.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/helper-resolver.sh" "$FIX"
+}
+
+@test "helper-resolver: a bare Dev-Mac log line elsewhere is not a second site" {
+	# Near-miss decoy: the developer string without the ternary head around
+	# it. The count must stay one and the decoy must be left alone.
+	cat > "$FIX" <<'JS'
+var r={app:{isPackaged:!0}},o={tD:!1},a={ty:{isHelperProcessRunningManually:!1}},s=function(){return{info:function(){}}};
+function decoy(){s().info("Running Dev Mac Helper service");return"x"}
+const l=()=>o.tD?a.ty.isHelperProcessRunningManually?(s().info("Running Dev Mac Helper service"),"m1"):(s().info("Running packaged Mac Helper service"),"m2"):a.ty.isHelperProcessRunningManually||!r.app.isPackaged?(s().info("Running Dev Windows Helper service"),"w1"):(s().info("Running packaged Windows Helper service"),"w2");
+JS
+	run bash "$PATCH_DIR/helper-resolver.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	[[ $(grep -o 'WISPR_LINUX_HELPER_BRANCH' "$FIX" | wc -l) -eq 1 ]]
+	grep -qF 'function decoy(){s().info("Running Dev Mac Helper service");return"x"}' "$FIX"
+	grep -qF 'const l=()=>"linux"===process.platform/*WISPR_LINUX_HELPER_BRANCH*/' "$FIX"
+}
+
+@test "helper-resolver: bails when the ternary head is not unique" {
+	cat > "$FIX" <<'JS'
+var r={app:{isPackaged:!0}},o={tD:!1},a={ty:{isHelperProcessRunningManually:!1}},s=function(){return{info:function(){}}};
+const l=()=>o.tD?a.ty.isHelperProcessRunningManually?(s().info("Running Dev Mac Helper service"),"m1"):"m2":"w";
+const m=()=>o.tD?a.ty.isHelperProcessRunningManually?(s().info("Running Dev Mac Helper service"),"m1"):"m2":(s().info("Running packaged Windows Helper service"),"w2");
+JS
+	run bash "$PATCH_DIR/helper-resolver.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *'expected exactly 1 helper-resolver ternary head, found 2'* ]]
+	run grep -q 'WISPR_LINUX_HELPER_BRANCH' "$FIX"
+	[[ "$status" -ne 0 ]]
+}
+
+@test "helper-resolver: bails when the isMac test is a call, not a member (shape near-miss)" {
+	# The anchor is bound to `a.b?c.d.isHelperProcessRunningManually?(`. A
+	# re-emitted `(0,o.tD)()?` is one character away and must fail closed,
+	# not patch a wrong site.
+	cat > "$FIX" <<'JS'
+var r={app:{isPackaged:!0}},o={tD:function(){return!1}},a={ty:{isHelperProcessRunningManually:!1}},s=function(){return{info:function(){}}};
+const l=()=>(0,o.tD)()?a.ty.isHelperProcessRunningManually?(s().info("Running Dev Mac Helper service"),"m1"):"m2":(s().info("Running packaged Windows Helper service"),"w2");
+JS
+	run bash "$PATCH_DIR/helper-resolver.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *'expected exactly 1 helper-resolver ternary head, found 0'* ]]
+	run grep -q 'WISPR_LINUX_HELPER_BRANCH' "$FIX"
+	[[ "$status" -ne 0 ]]
+}
+
+@test "helper-resolver: bails when the logger cannot be derived" {
+	# No "Running packaged Windows Helper service" line: the logger symbol
+	# has nothing to be read from, so the patch must not guess one.
+	cat > "$FIX" <<'JS'
+var o={tD:!1},a={ty:{isHelperProcessRunningManually:!1}},s=function(){return{info:function(){}}};
+const l=()=>o.tD?a.ty.isHelperProcessRunningManually?(s().info("Running Dev Mac Helper service"),"m1"):"m2":"w2";
+JS
+	run bash "$PATCH_DIR/helper-resolver.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *'could not uniquely derive logger symbol'* ]]
+	run grep -q 'WISPR_LINUX_HELPER_BRANCH' "$FIX"
+	[[ "$status" -ne 0 ]]
 }

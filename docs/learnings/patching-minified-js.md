@@ -26,15 +26,16 @@ asar ships broken JS.
 
 Use `[\w$]+` (repo convention; `[$\w]+` is equivalent). Strict superset of
 `\w+`, so pre-`$` versions still match. Every patch in `scripts/patches/` keys
-on it — e.g. `helper-resolver.sh:119` captures both the `fs` module and the
-path variable out of the resolver's existence guard:
+on it — e.g. `helper-resolver.sh` reads the logger accessor out of a developer
+log line, then spends it in the ternary-head anchor and the injected code:
 
 ```python
-r'(?P<guard>if\(!(?P<fs>[\w$]+)\(\)\.existsSync\((?P<var>[\w$]+)\)\))'
+r'([\w$]+)\(\)\.info\("Running packaged Windows Helper service"'
 ```
 
-With `\w+` a minified `if(!$e().existsSync($t))` would capture `e`/`t` and the
-rewrite would reference identifiers that aren't in the file.
+With `\w+` a minified `$e().info("Running packaged…")` would capture `e`, and
+the injected `e().info(…)` would reference an identifier that isn't in the
+file.
 
 ## The beautified false-negative trap
 
@@ -200,11 +201,15 @@ release; the build log still says "patched."
 
 Two patterns from the suite:
 
-- **Literal → derived identifier (two stages).** `helper-resolver.sh:110`
+- **Literal → derived identifier (two stages).** `helper-resolver.sh`
   anchors on the developer log string `"Running packaged Windows Helper
   service"`, then captures the surrounding minified logger identifier
   (`([\w$]+)\(\)\.info\(…)`) as the actual target. Stable literal locates the
-  site; the dynamic capture supplies the churning name.
+  site; the dynamic capture supplies the churning name. Its insertion point
+  is found the same way: the `isHelperProcessRunningManually` property and
+  the `"Running Dev Mac Helper service"` line bracket the ternary head, and
+  the minified member names between them are matched as `[\w$]+` shapes,
+  never spelled.
 - **Literal-shape anchor + captured var.** `linux-window-frame.sh` pins the
   window-config site on the `"win32"===process.platform` /
   `Object.assign(<var>,{titleBarStyle:"hidden",autoHideMenuBar:!0})` literal
@@ -263,9 +268,10 @@ anchor shape in onboarding text or sample data far from the live site, instead
 of silently patching the wrong one.
 
 When an anchor genuinely isn't unique, narrow the search region first.
-`helper-resolver.sh` scopes its rewrite to the `if(!…existsSync(…))` guard
-region rather than the whole file, so duplicate sub-strings elsewhere can't be
-hit.
+`linux-main-shortcut-defaults.sh` locates the shortcuts module by its
+developer strings and widens the win32 flag only inside that module's
+brace-fenced body, so the same `win?:mac` ternary shape elsewhere in the
+bundle can't be hit (and the flag's other 70-odd reads stay Windows-only).
 
 ## Anchors carry unstated assumptions: adjacency, terminus, survival
 
@@ -309,9 +315,14 @@ ended on a `();return` statement shape; the next release moved the value into
 a helper call and the shape dissolved while the function's developer log
 string sat untouched in its body. Statement shapes are the minifier's to
 rearrange; end on a developer literal instead, cut before any interpolation
-so a template re-emission cannot split it. `helper-resolver.sh` already has
-this shape: it locates the site by `"Running packaged Windows Helper service"`
-and captures the churning logger name around it.
+so a template re-emission cannot split it. `helper-resolver.sh` met this on
+1.6.937: its anchor ended on the `if(!fs().existsSync(s))` guard that
+followed the helper-path ternary, upstream moved the ternary into its own
+exported module, and the guard was no longer adjacent (the developer log
+lines inside the ternary were untouched). The anchor now ends on the
+`"Running Dev Mac Helper service"` literal at the ternary head and prepends
+the Linux case there, which holds for the inline and the exported shape
+alike, and the logger name is still captured from the packaged-Windows line.
 
 A body budget generous enough for the real function is also generous enough
 to absorb the patch's own injected code on a re-run. Brace the injected gate
