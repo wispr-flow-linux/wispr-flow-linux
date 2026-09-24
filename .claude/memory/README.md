@@ -26,6 +26,6 @@ learnings here.
   (none reach Linux), the code-split renderer tree (170 chunks, no platform
   reads outside the eight named renderers), the macOS-26 accessibility_drop
   panel, and the Notetaker deferral that now applies to Linux.
-- [`handover-2026-09-22.md`](handover-2026-09-22.md) — the prompt to paste
+- [`handover-2026-09-24.md`](handover-2026-09-24.md) — the prompt to paste
   into a fresh session: where the triage stands, open PRs, next actions,
   the conventions that are not written down elsewhere.
