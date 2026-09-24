@@ -67,32 +67,12 @@
 #===============================================================================
 set -euo pipefail
 
-BUNDLE="${1:-}"
-if [[ -z "$BUNDLE" ]]; then
-  # default to the in-repo extracted bundle
-  BUNDLE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/extract/app/.webpack/main/index.js"
-fi
-
-if [[ ! -f "$BUNDLE" ]]; then
-  echo "ERROR: bundle not found: $BUNDLE" >&2
-  exit 1
-fi
-
-# --- Idempotency guard --------------------------------------------------------
-ENV_MARKER="WISPR_LINUX_HELPER_ENV"
-if grep -q "$ENV_MARKER" "$BUNDLE"; then
-  echo "Already patched ($ENV_MARKER present in $BUNDLE) - nothing to do."
-  exit 0
-fi
-
-# --- Backup -------------------------------------------------------------------
-if [[ ! -f "$BUNDLE.orig" ]]; then
-  cp -p "$BUNDLE" "$BUNDLE.orig"
-  echo "Backup written: $BUNDLE.orig"
-fi
+# shellcheck source=scripts/patches/_lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+patch_begin "WISPR_LINUX_HELPER_ENV" "${1:-}" "extract/app/.webpack/main/index.js"
 
 # --- Patch (anchored on stable string/property literals, no minified ids) -----
-python3 - "$BUNDLE" "$ENV_MARKER" <<'PY'
+python3 - "$BUNDLE" "$MARKER" <<'PY'
 import sys, io, re
 path, marker = sys.argv[1], sys.argv[2]
 with io.open(path, "r", encoding="utf-8", errors="surrogateescape") as f:
@@ -133,24 +113,11 @@ print("Patched: spread process.env into the helper-spawn env object (1).")
 PY
 
 # --- Verify the result --------------------------------------------------------
-if ! grep -q "$ENV_MARKER" "$BUNDLE"; then
-  echo "ERROR: post-patch verification failed (marker not found)." >&2
-  echo "       Restoring backup." >&2
-  cp -p "$BUNDLE.orig" "$BUNDLE"
-  exit 1
-fi
+patch_verify_marker
 
 # Syntax-check: the spread is inside an object literal; catch any edit that
 # serializes but doesn't parse before it ever reaches asar.
-if command -v node >/dev/null; then
-  if ! node --check "$BUNDLE"; then
-    echo "ERROR: node --check failed on patched bundle. Restoring backup." >&2
-    cp -p "$BUNDLE.orig" "$BUNDLE"
-    exit 1
-  fi
-  echo "node --check OK"
-fi
-echo "OK: helper-spawn env now inherits the session environment in $BUNDLE"
+patch_finish "helper-spawn env now inherits the session environment in $BUNDLE"
 echo
 echo "Patched spawn now does (conceptually):"
 echo "  env object := { ...process.env, sentryDSN, environment, ... }"

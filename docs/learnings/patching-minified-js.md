@@ -168,13 +168,19 @@ something breaks visibly. The suite uses three patterns:
 
 **Inject a marker comment, guard on it.** Every patch writes a unique
 `WISPR_LINUX_*` marker into its insertion and short-circuits if it's already
-there. `helper-resolver.sh:78-80`:
+there. The guard lives once, in `scripts/patches/_lib.sh`, and each patch
+opens with it:
 
 ```bash
-LINUX_MARKER="WISPR_LINUX_HELPER_BRANCH"
-if grep -q "$LINUX_MARKER" "$BUNDLE"; then
-  echo "Already patched ($LINUX_MARKER present in $BUNDLE) - nothing to do."
+source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+patch_begin "WISPR_LINUX_HELPER_BRANCH" "${1:-}" "extract/app/.webpack/main/index.js"
 ```
+
+`patch_begin` resolves the bundle, exits 0 on the marker, and writes the
+pristine `.orig` backup once; `patch_verify_marker`, `patch_expect_shape`
+and `patch_finish` do the post-patch marker, shape and `node --check`
+checks and restore the backup on a miss. A patch's own code is the Python
+body between them.
 
 **Key the marker inside the widened predicate.** `linux-window-frame.sh` injects
 its `WISPR_LINUX_FRAMELESS` marker *inside* the widened window-config predicate,
@@ -185,6 +191,35 @@ insertion — a second run sees its own output and the count stays honest.
 checks for the darwin gate sitting immediately before the `getAppPath()` call,
 and treats that as done — separate from the anchor-not-found path, so the build
 log says which one happened.
+
+## Tripwires: tell "upstream changed" from "the anchor missed"
+
+An anchor that finds zero sites says `expected exactly 1, found 0`, which
+reads the same whether upstream removed the feature, moved the statement,
+or renamed a log line. The 1.6.937 helper-resolver break was the middle
+case (every developer string still there, the statement shape gone) and
+took a manual diff to tell apart.
+
+`scripts/patches/tripwires.tsv` lists, per patch, the upstream literals its
+anchor depends on with their count in the pristine bundle: the developer
+log lines, a preload name, a single call shape, and a few zero-count lines
+for things upstream must not have done yet (a Linux arm ahead of the
+helper resolver). `scripts/check-upstream-tripwires.sh` runs the table over
+an unpatched `.webpack/` tree and fails by patch and label on any moved
+count. Step 3 runs it before the first patch (and skips it on a tree the
+first patch already marked, since the counts were checked on the pass that
+marked it); `tests/test-patch-stage.sh` and the nightly bump pre-check run
+it on the pristine tree.
+
+Read the two results together. Every line OK and an anchor miss: the shape
+moved around literals that are still there, re-anchor. A CHANGED line:
+upstream changed the behaviour, re-audit it
+([platform-gates.md](platform-gates.md)) before touching the anchor. Keep
+the counts structural; a bundle-wide total (`"win32"===process.platform`
+went 36 to 37 between 1.6.897 and 1.6.937 for reasons no patch cares
+about) is a false alarm waiting to happen. The one deliberate total is
+upstream's own `"linux"===process.platform` reads, because a new one is
+exactly the re-audit trigger.
 
 ## Anchor selection: prefer literals over identifiers
 

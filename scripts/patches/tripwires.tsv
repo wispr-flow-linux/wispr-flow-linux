@@ -1,0 +1,37 @@
+# Upstream literals the Linux patches depend on, with the count each has in
+# the pristine bundle. scripts/check-upstream-tripwires.sh runs every line
+# over an unpatched .webpack/ tree (build-linux.sh step 3 before the first
+# patch; tests/test-patch-stage.sh; the nightly bump pre-check), so drift in
+# upstream's own code fails by name before an anchor can miss. Keep counts
+# structural (a log line, a preload name, a single call shape), never a
+# bundle-wide total that moves for benign reasons.
+#
+# Columns, tab-separated:
+#   patch     the scripts/patches/<patch>.sh the line belongs to, or
+#             `upstream` for a fact no single patch owns
+#   file      main | renderer/<name> | renderer/* (every renderer index.js
+#             that reads platform?.isWindows, like the step 3 driver)
+#   kind      F (fixed string) | P (Perl regex, `grep -P`)
+#   expected  N (exactly) | N+ (at least)
+#   label     what the literal is, for the report
+#   pattern   the literal or regex; no tabs
+#
+# Counts verified on 1.6.897 and 1.6.937.
+helper-resolver	main	F	1	the Dev-Mac helper log line	Running Dev Mac Helper service
+helper-resolver	main	F	1	the packaged-Windows helper log line	Running packaged Windows Helper service
+helper-resolver	main	F	1	the missing-helper error	Helper service script path not found
+helper-resolver	main	P	0	no upstream Linux arm ahead of the helper resolver	"linux"===process\.platform[^;]{0,300}isHelperProcessRunningManually
+helper-env	main	F	1	the helper env object	sentryDSN:
+helper-env	main	F	1	the 4-pipe helper spawn (fd 3)	stdio:["pipe","pipe","pipe","pipe"]
+mac-gates	main	F	1	the Applications-folder path regex	/^(\/Applications|
+mac-gates	main	P	1	the early-out guard before getAppPath	\{if\([\w$]+\.[\w$]+\)return!1;const [\w$]+=[\w$]+\.app\.getAppPath\(\)
+linux-deeplink	main	P	1	the cold-start argv deep-link parse	if\([\w$]+(?:\.[\w$]+)?\)\{const [\w$]+=[\w$]+\(process\.argv\.find\(
+linux-disable-pill-drag	main	F	1	the drag-overlay state log line	[Drag Overlay]: Setting drag overlay state to
+linux-hub-focusable	main	F	1	the Hub window's preload	"hub","preload.js"
+linux-window-frame	main	P	1	the win32 hidden-title-bar window config	===process\.platform&&Object\.assign\([\w$]+,\{[^{}]*autoHideMenuBar:!0
+linux-early-singleton	main	F	1	upstream's own (late) single-instance lock	requestSingleInstanceLock
+linux-main-shortcut-defaults	main	P	1	the Windows chord map (ctrl+win+space)	\.ctrl,[\w$]+\.win,[\w$]+\.space\]
+linux-main-shortcut-defaults	main	P	1	the macOS chord map (fn+space)	\.fn,[\w$]+\.space\]
+linux-renderer-chrome	renderer/hub	F	2	the platform class added to <html>	classList.add(window.electron.platform.os)
+linux-renderer-treat-as-windows	renderer/*	F	1+	the per-renderer isWindows bind	platform?.isWindows??!1
+upstream	main	F	4	upstream's own Linux platform reads (a new one means a re-audit)	"linux"===process.platform

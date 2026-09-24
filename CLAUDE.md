@@ -77,7 +77,14 @@ This repo's tree:
   - `patches/` — the app patches: `helper-resolver.sh` (adds the `'linux'`
     helper-path branch), `mac-gates.sh` (gates the macOS Applications-folder
     guard to darwin), and the V8 14.8 `better-sqlite3-multiple-ciphers` compat
-    patch. `verify-patches.sh` static-greps the repacked bundle for the markers.
+    patch. `_lib.sh` is the shell they share (bundle resolution, marker
+    guard, `.orig` backup, post-patch marker/shape/syntax checks with
+    restore); `tripwires.tsv` lists the upstream literals each patch depends
+    on with their pristine counts, and `scripts/check-upstream-tripwires.sh`
+    runs them over an unpatched tree (step 3 before the first patch, the
+    patch-stage test, the nightly bump pre-check) so "upstream changed the
+    thing" fails by name before an anchor can miss. `verify-patches.sh`
+    static-greps the repacked bundle for the markers.
   - `packaging/` — `deb.sh`, `rpm.sh`, `appimage.sh` makers; shared signature
     `<maker>.sh <dist_dir> <version> <arch>`.
   - `launcher-common.sh` — the runtime `/usr/bin/wispr-flow` launcher library.

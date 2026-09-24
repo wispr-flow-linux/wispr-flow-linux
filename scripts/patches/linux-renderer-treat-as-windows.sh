@@ -67,34 +67,12 @@
 #===============================================================================
 set -euo pipefail
 
-BUNDLE="${1:-}"
-if [[ -z "$BUNDLE" ]]; then
-	# default to the in-repo extracted hub renderer bundle
-	BUNDLE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-	BUNDLE="${BUNDLE%/scripts}"
-	BUNDLE="$BUNDLE/extract/app/.webpack/renderer/hub/index.js"
-fi
-
-if [[ ! -f "$BUNDLE" ]]; then
-	echo "ERROR: bundle not found: $BUNDLE" >&2
-	exit 1
-fi
-
-# --- Idempotency guard --------------------------------------------------------
-LINUX_MARKER="WISPR_LINUX_RENDERER_ISWIN"
-if grep -q "$LINUX_MARKER" "$BUNDLE"; then
-	echo "Already patched ($LINUX_MARKER present in $BUNDLE) - nothing to do."
-	exit 0
-fi
-
-# --- Backup -------------------------------------------------------------------
-if [[ ! -f "$BUNDLE.orig" ]]; then
-	cp -p "$BUNDLE" "$BUNDLE.orig"
-	echo "Backup written: $BUNDLE.orig"
-fi
+# shellcheck source=scripts/patches/_lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+patch_begin "WISPR_LINUX_RENDERER_ISWIN" "${1:-}" "extract/app/.webpack/renderer/hub/index.js"
 
 # --- Patch (window.electron local DERIVED from the match, not hardcoded) -------
-python3 - "$BUNDLE" "$LINUX_MARKER" <<'PY'
+python3 - "$BUNDLE" "$MARKER" <<'PY'
 import sys, io, re
 path, marker = sys.argv[1], sys.argv[2]
 with io.open(path, "r", encoding="utf-8", errors="surrogateescape") as f:
@@ -144,32 +122,16 @@ print(f"Patched: derived window.electron local={obj!r}; isWindows bind widened "
 PY
 
 # --- Verify the result --------------------------------------------------------
-if ! grep -q "$LINUX_MARKER" "$BUNDLE"; then
-	echo "ERROR: post-patch verification failed (marker not found)." >&2
-	echo "       Restoring backup." >&2
-	cp -p "$BUNDLE.orig" "$BUNDLE"
-	exit 1
-fi
+patch_verify_marker
 
 # The widened bind must carry the linux-OS clause immediately before the marker
 # (proves we hit the bind, not some stray marker placement).
-if ! grep -qF '?.platform?.os)/*'"$LINUX_MARKER"'*/' "$BUNDLE"; then
-	echo "ERROR: widened bind not in expected form. Restoring backup." >&2
-	cp -p "$BUNDLE.orig" "$BUNDLE"
-	exit 1
-fi
+patch_expect_shape -qF '?.platform?.os)/*'"$MARKER"'*/' \
+	-- 'widened bind not in expected form.'
 
 # Syntax-check: catch a replacement that serializes but doesn't parse (the
 # ?? / || grouping is exactly the kind of thing that can mis-serialize).
-if command -v node >/dev/null; then
-	if ! node --check "$BUNDLE"; then
-		echo "ERROR: node --check failed on patched bundle. Restoring." >&2
-		cp -p "$BUNDLE.orig" "$BUNDLE"
-		exit 1
-	fi
-	echo "node --check OK"
-fi
-echo "OK: renderer isWindows local now also true on Linux in $BUNDLE"
+patch_finish "renderer isWindows local now also true on Linux in $BUNDLE"
 echo
 echo "Renderer effect (conceptually):"
 echo "  window.electron.platform.isWindows === false  (bridge stays HONEST)"

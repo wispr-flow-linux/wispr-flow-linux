@@ -166,23 +166,41 @@ _assert_exact_mirror() {
 # step 3: a patch that misses its anchor fails the step (issue #104)
 # -----------------------------------------------------------------------------
 
-# A work dir whose unpacked main bundle is junk: every patch's anchor is
-# absent, so the first patch (helper-resolver) fails on its real exactly-one
-# assertion. This is the FAIL branch through the real tool, not a stub.
+# A work dir whose unpacked main bundle is junk: every upstream literal the
+# patches depend on is absent, so the tripwire pass that opens step 3 fails
+# on the real check-upstream-tripwires.sh, and no patch runs.
 _junk_main_bundle() {
 	mkdir -p "$WORK_DIR/app.asar.contents/.webpack/main"
 	printf 'var x=1;\n' > "$WORK_DIR/app.asar.contents/.webpack/main/index.js"
 }
 
-@test "step 3: a main-bundle patch that misses its anchor fails the step, naming it" {
+@test "step 3: a bundle upstream changed fails at the tripwire pass, before any patch" {
 	_source_build_linux
 	_junk_main_bundle
 	run step3_patch_bundle
 	[[ "$status" -ne 0 ]]
-	[[ "$output" == *'could not uniquely derive logger symbol'* ]]
-	[[ "$output" == *'ERROR:'*'patch-helper-resolver.sh'* ]]
+	[[ "$output" == *'CHANGED  helper-resolver: the Dev-Mac helper log line: expected 1, found 0'* ]]
+	[[ "$output" == *'ERROR:'*'Upstream tripwires changed'* ]]
+	[[ "$output" != *'Running patch-helper-resolver.sh'* ]]
+}
+
+@test "step 3: an already-marked tree skips the tripwires; a patch that misses its anchor fails the step, naming it" {
+	# The helper marker says the tree was patched (and its tripwires checked)
+	# on an earlier pass. helper-resolver then reports itself already
+	# applied and mac-gates fails on its real exactly-one assertion: the
+	# FAIL branch through the real tool, not a stub.
+	_source_build_linux
+	mkdir -p "$WORK_DIR/app.asar.contents/.webpack/main"
+	printf 'var x=1;/*WISPR_LINUX_HELPER_BRANCH*/\n' \
+		> "$WORK_DIR/app.asar.contents/.webpack/main/index.js"
+	run step3_patch_bundle
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *'tree already patched, checked on the first pass'* ]]
+	[[ "$output" == *'Already patched (WISPR_LINUX_HELPER_BRANCH present'* ]]
+	[[ "$output" == *'expected exactly 1 Applications-folder guard anchor, found 0'* ]]
+	[[ "$output" == *'ERROR:'*'patch-mac-gates.sh'* ]]
 	# the step stops at the first failure; the next patch never runs
-	[[ "$output" != *'Running patch-mac-gates.sh'* ]]
+	[[ "$output" != *'Running patch-helper-env.sh'* ]]
 }
 
 @test "step 3: no main bundle to patch is an error, not a skip" {

@@ -8,6 +8,18 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/patches/_lib.sh`, the shell the patches share (bundle
+  resolution, the marker guard, the `.orig` backup, the post-patch marker,
+  shape and `node --check` checks that restore on a miss); nine patch
+  scripts source it and produce byte-identical output. `scripts/patches/
+  tripwires.tsv` lists the upstream literals each patch depends on with
+  their pristine counts, and `scripts/check-upstream-tripwires.sh` runs them
+  over an unpatched tree in step 3, in `tests/test-patch-stage.sh` and in
+  the nightly bump pre-check, so "upstream changed the thing" fails by name
+  before an anchor can miss.
+
 ### Fixed
 
 - A main-bundle or renderer patch that fails to apply now fails the build
