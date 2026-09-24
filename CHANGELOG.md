@@ -15,6 +15,12 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   minutes later as a `MISSING` marker at verify-patches with the real
   diagnosis buried mid-log. The three "bundle not found, skipping" branches
   fail the same way, since verify-patches requires their markers anyway.
+- The nightly bump pre-checks itself: `check-wispr-version` now runs the
+  bats suite and `tests/test-patch-stage.sh` over the newly pinned
+  installer before it commits, pushes the commit and the tag only on green,
+  and opens or bumps a `bump-failure` issue on any failure (closed by the
+  next green run). The 1.6.937 bump had landed red on `main` with no
+  signal.
 - The 1.6.937 bump did not build: Wispr moved the helper-path ternary into
   its own exported resolver, so `helper-resolver.sh` lost the anchor it
   took from the adjacent `existsSync` guard and the build failed at

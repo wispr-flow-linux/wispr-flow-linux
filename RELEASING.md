@@ -83,8 +83,11 @@ Before the first real release:
   URL and SHA-256 together, via `scripts/setup/write-installer-pin.sh`), bumps
   the version in `nix/wispr-flow.nix`, commits, updates the variable, and
   pushes a new tag with the same `REPO_VERSION` and a new `+wispr{X.Y.Z}`
-  suffix. A manifest without a digest never bumps. These don't get CHANGELOG
-  entries — the tag suffix tracks them. To bump by hand, run the same
+  suffix. Before it commits, it runs the bats suite and
+  `tests/test-patch-stage.sh` over the newly pinned installer; a red
+  pre-check pushes nothing and opens or bumps a `bump-failure` issue that
+  the next green run closes. A manifest without a digest never bumps. These
+  don't get CHANGELOG entries — the tag suffix tracks them. To bump by hand, run the same
   pipeline locally and commit the result:
 
   ```bash

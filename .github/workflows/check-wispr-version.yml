@@ -10,6 +10,12 @@ name: Check Wispr Flow Version
 # ci.yml. This is the ONLY place that looks at upstream's "latest"; every
 # build downloads exactly what the pin says and verifies the digest.
 #
+# Before it commits anything it runs what a tag build would fail on: the
+# bats suite and tests/test-patch-stage.sh over the newly pinned installer.
+# A red pre-check leaves main and the tags untouched and opens (or bumps) a
+# tracking issue; the next green run closes it. This is not a human gate
+# (D-011): it is the machine check moved ahead of the push (issue #103).
+#
 # Needs GH_PAT (the default GITHUB_TOKEN cannot push a tag that re-triggers
 # tag-driven workflows).
 
@@ -20,6 +26,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: main-branch-auto-update
@@ -109,6 +116,20 @@ jobs:
           echo "--- pin ---"; grep '^WISPR_' scripts/setup/installer-pin.sh
           echo "--- nix ---"; grep -n 'version = "' nix/wispr-flow.nix
 
+      - name: Pre-check the bump the way a tag build would
+        if: steps.check.outputs.update_needed == 'true'
+        run: |
+          sudo apt-get update
+          # bats plus the two linters tests/hooks.bats drives; p7zip for the
+          # installer extract. node and npx are on the runner image.
+          sudo apt-get install -y bats shellcheck codespell p7zip-full
+          bats --print-output-on-failure tests/*.bats
+          # The real patch stage over the pristine bundle the new pin names:
+          # downloads it (digest-verified), unpacks, applies every patch
+          # twice, repacks, node --checks every file and verifies every
+          # marker. A moved anchor fails here, before anything is pushed.
+          tests/test-patch-stage.sh
+
       - name: Commit, set variable, and push tag
         if: steps.check.outputs.update_needed == 'true'
         env:
@@ -147,3 +168,48 @@ jobs:
           echo "Creating and pushing tag: $new_tag"
           git tag -a "$new_tag" -m "Wispr Flow ${new}"
           git push origin "$new_tag"
+
+      - name: Open or update the failure issue
+        if: failure()
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          NEW_VERSION: ${{ steps.resolve.outputs.version }}
+        with:
+          script: |
+            const label = 'bump-failure';
+            const version = process.env.NEW_VERSION || 'unknown';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = `The nightly Wispr Flow version check failed at ${new Date().toISOString()} (upstream version: ${version}). Nothing was pushed.\nRun: ${runUrl}`;
+            const { data: open } = await github.rest.issues.listForRepo({
+              ...context.repo, labels: label, state: 'open',
+            });
+            if (open.length === 0) {
+              await github.rest.issues.create({
+                ...context.repo,
+                title: `Nightly Wispr Flow bump failing (upstream ${version})`,
+                body, labels: [label],
+              });
+            } else {
+              await github.rest.issues.createComment({
+                ...context.repo, issue_number: open[0].number, body,
+              });
+            }
+
+      - name: Close the failure issue on recovery
+        if: success()
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const label = 'bump-failure';
+            const { data: open } = await github.rest.issues.listForRepo({
+              ...context.repo, labels: label, state: 'open',
+            });
+            for (const issue of open) {
+              await github.rest.issues.createComment({
+                ...context.repo, issue_number: issue.number,
+                body: `The nightly check passed at ${new Date().toISOString()}; auto-closing.`,
+              });
+              await github.rest.issues.update({
+                ...context.repo, issue_number: issue.number, state: 'closed',
+              });
+            }
