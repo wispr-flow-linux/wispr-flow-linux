@@ -51,7 +51,7 @@ Phase 6  pill strategy + helper v0.1.3         (needs a decision first)
 | #45 | Techyid613 | closed 09-22 | Byte-identical to #39; credited in ACKNOWLEDGMENTS.md. |
 | #74 | vascode2 | closed 09-22 | Same fix; anchor matched 0 sites; the `_NET_WM_ALLOWED_ACTIONS` diagnosis is credited. |
 | #51 | jcartu | merged 09-22 as 77f1bbb | Early singleton lock; banner shape holds on 1.6.897; changelog trimmed and credited. |
-| #69 | crafteraadarsh | round-trip posted 09-22 | Autostart shim. Asked for bats, changelog, troubleshooting entry, doctor line, GNOME no-tray check, and a rebase. |
+| #69 | crafteraadarsh | closed 09-24 with credit | Autostart shim; carried forward in #114 (XDG entry with `--hidden`, `wasOpenedAtLogin` from argv) with the round-trip asks done: desktop-disabled entries, AppImage `Exec=` repair, one-time sync, tests, `--doctor` line. |
 | #66 | crafteraadarsh | merged 09-22 as 23c53b5 | Disable pill drag; anchor is 1 site on 1.6.897, 0 on 1.5.789 (`let t,n;if(` adjacency, fails closed). Added the linux-patches.bats trio. |
 | #67 | crafteraadarsh | drop | 200x110 on all Linux clips toasts for X11 users; moot once #78 lands. |
 | #68 | crafteraadarsh | round-trip posted 09-22 | Asked for a main-bundle patch on the `ShowAutoPolishPicker`/`ShowFetchLinkPicker` forwarding handlers adding `statusWindow.getBounds()`. |
@@ -59,7 +59,7 @@ Phase 6  pill strategy + helper v0.1.3         (needs a decision first)
 | #73 | vascode2 | review posted 09-24 | Reworked 09-22 to the always-on-top watchdog alone; applies once on 1.6.897/1.6.937. Asked to move it ahead of the `systemState` early-out, scope the claim (Refs #71), rebase onto `_lib.sh`/`die`/tripwire/quote class. |
 | #77 | vascode2 | closed 09-22 | Context menu has no alpha poll and is full-work-area by design; carried #74's commit. |
 | #42 | caio-passos | merged 09-22 as 30bf36a | Cause sentence left open: mutter ships ext-data-control since GNOME 48. |
-| #82 | vascode2 | ask retracted 09-24; close in favour of #69 recommended | The 09-22 widening ask was wrong: `openAtLogin` defaults true and Linux has no autostart without #69, so it would hide the Hub on every launch. Earlier note: | New since the plan. Tray-only Hub at launch; anchor hardcodes the logger name and matches 0 sites on 1.5.789/1.6.897. 1.6.897 already has a win32-gated "auto launch at login is enabled" skip plus `--show-hub-at-launch`; asked to widen that gate instead and drop the #73/#74/#77 stack. |
+| #82 | vascode2 | closed 09-24 with credit | The 09-22 widening ask was wrong (`openAtLogin` defaults true; Linux had no autostart), retracted 09-24. Superseded by #114; the #81 diagnosis is credited. |
 | #37 | rajivranjanmars | merged 09-22 as 608a3c7 | Accurate against `doctor.sh` and the learnings. |
 
 Merge order for the clean set: #39 → #37 → #42 → #51 → #66 → #40. #51 and
@@ -199,6 +199,12 @@ were fixed (#95: 102 MB of `*.orig` patch backups packed into every asar;
 (#100: the app's database lives under `~/Library` on Linux). The three
 unfiled audit items are done: step 2 (#97), the pill-drag prelude (#99),
 the gate audit (recorded in `wispr-1.6.897-audit.md`).
+
+**Status (2026-09-24, second session):** #100 landed as #112 (XDG data
+dir, launcher migration by move). #114 (fixes #81, open for review) backs
+Electron's login-item API with an XDG autostart entry, superseding #69 and
+#82, both closed with credit. Item 9 is still the only Phase 5 item open.
+From this session on, PRs are opened for review and left unmerged.
 
 **Status (2026-09-24):** items 1 and 4 landed as #108 (`_lib.sh`,
 `tripwires.tsv`, `check-upstream-tripwires.sh` in step 3 and the
