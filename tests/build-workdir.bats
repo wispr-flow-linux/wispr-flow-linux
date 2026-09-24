@@ -161,3 +161,34 @@ _assert_exact_mirror() {
 	[[ $status -ne 0 ]]
 	[[ $output == *'staged app.asar missing'* ]]
 }
+
+# -----------------------------------------------------------------------------
+# step 3: a patch that misses its anchor fails the step (issue #104)
+# -----------------------------------------------------------------------------
+
+# A work dir whose unpacked main bundle is junk: every patch's anchor is
+# absent, so the first patch (helper-resolver) fails on its real exactly-one
+# assertion. This is the FAIL branch through the real tool, not a stub.
+_junk_main_bundle() {
+	mkdir -p "$WORK_DIR/app.asar.contents/.webpack/main"
+	printf 'var x=1;\n' > "$WORK_DIR/app.asar.contents/.webpack/main/index.js"
+}
+
+@test "step 3: a main-bundle patch that misses its anchor fails the step, naming it" {
+	_source_build_linux
+	_junk_main_bundle
+	run step3_patch_bundle
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *'could not uniquely derive logger symbol'* ]]
+	[[ "$output" == *'ERROR:'*'patch-helper-resolver.sh'* ]]
+	# the step stops at the first failure; the next patch never runs
+	[[ "$output" != *'Running patch-mac-gates.sh'* ]]
+}
+
+@test "step 3: no main bundle to patch is an error, not a skip" {
+	_source_build_linux
+	WEBPACK_MAIN="$TEST_TMP/nowhere/index.js"
+	run step3_patch_bundle
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *'ERROR:'*'No main bundle available to patch'* ]]
+}

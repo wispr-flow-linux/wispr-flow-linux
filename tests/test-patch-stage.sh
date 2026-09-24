@@ -9,8 +9,9 @@
 # its step 2 (unpack) and step 3 (every main and renderer patch) over a
 # pristine app.asar, repacks the way step 7 does, and asserts:
 #
-#   1. step 3 prints no [WARN] line. Every patch call there is `|| warn`, so
-#      a missed anchor is a warning in the log, not an exit code.
+#   1. step 3 exits 0 and prints no [WARN] line. A patch that misses its
+#      anchor dies there (issue #104); the [WARN] check keeps catching the
+#      softer skips a patch may still log.
 #   2. a second step 3 pass prints no [WARN] line and leaves the tree
 #      byte-identical (backups aside): idempotency, and the anchor-survives-
 #      its-own-patch rule in docs/learnings/patching-minified-js.md.
