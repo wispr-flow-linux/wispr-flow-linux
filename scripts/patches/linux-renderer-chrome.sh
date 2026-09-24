@@ -48,30 +48,9 @@
 #===============================================================================
 set -euo pipefail
 
-BUNDLE="${1:-}"
-if [[ -z "$BUNDLE" ]]; then
-	# default to the in-repo extracted renderer hub bundle
-	BUNDLE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-	BUNDLE="$BUNDLE/extract/app/.webpack/renderer/hub/index.js"
-fi
-
-if [[ ! -f "$BUNDLE" ]]; then
-	echo "ERROR: bundle not found: $BUNDLE" >&2
-	exit 1
-fi
-
-# --- Idempotency guard --------------------------------------------------------
-LINUX_MARKER="WISPR_LINUX_WIN32_CHROME"
-if grep -q "$LINUX_MARKER" "$BUNDLE"; then
-	echo "Already patched ($LINUX_MARKER present in $BUNDLE) - nothing to do."
-	exit 0
-fi
-
-# --- Backup -------------------------------------------------------------------
-if [[ ! -f "$BUNDLE.orig" ]]; then
-	cp -p "$BUNDLE" "$BUNDLE.orig"
-	echo "Backup written: $BUNDLE.orig"
-fi
+# shellcheck source=scripts/patches/_lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+patch_begin "WISPR_LINUX_WIN32_CHROME" "${1:-}" "extract/app/.webpack/renderer/hub/index.js"
 
 # --- Patch (anchored on the preserved developer property chain) ---------------
 # The anchor is the literal `classList.add(window.electron.platform.os)`. The
@@ -80,7 +59,7 @@ fi
 # loudly with a clear "found 0 sites" error -- never a silent no-op). The
 # `classList.add(Yw.animated)` site has a minified argument, not this literal,
 # so it is excluded by construction.
-python3 - "$BUNDLE" "$LINUX_MARKER" <<'PY'
+python3 - "$BUNDLE" "$MARKER" <<'PY'
 import sys, io, re
 path, marker = sys.argv[1], sys.argv[2]
 with io.open(path, "r", encoding="utf-8", errors="surrogateescape") as f:
@@ -118,24 +97,11 @@ print(f"Patched: rewrote {n} `classList.add(window.electron.platform.os)` "
 PY
 
 # --- Verify the result --------------------------------------------------------
-if ! grep -q "$LINUX_MARKER" "$BUNDLE"; then
-	echo "ERROR: post-patch verification failed (marker not found)." >&2
-	echo "       Restoring backup." >&2
-	cp -p "$BUNDLE.orig" "$BUNDLE"
-	exit 1
-fi
+patch_verify_marker
 
 # Syntax-check: the conditional is a real JS expression; catch a replacement
 # that serializes but doesn't parse before it ever reaches asar.
-if command -v node >/dev/null; then
-	if ! node --check "$BUNDLE"; then
-		echo "ERROR: node --check failed on patched bundle. Restoring backup." >&2
-		cp -p "$BUNDLE.orig" "$BUNDLE"
-		exit 1
-	fi
-	echo "node --check OK"
-fi
-echo "OK: Linux->win32 platform-class remap applied to $BUNDLE"
+patch_finish "Linux->win32 platform-class remap applied to $BUNDLE"
 echo
 echo "Patched renderer now does (conceptually):"
 echo '  document.documentElement.classList.add('

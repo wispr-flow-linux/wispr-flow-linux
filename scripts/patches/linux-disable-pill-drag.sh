@@ -84,18 +84,9 @@
 #===============================================================================
 set -euo pipefail
 
-BUNDLE="${1:-}"
-if [[ -z "$BUNDLE" || ! -f "$BUNDLE" ]]; then
-	echo "usage: $0 <.webpack/main/index.js>" >&2
-	exit 2
-fi
-
-MARKER="WISPR_LINUX_DISABLE_PILL_DRAG"
-
-if grep -qF "$MARKER" "$BUNDLE"; then
-	echo "Already patched ($MARKER present in $BUNDLE) - nothing to do."
-	exit 0
-fi
+# shellcheck source=scripts/patches/_lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+patch_begin "WISPR_LINUX_DISABLE_PILL_DRAG" "${1:-}"
 
 python3 - "$BUNDLE" "$MARKER" <<'PY'
 import io, re, shutil, sys
@@ -146,19 +137,6 @@ print(f"Patched: forced the drag-overlay activation flag to false on Linux "
 PY
 
 # --- Verify the result --------------------------------------------------------
-if ! grep -qF "$MARKER" "$BUNDLE"; then
-	echo "ERROR: post-patch verification failed (marker not found)." >&2
-	echo "       Restoring backup." >&2
-	cp -p "$BUNDLE.pilldrag.orig" "$BUNDLE"
-	exit 1
-fi
+patch_verify_marker
 
-if command -v node >/dev/null; then
-	if ! node --check "$BUNDLE"; then
-		echo "ERROR: node --check failed on patched bundle. Restoring backup." >&2
-		cp -p "$BUNDLE.pilldrag.orig" "$BUNDLE"
-		exit 1
-	fi
-	echo "node --check OK"
-fi
-echo "OK: pill drag-to-reposition disabled on Linux in $BUNDLE"
+patch_finish "pill drag-to-reposition disabled on Linux in $BUNDLE"

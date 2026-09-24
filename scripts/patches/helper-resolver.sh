@@ -72,29 +72,9 @@
 #===============================================================================
 set -euo pipefail
 
-BUNDLE="${1:-}"
-if [[ -z "$BUNDLE" ]]; then
-  # default to the in-repo extracted bundle
-  BUNDLE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/extract/app/.webpack/main/index.js"
-fi
-
-if [[ ! -f "$BUNDLE" ]]; then
-  echo "ERROR: bundle not found: $BUNDLE" >&2
-  exit 1
-fi
-
-# --- Idempotency guard --------------------------------------------------------
-LINUX_MARKER="WISPR_LINUX_HELPER_BRANCH"
-if grep -q "$LINUX_MARKER" "$BUNDLE"; then
-  echo "Already patched ($LINUX_MARKER present in $BUNDLE) - nothing to do."
-  exit 0
-fi
-
-# --- Backup -------------------------------------------------------------------
-if [[ ! -f "$BUNDLE.orig" ]]; then
-  cp -p "$BUNDLE" "$BUNDLE.orig"
-  echo "Backup written: $BUNDLE.orig"
-fi
+# shellcheck source=scripts/patches/_lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+patch_begin "WISPR_LINUX_HELPER_BRANCH" "${1:-}" "extract/app/.webpack/main/index.js"
 
 # --- Patch (the one minified symbol used is DERIVED from a developer string) --
 # The logger accessor churns every release, so it is not hardcoded: it is read
@@ -104,7 +84,7 @@ fi
 # the bundle is referenced, so a re-minify that renames every symbol still
 # patches correctly, or fails loudly on the exactly-one assertion -- never a
 # silent no-op.
-python3 - "$BUNDLE" "$LINUX_MARKER" <<'PY'
+python3 - "$BUNDLE" "$MARKER" <<'PY'
 import sys, io, re
 path, marker = sys.argv[1], sys.argv[2]
 with io.open(path, "r", encoding="utf-8", errors="surrogateescape") as f:
@@ -151,24 +131,11 @@ print(f"Patched: derived logger={LOG!r}; Linux case prepended to the resolver te
 PY
 
 # --- Verify the result --------------------------------------------------------
-if ! grep -q "$LINUX_MARKER" "$BUNDLE"; then
-  echo "ERROR: post-patch verification failed (marker not found)." >&2
-  echo "       Restoring backup." >&2
-  cp -p "$BUNDLE.orig" "$BUNDLE"
-  exit 1
-fi
+patch_verify_marker
 
 # Syntax-check: the override inserts a real JS statement; catch a replacement
 # that serializes but doesn't parse before it ever reaches asar.
-if command -v node >/dev/null; then
-  if ! node --check "$BUNDLE"; then
-    echo "ERROR: node --check failed on patched bundle. Restoring backup." >&2
-    cp -p "$BUNDLE.orig" "$BUNDLE"
-    exit 1
-  fi
-  echo "node --check OK"
-fi
-echo "OK: Linux helper-path branch inserted into $BUNDLE"
+patch_finish "Linux helper-path branch inserted into $BUNDLE"
 echo
 echo "Patched resolver now does (conceptually):"
 echo "  s = linux ? path.join(process.resourcesPath, 'Release', 'wispr-flow-linux-helper')"

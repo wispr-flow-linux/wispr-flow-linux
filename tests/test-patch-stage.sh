@@ -9,6 +9,10 @@
 # its step 2 (unpack) and step 3 (every main and renderer patch) over a
 # pristine app.asar, repacks the way step 7 does, and asserts:
 #
+#   0. scripts/check-upstream-tripwires.sh finds every upstream literal the
+#      patches depend on (scripts/patches/tripwires.tsv) at its expected
+#      count in the pristine tree, so a CHANGED line here names what
+#      upstream moved before any anchor can miss.
 #   1. step 3 exits 0 and prints no [WARN] line. A patch that misses its
 #      anchor dies there (issue #104); the [WARN] check keeps catching the
 #      softer skips a patch may still log.
@@ -142,6 +146,14 @@ main() {
 		sed 's/^/  | /' "$tmp/step2.log"
 		print_summary
 	fi
+
+	echo '=== tripwires: the pristine tree ==='
+	( bash "$project_root/scripts/check-upstream-tripwires.sh" \
+		"$contents/.webpack" ) > "$tmp/tripwires.log" 2>&1
+	rc=$?
+	sed 's/^/  | /' "$tmp/tripwires.log"
+	_check 'check-upstream-tripwires.sh: every upstream literal at its count' \
+		test "$rc" -eq 0
 
 	echo '=== pass 1: patch stage ==='
 	( step3_patch_bundle ) > "$tmp/pass1.log" 2>&1

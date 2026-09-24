@@ -90,37 +90,16 @@
 #===============================================================================
 set -euo pipefail
 
-BUNDLE="${1:-}"
-if [[ -z "$BUNDLE" ]]; then
-	# default to the in-repo extracted bundle
-	BUNDLE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-	BUNDLE="$(cd "$BUNDLE/.." && pwd)/extract/app/.webpack/main/index.js"
-fi
-
-if [[ ! -f "$BUNDLE" ]]; then
-	echo "ERROR: bundle not found: $BUNDLE" >&2
-	exit 1
-fi
-
-# --- Idempotency guard --------------------------------------------------------
-LINUX_MARKER="WISPR_LINUX_FRAMELESS"
-if grep -q "$LINUX_MARKER" "$BUNDLE"; then
-	echo "Already patched ($LINUX_MARKER present in $BUNDLE) - nothing to do."
-	exit 0
-fi
-
-# --- Backup -------------------------------------------------------------------
-if [[ ! -f "$BUNDLE.orig" ]]; then
-	cp -p "$BUNDLE" "$BUNDLE.orig"
-	echo "Backup written: $BUNDLE.orig"
-fi
+# shellcheck source=scripts/patches/_lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+patch_begin "WISPR_LINUX_FRAMELESS" "${1:-}" "extract/app/.webpack/main/index.js"
 
 # --- Patch (anchored on stable developer string literals) ---------------------
 # Each window-config site of the gap shape gets its inline win32 predicate
 # widened to also match linux. We assert the match count and set a per-site
 # flag; a partial application (some sites widened, some missed because the
 # bundle layout changed) emits a WARNING: line that CI greps for.
-python3 - "$BUNDLE" "$LINUX_MARKER" <<'PY'
+python3 - "$BUNDLE" "$MARKER" <<'PY'
 import sys, io, re
 path, marker = sys.argv[1], sys.argv[2]
 with io.open(path, "r", encoding="utf-8", errors="surrogateescape") as f:
@@ -195,34 +174,17 @@ print(f"Patched: widened {EXPECTED} win32 window-config predicate(s) to also "
 PY
 
 # --- Verify the result --------------------------------------------------------
-if ! grep -q "$LINUX_MARKER" "$BUNDLE"; then
-	echo "ERROR: post-patch verification failed (marker not found)." >&2
-	echo "       Restoring backup." >&2
-	cp -p "$BUNDLE.orig" "$BUNDLE"
-	exit 1
-fi
+patch_verify_marker
 
 # Confirm the widened predicate is well-formed: the marker must sit inside a
 # parenthesised win32||linux predicate immediately before the hidden-title-bar
 # Object.assign.
-if ! grep -qE \
-	'/\*'"$LINUX_MARKER"'\*/[`"'"'"']win32[`"'"'"']===process\.platform\|\|"linux"===process\.platform\)&&Object\.assign' \
-	"$BUNDLE"; then
-	echo "ERROR: widened predicate not in expected form. Restoring backup." >&2
-	cp -p "$BUNDLE.orig" "$BUNDLE"
-	exit 1
-fi
+patch_expect_shape -qE \
+	'/\*'"$MARKER"'\*/[`"'"'"']win32[`"'"'"']===process\.platform\|\|"linux"===process\.platform\)&&Object\.assign' \
+	-- 'widened predicate not in expected form.'
 
 # Syntax-check the patched bundle.
-if command -v node >/dev/null; then
-	if ! node --check "$BUNDLE"; then
-		echo "ERROR: node --check failed on patched bundle. Restoring backup." >&2
-		cp -p "$BUNDLE.orig" "$BUNDLE"
-		exit 1
-	fi
-	echo "node --check OK"
-fi
-echo "OK: Linux frameless window-config branch widened in $BUNDLE"
+patch_finish "Linux frameless window-config branch widened in $BUNDLE"
 echo
 echo "Patched window config now does (conceptually):"
 echo "  isMac ? {frame:false,titleBarStyle:'hidden',...}"

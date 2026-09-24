@@ -270,6 +270,19 @@ step3_patch_bundle() {
   fi
 
   if [[ -n "$target_bundle" ]]; then
+    # Before any patch touches the tree: every upstream literal the patches
+    # depend on, counted in the pristine bundle (scripts/patches/
+    # tripwires.tsv). A CHANGED line here is "upstream changed the
+    # behaviour"; an anchor miss below with this green is "the shape moved".
+    # A tree the first patch already marked is not pristine (a re-run, a
+    # partial build): the counts were checked on the pass that marked it.
+    if grep -qF 'WISPR_LINUX_HELPER_BRANCH' "$target_bundle"; then
+      auto "Upstream tripwires: tree already patched, checked on the first pass."
+    else
+      auto "Checking upstream tripwires under ${target_bundle%/main/index.js}"
+      bash "$SCRIPT_DIR/check-upstream-tripwires.sh" "${target_bundle%/main/index.js}" \
+        || die "Upstream tripwires changed -- see check-upstream-tripwires.sh output above."
+    fi
     auto "Running patch-helper-resolver.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/helper-resolver.sh" "$target_bundle" \
       || die "Patch failed -- see patch-helper-resolver.sh output above."

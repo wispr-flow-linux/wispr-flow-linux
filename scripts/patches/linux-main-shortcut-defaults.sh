@@ -92,28 +92,9 @@
 #===============================================================================
 set -euo pipefail
 
-BUNDLE="${1:-}"
-if [[ -z "$BUNDLE" ]]; then
-  BUNDLE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-  BUNDLE="${BUNDLE%/scripts}"
-  BUNDLE="$BUNDLE/extract/app/.webpack/main/index.js"
-fi
-
-if [[ ! -f "$BUNDLE" ]]; then
-  echo "ERROR: bundle not found: $BUNDLE" >&2
-  exit 1
-fi
-
-MARKER="WISPR_LINUX_MAIN_SHORTCUT_DEFAULTS"
-if grep -q "$MARKER" "$BUNDLE"; then
-  echo "Already patched ($MARKER present in $BUNDLE) - nothing to do."
-  exit 0
-fi
-
-if [[ ! -f "$BUNDLE.orig" ]]; then
-  cp -p "$BUNDLE" "$BUNDLE.orig"
-  echo "Backup written: $BUNDLE.orig"
-fi
+# shellcheck source=scripts/patches/_lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+patch_begin "WISPR_LINUX_MAIN_SHORTCUT_DEFAULTS" "${1:-}" "extract/app/.webpack/main/index.js"
 
 python3 - "$BUNDLE" "$MARKER" <<'PY'
 import sys, io, re
@@ -204,28 +185,12 @@ print(f"Patched module {mod_id}: flag={flag!r} widened at {len(uses)} chord-"
       f"selection site(s); winMap={win_map} macMap={mac_map}.")
 PY
 
-if ! grep -q "$MARKER" "$BUNDLE"; then
-  echo "ERROR: post-patch verification failed (marker not found). Restoring." >&2
-  cp -p "$BUNDLE.orig" "$BUNDLE"
-  exit 1
-fi
+patch_verify_marker
 
-if ! grep -qF '||"linux"===process.platform)/*'"$MARKER"'*/?' "$BUNDLE"; then
-  echo "ERROR: widened flag not in expected form. Restoring." >&2
-  cp -p "$BUNDLE.orig" "$BUNDLE"
-  exit 1
-fi
+patch_expect_shape -qF '||"linux"===process.platform)/*'"$MARKER"'*/?' \
+  -- 'widened flag not in expected form.'
 
-if command -v node >/dev/null; then
-  if ! node --check "$BUNDLE"; then
-    echo "ERROR: node --check failed on patched bundle. Restoring." >&2
-    cp -p "$BUNDLE.orig" "$BUNDLE"
-    exit 1
-  fi
-  echo "node --check OK"
-fi
-
-echo "OK: Linux now picks the Windows chords in the shortcuts module of $BUNDLE"
+patch_finish "Linux now picks the Windows chords in the shortcuts module of $BUNDLE"
 echo
 echo "Effect on a FRESH Linux profile (config.json):"
 echo '  ptt                   "-1"        ->  "162+91"      (Ctrl+Meta)'
