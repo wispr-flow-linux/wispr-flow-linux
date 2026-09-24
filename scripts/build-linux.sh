@@ -347,6 +347,13 @@ step3_patch_bundle() {
     auto "Running linux-main-shortcut-defaults.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-main-shortcut-defaults.sh" "$target_bundle" \
       || die "Shortcut-defaults patch failed -- see linux-main-shortcut-defaults.sh output above."
+    # Keep the app data and logs dirs under XDG_CONFIG_HOME on Linux. The
+    # platform module builds both with a win32-vs-mac ternary, so Linux kept
+    # its database under ~/Library/Application Support (issue #100). The
+    # launcher moves an existing legacy dir over before Electron starts.
+    auto "Running linux-xdg-data-dir.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-xdg-data-dir.sh" "$target_bundle" \
+      || die "XDG data-dir patch failed -- see linux-xdg-data-dir.sh output above."
 
     # Renderer + preload patches live alongside the main bundle under .webpack/.
     local webpack_root="${target_bundle%/main/index.js}"

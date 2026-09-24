@@ -16,6 +16,8 @@
 #     * linux-main-shortcut-defaults.sh -> Linux profiles seed the Windows
 #       default shortcut/push-to-talk map instead of the macOS one (whose
 #       PTT key has no Linux keycode)
+#     * linux-xdg-data-dir.sh -> app data and logs dirs under
+#       XDG_CONFIG_HOME on Linux instead of ~/Library
 #   renderer bundles:
 #     * linux-renderer-chrome.sh -> remaps the <html> platform class linux->win32
 #     * linux-renderer-treat-as-windows.sh -> widens each renderer's isWindows
@@ -57,6 +59,7 @@ MARKERS=(
   "early-singleton: second instance exits before init|F|WISPR_LINUX_EARLY_SINGLETON_V1"
   "disable-pill-drag: linux drag-overlay activation forced false|F|WISPR_LINUX_DISABLE_PILL_DRAG"
   "shortcut-defaults: linux seeds the Windows PTT map|F|WISPR_LINUX_MAIN_SHORTCUT_DEFAULTS"
+  "xdg-data-dir: linux app data and logs under XDG_CONFIG_HOME|F|WISPR_LINUX_XDG_DATA_DIR"
 )
 
 missing=0

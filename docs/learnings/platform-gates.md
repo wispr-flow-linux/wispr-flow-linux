@@ -154,6 +154,7 @@ backup, `node --check`s the result, and is idempotent (re-run = byte-identical).
 | Cold-start `wispr-flow:` deep links dropped (parse was win32-only) → widen the argv-parse guard | [`linux-deeplink.sh`](../../scripts/patches/linux-deeplink.sh) | `WISPR_LINUX_DEEPLINK` |
 | Status-pill drag-to-reposition can never complete (client-side absolute window positioning has no native-Wayland equivalent) and strands an input-blocking dimming overlay → force the drag-overlay activation flag false on Linux | [`linux-disable-pill-drag.sh`](../../scripts/patches/linux-disable-pill-drag.sh) | `WISPR_LINUX_DISABLE_PILL_DRAG` |
 | Fresh Linux profiles were **seeded** with macOS chords, so push-to-talk landed on keycode `-1` (no Linux key) — blank PTT in Settings, no way past the onboarding shortcuts step (#33, #46) → widen the win32 flag *inside the main bundle's shortcuts module only* | [`linux-main-shortcut-defaults.sh`](../../scripts/patches/linux-main-shortcut-defaults.sh) | `WISPR_LINUX_MAIN_SHORTCUT_DEFAULTS` |
+| The app data dir (database, meetings, backups, extension state) and the logs dir took the macOS arm, so Linux wrote `~/Library/Application Support/Wispr Flow` (#100) → a Linux arm under `$XDG_CONFIG_HOME/Wispr Flow`, the dir Windows also shares with Electron's `userData`; the launcher moves an existing legacy dir over | [`linux-xdg-data-dir.sh`](../../scripts/patches/linux-xdg-data-dir.sh) | `WISPR_LINUX_XDG_DATA_DIR` |
 
 `linux-renderer-treat-as-windows.sh` is the high-leverage one: per renderer it
 widens the *one* place `isWindows` is bound into a module-local
@@ -226,11 +227,19 @@ Linux).
 
 **Correct by design, don't "fix":** keycode tables, Cmd-vs-Ctrl accelerators,
 ⌘/⌥ glyph labels, `shouldMuteAudio` defaulting false, Squirrel update hooks
-(Linux uses deb/rpm/AppImage), `setLoginItemSettings` auto-launch (Electron
-writes an XDG autostart `.desktop` on Linux), single-instance lock and protocol
-registration (platform-neutral). The macOS `~/Library/...` path strings that
-leak into the Linux ternary are never read at runtime — `WISPR_APP_SUPPORT_DIR`
-/ `WISPR_LOG_DIR` override them from `app.getPath()`.
+(Linux uses deb/rpm/AppImage), single-instance lock and protocol registration
+(platform-neutral).
+
+**Earlier versions of this page were wrong on two points.** First,
+`setLoginItemSettings` is a no-op on Linux in Electron and writes no XDG
+autostart entry. A fresh 1.6.937 profile runs the new-user hook that sets it,
+and no `autostart/` directory appears. The `openAtLogin` pref defaults to true
+regardless, so it says nothing about how the app was started (#69, #82).
+Second, the macOS `~/Library/...` path strings in the platform module are read
+at runtime. `WISPR_APP_SUPPORT_DIR` and `WISPR_LOG_DIR` are exports to child
+processes, set from `app.getPath()` after startup. They override nothing, and
+every database path went through the `~/Library` constant until
+`linux-xdg-data-dir.sh` (#100).
 
 ## How to re-run this audit on a new Wispr version
 

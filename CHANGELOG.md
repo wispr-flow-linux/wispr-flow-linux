@@ -8,6 +8,17 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+### Fixed
+
+- The database, meetings, backups and extension state now live in
+  `~/.config/Wispr Flow` (or `$XDG_CONFIG_HOME/Wispr Flow`) instead of
+  `~/Library/Application Support/Wispr Flow`, and the app no longer creates
+  `~/Library` on Linux (#100). `linux-xdg-data-dir.sh` gives the app's data
+  and logs dirs a Linux arm. The launcher moves an existing legacy dir over
+  on the first start after the update, and skips the move while an instance
+  holds the lock or when any file would be overwritten. `--doctor` warns
+  while a legacy dir remains.
+
 ## [v1.0.4] - 2026-09-24
 
 ### Added

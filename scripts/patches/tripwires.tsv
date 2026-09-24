@@ -32,6 +32,8 @@ linux-window-frame	main	P	1	the win32 hidden-title-bar window config	===process\
 linux-early-singleton	main	F	1	upstream's own (late) single-instance lock	requestSingleInstanceLock
 linux-main-shortcut-defaults	main	P	1	the Windows chord map (ctrl+win+space)	\.ctrl,[\w$]+\.win,[\w$]+\.space\]
 linux-main-shortcut-defaults	main	P	1	the macOS chord map (fn+space)	\.fn,[\w$]+\.space\]
+linux-xdg-data-dir	main	F	1	the macOS app-data dir join	"Library","Application Support","Wispr Flow")
+linux-xdg-data-dir	main	F	1	the macOS logs dir join	"Library","Logs","Wispr Flow")
 linux-renderer-chrome	renderer/hub	F	2	the platform class added to <html>	classList.add(window.electron.platform.os)
 linux-renderer-treat-as-windows	renderer/*	F	1+	the per-renderer isWindows bind	platform?.isWindows??!1
 upstream	main	F	4	upstream's own Linux platform reads (a new one means a re-audit)	"linux"===process.platform

@@ -373,3 +373,34 @@ command() {
 	run run_doctor "$TEST_TMP/does-not-exist"
 	[[ $status -ne 0 ]]
 }
+
+# =============================================================================
+# _doctor_check_legacy_data_dir
+# =============================================================================
+
+@test "_doctor_check_legacy_data_dir: silent when there is no legacy dir" {
+	_doctor_failures=0
+	run _doctor_check_legacy_data_dir
+	[[ $status -eq 0 ]]
+	[[ -z $output ]]
+}
+
+@test "_doctor_check_legacy_data_dir: warns while the dir is not moved yet" {
+	mkdir -p "$HOME/Library/Application Support/Wispr Flow"
+	run _doctor_check_legacy_data_dir
+	[[ $output == *"[WARN]"*"is not moved yet"* ]]
+	[[ $output == *"$XDG_CACHE_HOME/wispr-flow/launcher.log"* ]]
+	# a warning, not a failure
+	_doctor_failures=0
+	_doctor_check_legacy_data_dir >/dev/null
+	[[ $_doctor_failures -eq 0 ]]
+}
+
+@test "_doctor_check_legacy_data_dir: names the unused copy when both exist" {
+	mkdir -p "$HOME/Library/Application Support/Wispr Flow" \
+		"$XDG_CONFIG_HOME/Wispr Flow"
+	: > "$XDG_CONFIG_HOME/Wispr Flow/flow.sqlite"
+	run _doctor_check_legacy_data_dir
+	[[ $output == *"[WARN]"*"is left over"* ]]
+	[[ $output == *"reads $XDG_CONFIG_HOME/Wispr Flow/flow.sqlite"* ]]
+}

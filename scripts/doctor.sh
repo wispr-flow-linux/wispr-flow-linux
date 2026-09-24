@@ -54,6 +54,15 @@ _doctor_config_dir() {
 	fi
 }
 
+# The pre-#100 data dir, likewise, when launcher-common.sh is absent.
+_doctor_legacy_data_dir() {
+	if declare -F wispr_legacy_data_dir &>/dev/null; then
+		wispr_legacy_data_dir
+	else
+		printf '%s' "$HOME/Library/Application Support/Wispr Flow"
+	fi
+}
+
 #------------------------------------------------------------------------------
 # Display / session backend.
 #------------------------------------------------------------------------------
@@ -398,6 +407,32 @@ _doctor_check_singleton_lock() {
 }
 
 #------------------------------------------------------------------------------
+# Legacy data dir — builds before issue #100 kept the database under the
+# macOS path. The launcher moves it into the config dir on start; say so
+# while it lingers, and say which copy the app reads when both exist.
+# Silent when there is nothing under ~/Library to report.
+#------------------------------------------------------------------------------
+_doctor_check_legacy_data_dir() {
+	local legacy config_dir launcher_log
+	legacy="$(_doctor_legacy_data_dir)"
+	config_dir="$(_doctor_config_dir)"
+	launcher_log="${XDG_CACHE_HOME:-$HOME/.cache}/wispr-flow/launcher.log"
+	[[ -e $legacy || -L $legacy ]] || return 0
+
+	if [[ -e $config_dir/flow.sqlite ]]; then
+		_warn "Legacy data dir: $legacy is left over"
+		_info "The app reads $config_dir/flow.sqlite and"
+		_info 'ignores the legacy copy. Check it holds nothing you need,'
+		_info 'then remove it.'
+	else
+		_warn "Legacy data dir: $legacy is not moved yet"
+		_info "The launcher moves it into $config_dir on the next start"
+		_info 'while Wispr Flow is closed. If it stays, the launcher log says why:'
+		_info "grep 'Legacy data dir' '$launcher_log'"
+	fi
+}
+
+#------------------------------------------------------------------------------
 # Electron runtime — the renamed Electron binary the launcher exec's must exist
 # and be executable. Version is read from the sibling 'version' file rather than
 # launching Electron (which can hang).
@@ -555,6 +590,7 @@ run_doctor() {
 	_doctor_check_desktop_entry
 	_doctor_check_disk_space
 	_doctor_check_singleton_lock
+	_doctor_check_legacy_data_dir
 	_doctor_check_recent_crashes
 	echo
 

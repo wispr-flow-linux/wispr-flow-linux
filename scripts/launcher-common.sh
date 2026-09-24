@@ -34,6 +34,13 @@ wispr_config_dir() {
 	printf '%s' "${XDG_CONFIG_HOME:-$HOME/.config}/Wispr Flow"
 }
 
+# Where Linux builds before the XDG data-dir patch (issue #100) kept the
+# database, meetings, backups and extension state: the macOS path.
+# Shared with doctor.sh so the launcher and --doctor agree on it.
+wispr_legacy_data_dir() {
+	printf '%s' "$HOME/Library/Application Support/Wispr Flow"
+}
+
 # Setup logging directory and file.
 # Sets: log_dir, log_file
 setup_logging() {
@@ -221,6 +228,61 @@ cleanup_stale_lock() {
 
 	rm -f "$lock_file"
 	log_message "Removed stale SingletonLock (PID $lock_pid no longer running)"
+}
+
+# Move app data from the legacy macOS path into the XDG config dir, once.
+# linux-xdg-data-dir.sh points the app's data dir at wispr_config_dir();
+# without this, an existing install would start on an empty database while
+# its history sat in ~/Library. Runs after cleanup_stale_lock, before
+# Electron starts, so the app never has the database open mid-move.
+#
+# All or nothing: skipped while any instance holds the SingletonLock (an
+# older build still running from the legacy path), and skipped when any
+# entry would overwrite one already in the XDG dir. A skip is logged and
+# the legacy dir stays for --doctor to report. Empty legacy parents
+# (~/Library/Application Support, ~/Library) are removed with rmdir, which
+# refuses anything that still has content.
+migrate_legacy_data_dir() {
+	local legacy target lock entry name
+	legacy="$(wispr_legacy_data_dir)"
+	target="$(wispr_config_dir)"
+	lock="$target/SingletonLock"
+
+	[[ -d $legacy ]] || return 0
+
+	if [[ -e $lock || -L $lock ]]; then
+		log_message "Legacy data dir not moved: an instance holds $lock"
+		return 0
+	fi
+
+	local entries=()
+	shopt -s nullglob dotglob
+	entries=("$legacy"/*)
+	shopt -u nullglob dotglob
+
+	for entry in "${entries[@]}"; do
+		name="${entry##*/}"
+		if [[ -e $target/$name || -L $target/$name ]]; then
+			log_message "Legacy data dir not moved: $target/$name exists"
+			return 0
+		fi
+	done
+
+	mkdir -p "$target" || {
+		log_message "Legacy data dir not moved: cannot create $target"
+		return 1
+	}
+	for entry in "${entries[@]}"; do
+		if ! mv -- "$entry" "$target/"; then
+			log_message "Legacy data dir move failed at $entry"
+			return 1
+		fi
+	done
+
+	# rmdir refuses a non-empty dir; that refusal is the point, not an error.
+	rmdir -- "$legacy" "${legacy%/*}" "$HOME/Library" 2>/dev/null || true
+	log_message "Moved ${#entries[@]} entries from $legacy to $target"
+	return 0
 }
 
 #===============================================================================
