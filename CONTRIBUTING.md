@@ -154,8 +154,7 @@ URLs, and alt text can run over when breaking them hurts readability.
 
 ## Pull request policy
 
-How open PRs are handled, so nobody is surprised by a close or a cherry-pick
-([D-012](docs/decisions.md)):
+How open PRs are handled, so nobody is surprised by a close or a cherry-pick:
 
 - **Duplicates close with credit.** When two PRs fix the same thing, the
   earliest one that is mergeable lands and the other is closed with a comment

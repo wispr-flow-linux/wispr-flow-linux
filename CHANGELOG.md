@@ -22,8 +22,10 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 ### Changed
 
 - `ACKNOWLEDGMENTS.md` is removed. Contributor credit goes by handle in the
-  commit body, and `CONTRIBUTING.md` and D-012 no longer ask for a line in
-  the file on every merged external PR or credited close.
+  commit body, and `CONTRIBUTING.md` no longer asks for a line in the file
+  on every merged external PR or credited close.
+- D-012 is removed from `docs/decisions.md`. The pull request policy it
+  recorded lives in `CONTRIBUTING.md` alone.
 
 ## [v1.0.4] - 2026-09-24
 
