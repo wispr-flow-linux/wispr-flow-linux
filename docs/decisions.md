@@ -650,7 +650,7 @@ The policy is written into [`CONTRIBUTING.md`](../CONTRIBUTING.md) under
 "Pull request policy":
 
 - Duplicates close with credit to the earliest mergeable PR; a used diagnosis
-  or diff earns an `ACKNOWLEDGMENTS.md` line.
+  or diff is credited by handle in the commit body.
 - A PR with no author response for 30 days may be finished under the
   maintainer-edits policy (the author's commit kept, the maintainer's
   changes in a second commit) or closed, and can be reopened.
@@ -665,8 +665,7 @@ The policy is written into [`CONTRIBUTING.md`](../CONTRIBUTING.md) under
   the policy instead of a paragraph of justification, and they make the
   cherry-pick path legitimate rather than something done quietly.
 - **Credit is the cost of closing.** A closed duplicate still cost its author
-  the work; the acknowledgement line and the commit body credit are what
-  make the close fair.
+  the work; the commit body credit is what makes the close fair.
 - **Thirty days is long enough to be silence.** Shorter and a busy
   contributor is cut off; longer and the fix drifts past the next upstream
   bump and has to be redone anyway.
@@ -684,13 +683,13 @@ The policy is written into [`CONTRIBUTING.md`](../CONTRIBUTING.md) under
 ### Consequences
 
 - Close comments cite the policy and name the surviving PR.
-- `ACKNOWLEDGMENTS.md` is updated on every merged external PR and every
-  credited close.
+- Credit lives in commit bodies. An `ACKNOWLEDGMENTS.md` file kept
+  alongside it was dropped on 2026-09-24: it needed a follow-up on every
+  merge and duplicated the commit credit.
 - The 30-day clock is measured from the maintainer's last review comment;
   the cherry-pick keeps the author's commit and adds a second one.
 
 ### References
 
 - [`CONTRIBUTING.md`](../CONTRIBUTING.md),
-  [`ACKNOWLEDGMENTS.md`](../ACKNOWLEDGMENTS.md),
   [D-011](#d-011--the-publish-chain-is-ungated-and-fails-closed).
