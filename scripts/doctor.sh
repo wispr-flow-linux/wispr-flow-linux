@@ -434,12 +434,14 @@ _doctor_check_legacy_data_dir() {
 
 #------------------------------------------------------------------------------
 # Open at login — the XDG autostart entry linux-autostart.sh writes when the
-# setting is turned on. Silent when there is none. An AppImage entry names
-# the AppImage's path; after the file moves, logins start nothing until the
-# app is started once from the new path (which rewrites Exec=).
+# setting is turned on. Silent when there is none. The entry's TryExec= names
+# the launcher (or the AppImage's path); desktops skip it once that is gone,
+# and the app repairs it the next time it is started from where it now is.
+# An entry without TryExec= (a hand-written one) is checked by its quoted
+# Exec= path, when it has the plain form.
 #------------------------------------------------------------------------------
 _doctor_check_autostart() {
-	local entry exec_line target
+	local entry line target
 	entry="${XDG_CONFIG_HOME:-$HOME/.config}/autostart/wispr-flow.desktop"
 	[[ -f $entry ]] || return 0
 
@@ -448,16 +450,22 @@ _doctor_check_autostart() {
 		_pass "Open at login: off (disabled in $entry)"
 		return
 	fi
-	exec_line="$(grep -m1 '^Exec=' "$entry")"
-	# Only the plain quoted form is checked; an escaped path is skipped
-	# rather than guessed at.
-	if [[ $exec_line =~ ^Exec=\"([^\"\\\`\$]+)\"\ --hidden$ ]]; then
-		target="${BASH_REMATCH[1]//%%/%}"
-		if [[ ! -e $target ]]; then
-			_warn "Open at login: $entry starts $target, which is gone"
-			_info 'Start Wispr Flow once from its new location to repair it.'
-			return
+	line="$(grep -m1 '^TryExec=' "$entry")" || line=''
+	if [[ -n $line ]]; then
+		target="${line#TryExec=}"
+		target="${target//\\\\/\\}"
+	else
+		line="$(grep -m1 '^Exec=' "$entry")" || line=''
+		# Only the plain quoted form is checked; an escaped path is skipped
+		# rather than guessed at.
+		if [[ $line =~ ^Exec=\"([^\"\\\`\$]+)\"\ --hidden$ ]]; then
+			target="${BASH_REMATCH[1]//%%/%}"
 		fi
+	fi
+	if [[ -n $target ]] && ! command -v -- "$target" >/dev/null; then
+		_warn "Open at login: $entry starts $target, which is missing or not executable"
+		_info 'Start Wispr Flow once from where it is now to repair it.'
+		return
 	fi
 	_pass "Open at login: on ($entry)"
 }

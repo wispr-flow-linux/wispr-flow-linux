@@ -20,14 +20,16 @@
 # Anthropic's official Claude Desktop for Linux does it. Replacing the
 # methods rather than patching each caller keeps this patch free of
 # minified-identifier anchors: it only needs a place to stand at the top of
-# the bundle. The three call shapes above are tripwires, so a caller that
+# the bundle. The three call shapes above are tripwires (the toggle's
+# argument as `[\w$]+`, since only the call matters), so a caller that
 # moves or disappears fails by name in step 3.
 #
 # Insertion: right after the webpack license banner on line 1 when there is
 # one (the same slot linux-early-singleton.sh uses; the two do not depend on
 # each other's order), else at byte 0. The injected code has no side effects
-# at load beyond replacing the two methods; its file writes happen in the
-# first getLoginItemSettings() call, which only the primary instance makes.
+# at load beyond replacing the two methods; outside the setter, its only
+# file write is the repair in the first getLoginItemSettings() call, which
+# only the primary instance makes.
 #
 # Verified against the pristine 1.6.897 and 1.6.937 bundles.
 #

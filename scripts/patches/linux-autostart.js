@@ -10,24 +10,24 @@
 //   set({openAtLogin:true})  writes $XDG_CONFIG_HOME/autostart/wispr-flow.desktop
 //                            with Exec=<launcher> --hidden
 //   set({openAtLogin:false}) removes it
-//   get()                    openAtLogin = the entry exists and is not
-//                            disabled (Hidden=true or
-//                            X-GNOME-Autostart-enabled=false);
-//                            wasOpenedAtLogin = argv carries --hidden
+//   get()                    wasOpenedAtLogin = argv carries --hidden
 // The launchers pass their arguments through to Electron, so --hidden
-// reaches process.argv.
+// reaches process.argv. The getter's other fields are Electron's own: the
+// one upstream read on Linux is wasOpenedAtLogin, and the Settings toggle
+// shows the saved preference, not the entry.
 //
-// The first get() in a process also does two once-per-launch chores. Only
-// the primary instance reaches it (the Hub launch decision calls it; a
-// second instance exits before that), so these never race:
-//   - repair: an entry this shim wrote whose Exec= no longer matches (an
-//     AppImage that moved) gets its Exec= line rewritten, nothing else;
-//   - sync: once per profile, when the saved preference says open at login
-//     is on and no entry exists, write it. Upstream defaults the preference
-//     to on and its new-user hook calls set() only for brand-new profiles,
-//     so without this an existing profile would show the toggle on with
-//     nothing behind it. A marker file in the config dir keeps it to one
-//     attempt, so an entry the user later removes stays removed.
+// The setter only touches an entry carrying the X-Wispr-Flow-Linux-Autostart
+// marker, so a wispr-flow.desktop the user wrote is theirs to keep. The entry
+// carries TryExec= naming the launcher, so desktops skip it once the package
+// is removed or the AppImage deleted.
+//
+// The first get() in a process also repairs an entry this shim wrote whose
+// TryExec= target is gone (an AppImage that moved, a package since removed):
+// its Exec= and TryExec= lines are rewritten, nothing else. An entry whose
+// target still exists is left alone, so a deb and an AppImage installed side
+// by side do not take it in turns. Only the primary instance reaches get()
+// (the Hub launch decision calls it; a second instance exits before that),
+// so the repair never races.
 ;(function () {
 	if (process.platform !== "linux") return;
 	try {
@@ -40,26 +40,63 @@
 		var configHome = process.env.XDG_CONFIG_HOME ||
 			path.join(os.homedir(), ".config");
 		var entry = path.join(configHome, "autostart", "wispr-flow.desktop");
-		var appDir = path.join(configHome, "Wispr Flow");
-		var syncMark = path.join(appDir, ".linux-autostart-synced");
 		var OURS = "X-Wispr-Flow-Linux-Autostart=true";
 
+		// The AppImage runtime exports APPIMAGE and APPDIR, and so does every
+		// other AppImage, into everything started from it. A deb or rpm
+		// launched from, say, an AppImage editor's terminal inherits them, so
+		// APPIMAGE only counts when this Electron runs from inside APPDIR.
+		var appImage = function () {
+			var ai = process.env.APPIMAGE, dir = process.env.APPDIR;
+			if (!ai || !dir) return null;
+			try {
+				var real = fs.realpathSync(dir) + path.sep;
+				return fs.realpathSync(process.execPath).indexOf(real) === 0
+					? ai : null;
+			} catch (e) { return null; }
+		};
 		// Desktop Entry spec: a quoted Exec argument escapes " ` $ \ with a
 		// backslash, then the string-value rule doubles every backslash, and
-		// a literal % is written %%.
+		// a literal % is written %%. TryExec is a plain string value.
 		var quoteArg = function (s) {
 			return ('"' + s.replace(/(["`$\\])/g, "\\$1") + '"')
 				.replace(/\\/g, "\\\\")
 				.replace(/%/g, "%%");
 		};
-		var execLine = function () {
-			var cmd = process.env.APPIMAGE
-				? quoteArg(process.env.APPIMAGE)
-				: "wispr-flow";
-			return "Exec=" + cmd + " --hidden";
+		var escString = function (s) {
+			return s.replace(/\\/g, "\\\\").replace(/\n/g, "\\n")
+				.replace(/\t/g, "\\t").replace(/\r/g, "\\r");
+		};
+		var unescString = function (s) {
+			var map = { s: " ", n: "\n", t: "\t", r: "\r", "\\": "\\" };
+			return s.replace(/\\(.)/g, function (m, c) {
+				return map[c] !== undefined ? map[c] : m;
+			});
+		};
+		var execLines = function () {
+			var ai = appImage();
+			return [
+				"Exec=" + (ai ? quoteArg(ai) : "wispr-flow") + " --hidden",
+				"TryExec=" + escString(ai || "wispr-flow")
+			];
+		};
+		// TryExec semantics: an absolute path must be executable, a bare
+		// name is looked up in $PATH.
+		var present = function (target) {
+			var dirs = target.indexOf("/") !== -1 ? [""]
+				: (process.env.PATH || "").split(":").filter(Boolean);
+			return dirs.some(function (d) {
+				try {
+					fs.accessSync(d ? path.join(d, target) : target, fs.constants.X_OK);
+					return true;
+				} catch (e) { return false; }
+			});
 		};
 		var read = function () {
 			try { return fs.readFileSync(entry, "utf8"); } catch (e) { return null; }
+		};
+		var ours = function (text) {
+			return text !== null && text.indexOf(OURS) !== -1;
 		};
 		var writeAtomic = function (text) {
 			fs.mkdirSync(path.dirname(entry), { recursive: true });
@@ -71,71 +108,50 @@
 			writeAtomic([
 				"[Desktop Entry]",
 				"Type=Application",
-				"Name=Wispr Flow",
-				execLine(),
+				"Name=Wispr Flow"
+			].concat(execLines(), [
 				"Icon=wispr-flow",
 				"Terminal=false",
 				"X-GNOME-Autostart-enabled=true",
 				OURS,
 				""
-			].join("\n"));
-		};
-		var enabled = function () {
-			var text = read();
-			return text !== null &&
-				!/^Hidden=true\s*$/m.test(text) &&
-				!/^X-GNOME-Autostart-enabled=false\s*$/m.test(text);
-		};
-		var prefOn = function () {
-			try {
-				var cfg = JSON.parse(
-					fs.readFileSync(path.join(appDir, "config.json"), "utf8"));
-				return !!(cfg && cfg.prefs && cfg.prefs.user &&
-					cfg.prefs.user.openAtLogin === true);
-			} catch (e) { return false; }
+			]).join("\n"));
 		};
 
-		var choresDone = false;
-		var chores = function () {
-			if (choresDone) return;
-			choresDone = true;
+		var repaired = false;
+		var repair = function () {
+			if (repaired) return;
+			repaired = true;
 			try {
 				var text = read();
-				if (text !== null && text.indexOf(OURS) !== -1) {
-					var want = execLine();
-					var m = text.match(/^Exec=.*$/m);
-					if (!m || m[0] !== want) {
-						writeAtomic(m ? text.replace(/^Exec=.*$/m, function () { return want; })
-							: text.replace(/\n?$/, "\n" + want + "\n"));
-					}
-				}
-			} catch (e) {}
-			try {
-				if (!fs.existsSync(syncMark)) {
-					fs.mkdirSync(appDir, { recursive: true });
-					fs.writeFileSync(syncMark, "");
-					if (read() === null && prefOn()) write();
-				}
+				if (!ours(text)) return;
+				var m = text.match(/^TryExec=(.*)$/m);
+				if (m && present(unescString(m[1]))) return;
+				var want = execLines();
+				text = text.replace(/^TryExec=.*\n?/mg, "");
+				text = /^Exec=.*$/m.test(text)
+					? text.replace(/^Exec=.*$/m, function () { return want.join("\n"); })
+					: text.replace(/\n?$/, "\n" + want.join("\n") + "\n");
+				writeAtomic(text);
 			} catch (e) {}
 		};
 
 		var origGet = typeof app.getLoginItemSettings === "function"
 			? app.getLoginItemSettings.bind(app) : null;
 		app.getLoginItemSettings = function (options) {
-			chores();
+			repair();
 			var base = {};
 			try { base = (origGet && origGet(options)) || {}; } catch (e) {}
-			var on = enabled();
 			return Object.assign({}, base, {
-				openAtLogin: on,
-				executableWillLaunchAtLogin: on,
 				wasOpenedAtLogin: process.argv.indexOf("--hidden") !== -1
 			});
 		};
 		app.setLoginItemSettings = function (settings) {
 			try {
+				var text = read();
+				if (text !== null && !ours(text)) return;
 				if (settings && settings.openAtLogin) write();
-				else fs.rmSync(entry, { force: true });
+				else if (text !== null) fs.rmSync(entry, { force: true });
 			} catch (e) {}
 		};
 	} catch (e) {}

@@ -854,9 +854,17 @@ JS
 		'module.exports=require("electron").app;' > "$FIX"
 	export NODE_PATH="$TEST_TMP/nm" HOME="$TEST_TMP/home"
 	export XDG_CONFIG_HOME="$TEST_TMP/cfg"
-	unset APPIMAGE
+	unset APPIMAGE APPDIR
 	ENTRY="$XDG_CONFIG_HOME/autostart/wispr-flow.desktop"
 	bash "$PATCH_DIR/linux-autostart.sh" "$FIX" >/dev/null
+}
+
+# _as_trust_appimage <path>: the AppImage runtime's env as this Electron
+# (node, in the tests) sees it when it runs from inside the mount.
+_as_trust_appimage() {
+	export APPIMAGE="$1"
+	APPDIR="$(dirname "$(node -p 'require("fs").realpathSync(process.execPath)')")"
+	export APPDIR
 }
 
 # _as_node <js> [argv...]: load the patched bundle as `app` in a fresh
@@ -893,61 +901,78 @@ _as_node() {
 	assert_idempotent "$PATCH_DIR/linux-autostart.sh" "$FIX"
 }
 
-@test "autostart: the toggle writes and removes the entry, and the getter reads it" {
+@test "autostart: the toggle writes and removes the entry" {
 	_as_setup
-	run _as_node 'console.log(app.getLoginItemSettings().openAtLogin)'
-	[[ "$output" == 'false' ]]
 	_as_node 'app.setLoginItemSettings({openAtLogin:true})'
 	[[ -f $ENTRY ]]
 	grep -qx 'Exec=wispr-flow --hidden' "$ENTRY"
+	grep -qx 'TryExec=wispr-flow' "$ENTRY"
 	grep -qx 'X-Wispr-Flow-Linux-Autostart=true' "$ENTRY"
 	grep -qx 'X-GNOME-Autostart-enabled=true' "$ENTRY"
-	run _as_node 'const s=app.getLoginItemSettings();console.log(s.openAtLogin,s.executableWillLaunchAtLogin,s.launchItems[0])'
-	[[ "$output" == 'true true stock' ]]
 	_as_node 'app.setLoginItemSettings({openAtLogin:false})'
 	[[ ! -e $ENTRY ]]
 }
 
-@test "autostart: wasOpenedAtLogin is the --hidden flag" {
+@test "autostart: the getter is Electron's, with wasOpenedAtLogin from --hidden" {
 	_as_setup
-	run _as_node 'console.log(app.getLoginItemSettings().wasOpenedAtLogin)'
-	[[ "$output" == 'false' ]]
+	run _as_node 'const s=app.getLoginItemSettings();console.log(s.wasOpenedAtLogin,s.openAtLogin,s.launchItems[0])'
+	[[ "$output" == 'false false stock' ]]
 	run _as_node 'console.log(app.getLoginItemSettings().wasOpenedAtLogin)' --hidden
-	[[ "$output" == 'true' ]]
-}
-
-@test "autostart: an entry the desktop disabled reads as off" {
-	_as_setup
-	mkdir -p "${ENTRY%/*}"
-	printf '[Desktop Entry]\nExec=wispr-flow --hidden\nHidden=true\n' > "$ENTRY"
-	run _as_node 'console.log(app.getLoginItemSettings().openAtLogin)'
-	[[ "$output" == 'false' ]]
-	printf '[Desktop Entry]\nExec=wispr-flow --hidden\nX-GNOME-Autostart-enabled=false\n' > "$ENTRY"
-	run _as_node 'console.log(app.getLoginItemSettings().openAtLogin)'
-	[[ "$output" == 'false' ]]
-	# near miss: a key that merely starts the same way is not a disable
-	printf '[Desktop Entry]\nExec=wispr-flow --hidden\nHidden=trueish\n' > "$ENTRY"
-	run _as_node 'console.log(app.getLoginItemSettings().openAtLogin)'
 	[[ "$output" == 'true' ]]
 }
 
 @test "autostart: an AppImage path is quoted per the Desktop Entry spec" {
 	_as_setup
-	export APPIMAGE='/opt/My Apps/a"b$c%d\e.AppImage'
+	_as_trust_appimage '/opt/My Apps/a"b$c%d\e.AppImage'
 	_as_node 'app.setLoginItemSettings({openAtLogin:true})'
 	grep -qxF 'Exec="/opt/My Apps/a\\"b\\$c%%d\\\\e.AppImage" --hidden' "$ENTRY"
+	grep -qxF 'TryExec=/opt/My Apps/a"b$c%d\\e.AppImage' "$ENTRY"
 }
 
-@test "autostart: repairs a moved AppImage's Exec= and keeps the user's disable" {
+@test "autostart: APPIMAGE leaked from another AppImage is not trusted" {
+	_as_setup
+	export APPIMAGE='/home/u/Apps/Other.AppImage'
+	_as_node 'app.setLoginItemSettings({openAtLogin:true})'
+	grep -qx 'Exec=wispr-flow --hidden' "$ENTRY"
+	# the other AppImage's APPDIR leaks too, and this Electron is not in it
+	mkdir -p "$TEST_TMP/other-mount"
+	export APPDIR="$TEST_TMP/other-mount"
+	_as_node 'app.setLoginItemSettings({openAtLogin:true})'
+	grep -qx 'Exec=wispr-flow --hidden' "$ENTRY"
+}
+
+@test "autostart: repairs a gone TryExec= target, keeps the user's disable" {
 	_as_setup
 	mkdir -p "${ENTRY%/*}"
 	printf '%s\n' '[Desktop Entry]' 'Exec="/old/wispr.AppImage" --hidden' \
-		'X-GNOME-Autostart-enabled=false' 'X-Wispr-Flow-Linux-Autostart=true' > "$ENTRY"
-	export APPIMAGE='/new/wispr.AppImage'
+		'TryExec=/old/wispr.AppImage' 'X-GNOME-Autostart-enabled=false' \
+		'X-Wispr-Flow-Linux-Autostart=true' > "$ENTRY"
+	_as_trust_appimage '/new/wispr.AppImage'
 	_as_node 'app.getLoginItemSettings()'
 	grep -qxF 'Exec="/new/wispr.AppImage" --hidden' "$ENTRY"
+	grep -qxF 'TryExec=/new/wispr.AppImage' "$ENTRY"
 	grep -qx 'X-GNOME-Autostart-enabled=false' "$ENTRY"
 	[[ "$(grep -c '^Exec=' "$ENTRY")" -eq 1 ]]
+	[[ "$(grep -c '^TryExec=' "$ENTRY")" -eq 1 ]]
+}
+
+@test "autostart: a TryExec= target that exists is left alone" {
+	_as_setup
+	# a PATH of its own, so an installed wispr-flow cannot answer for it
+	mkdir -p "${ENTRY%/*}" "$TEST_TMP/bin"
+	ln -s "$(command -v node)" "$TEST_TMP/bin/node"
+	printf '#!/bin/sh\n' > "$TEST_TMP/bin/wispr-flow"
+	chmod +x "$TEST_TMP/bin/wispr-flow"
+	printf '%s\n' '[Desktop Entry]' 'Exec=wispr-flow --hidden' \
+		'TryExec=wispr-flow' 'X-Wispr-Flow-Linux-Autostart=true' > "$ENTRY"
+	cp "$ENTRY" "$TEST_TMP/before"
+	_as_trust_appimage '/opt/wispr.AppImage'
+	PATH="$TEST_TMP/bin" _as_node 'app.getLoginItemSettings()'
+	cmp -s "$ENTRY" "$TEST_TMP/before"
+	# near miss: with the deb gone from PATH, the AppImage takes it over
+	rm "$TEST_TMP/bin/wispr-flow"
+	PATH="$TEST_TMP/bin" _as_node 'app.getLoginItemSettings()'
+	grep -qxF 'Exec="/opt/wispr.AppImage" --hidden' "$ENTRY"
 }
 
 @test "autostart: leaves an entry it did not write alone" {
@@ -957,42 +982,33 @@ _as_node() {
 	cp "$ENTRY" "$TEST_TMP/before"
 	_as_node 'app.getLoginItemSettings()'
 	cmp -s "$ENTRY" "$TEST_TMP/before"
+	_as_node 'app.setLoginItemSettings({openAtLogin:true})'
+	cmp -s "$ENTRY" "$TEST_TMP/before"
+	_as_node 'app.setLoginItemSettings({openAtLogin:false})'
+	cmp -s "$ENTRY" "$TEST_TMP/before"
 }
 
-@test "autostart: an existing profile with the preference on gets its entry once" {
+@test "autostart: an existing profile with the preference on gets no entry" {
 	_as_setup
 	mkdir -p "$XDG_CONFIG_HOME/Wispr Flow"
 	printf '{"prefs":{"user":{"openAtLogin":true}}}' \
 		> "$XDG_CONFIG_HOME/Wispr Flow/config.json"
-	run _as_node 'console.log(app.getLoginItemSettings().openAtLogin)'
-	[[ "$output" == 'true' ]]
-	grep -qx 'Exec=wispr-flow --hidden' "$ENTRY"
-	# the user removes it through their desktop: it stays removed
-	rm "$ENTRY"
-	run _as_node 'console.log(app.getLoginItemSettings().openAtLogin)'
-	[[ "$output" == 'false' ]]
-	[[ ! -e $ENTRY ]]
-}
-
-@test "autostart: the one-time sync writes nothing when the preference is off" {
-	_as_setup
-	mkdir -p "$XDG_CONFIG_HOME/Wispr Flow"
-	printf '{"prefs":{"user":{"openAtLogin":false}}}' \
-		> "$XDG_CONFIG_HOME/Wispr Flow/config.json"
 	_as_node 'app.getLoginItemSettings()'
 	[[ ! -e $ENTRY ]]
-	[[ -e "$XDG_CONFIG_HOME/Wispr Flow/.linux-autostart-synced" ]]
+	[[ -z "$(ls -A "$XDG_CONFIG_HOME/Wispr Flow" | grep -v '^config.json$')" ]]
 }
 
 @test "autostart: loading the bundle writes nothing until the getter runs" {
 	_as_setup
-	mkdir -p "$XDG_CONFIG_HOME/Wispr Flow"
-	printf '{"prefs":{"user":{"openAtLogin":true}}}' \
-		> "$XDG_CONFIG_HOME/Wispr Flow/config.json"
+	mkdir -p "${ENTRY%/*}"
+	printf '%s\n' '[Desktop Entry]' 'Exec="/old/wispr.AppImage" --hidden' \
+		'TryExec=/old/wispr.AppImage' 'X-Wispr-Flow-Linux-Autostart=true' \
+		> "$ENTRY"
+	cp "$ENTRY" "$TEST_TMP/before"
+	_as_trust_appimage '/new/wispr.AppImage'
 	# a second instance exits before the Hub launch decision calls the getter
 	_as_node 'app.setLoginItemSettings'
-	[[ ! -e "$XDG_CONFIG_HOME/Wispr Flow/.linux-autostart-synced" ]]
-	[[ ! -e $ENTRY ]]
+	cmp -s "$ENTRY" "$TEST_TMP/before"
 }
 
 @test "autostart: off Linux the stock methods are left in place" {

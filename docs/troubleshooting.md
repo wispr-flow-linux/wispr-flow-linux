@@ -294,6 +294,19 @@ the entry in your desktop's startup-apps settings. `wispr-flow --doctor`
 shows which applies. It also warns when an AppImage entry points at a file
 that has moved; starting the AppImage once from its new location repairs it.
 
+## "Open at login" is on but Wispr Flow does not start at login
+
+The toggle in Settings shows the saved preference, which is on by default,
+and an older build never wrote an autostart entry for it.
+
+### Fix
+
+Turn "Open at login" off and on again. That writes
+`~/.config/autostart/wispr-flow.desktop`, and `wispr-flow --doctor` then
+reports `Open at login: on`. Disabling the entry in your desktop's
+startup-apps settings does not change the toggle, which keeps showing the
+preference.
+
 ## App won't start from a terminal
 
 Launching from an SSH session or bare TTY does nothing, or the launcher log says

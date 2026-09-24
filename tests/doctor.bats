@@ -435,7 +435,7 @@ _write_autostart() {
 @test "_doctor_check_autostart: warns when the AppImage it starts is gone" {
 	_write_autostart "Exec=\"$TEST_TMP/gone.AppImage\" --hidden"
 	run _doctor_check_autostart
-	[[ $output == *"[WARN]"*"$TEST_TMP/gone.AppImage, which is gone"* ]]
+	[[ $output == *"[WARN]"*"$TEST_TMP/gone.AppImage, which is missing"* ]]
 	_doctor_failures=0
 	_doctor_check_autostart >/dev/null
 	[[ $_doctor_failures -eq 0 ]]
@@ -443,7 +443,34 @@ _write_autostart() {
 
 @test "_doctor_check_autostart: passes when the AppImage is there (real file)" {
 	: > "$TEST_TMP/Wispr Flow.AppImage"
+	chmod +x "$TEST_TMP/Wispr Flow.AppImage"
 	_write_autostart "Exec=\"$TEST_TMP/Wispr Flow.AppImage\" --hidden"
 	run _doctor_check_autostart
 	[[ $output == *"[PASS] Open at login: on"* ]]
+}
+
+@test "_doctor_check_autostart: TryExec= wins, and a bare name is looked up in PATH" {
+	# a PATH of its own, so an installed wispr-flow cannot answer for it
+	mkdir -p "$TEST_TMP/bin"
+	ln -s "$(command -v grep)" "$TEST_TMP/bin/grep"
+	_write_autostart 'Exec=wispr-flow --hidden' 'TryExec=wispr-flow'
+	PATH="$TEST_TMP/bin" run _doctor_check_autostart
+	[[ $output == *"[WARN]"*"starts wispr-flow, which is missing"* ]]
+	printf '#!/bin/sh\n' > "$TEST_TMP/bin/wispr-flow"
+	chmod +x "$TEST_TMP/bin/wispr-flow"
+	PATH="$TEST_TMP/bin" run _doctor_check_autostart
+	[[ $output == *"[PASS] Open at login: on"* ]]
+}
+
+@test "_doctor_check_autostart: unescapes a TryExec= path (real file)" {
+	mkdir -p "$TEST_TMP/a\\b"
+	: > "$TEST_TMP/a\\b/w.AppImage"
+	chmod +x "$TEST_TMP/a\\b/w.AppImage"
+	_write_autostart "TryExec=$TEST_TMP/a\\\\b/w.AppImage"
+	run _doctor_check_autostart
+	[[ $output == *"[PASS] Open at login: on"* ]]
+	# near miss: the same file, not executable, is not a launcher
+	chmod -x "$TEST_TMP/a\\b/w.AppImage"
+	run _doctor_check_autostart
+	[[ $output == *"[WARN]"*"which is missing or not executable"* ]]
 }
