@@ -10,6 +10,11 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Fixed
 
+- A main-bundle or renderer patch that fails to apply now fails the build
+  at step 3, naming the patch, instead of logging a `[WARN]` and surfacing
+  minutes later as a `MISSING` marker at verify-patches with the real
+  diagnosis buried mid-log. The three "bundle not found, skipping" branches
+  fail the same way, since verify-patches requires their markers anyway.
 - The 1.6.937 bump did not build: Wispr moved the helper-path ternary into
   its own exported resolver, so `helper-resolver.sh` lost the anchor it
   took from the adjacent `existsSync` guard and the build failed at

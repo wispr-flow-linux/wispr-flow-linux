@@ -68,6 +68,8 @@ say()   { printf '\n\033[1;34m== %s\033[0m\n' "$*"; }
 auto()  { printf '  \033[1;32m[AUTO]\033[0m   %s\n' "$*"; }
 manual(){ printf '  \033[1;33m[MANUAL]\033[0m %s\n' "$*"; }
 warn()  { printf '  \033[1;31m[WARN]\033[0m   %s\n' "$*"; }
+# Same shape as scripts/_common.sh's die: stderr, then exit 1.
+die()   { printf '\033[1;31mERROR:\033[0m %s\n' "$*" >&2; exit 1; }
 
 # Resolve the clean-room Linux helper into $HELPER_BIN, in priority order:
 #   1. an executable HELPER_BIN override (CI's prefetched asset or a local
@@ -248,6 +250,11 @@ step2_stage_resources() {
 
 #===============================================================================
 # Step 3: patch the main bundle -- add the 'linux' helper-path branch  [AUTO]
+#
+# Every patch here is load-bearing and scripts/verify-patches.sh requires its
+# marker, so a patch that fails to apply fails the build right here, naming
+# the patch, instead of surfacing minutes later as a MISSING marker with the
+# real diagnosis buried above a [WARN] (issue #104).
 #===============================================================================
 step3_patch_bundle() {
   say "Step 3: patch main bundle, renderer chrome, and renderer platform flags"
@@ -265,27 +272,27 @@ step3_patch_bundle() {
   if [[ -n "$target_bundle" ]]; then
     auto "Running patch-helper-resolver.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/helper-resolver.sh" "$target_bundle" \
-      || warn "Patch failed -- see patch-helper-resolver.sh output above."
+      || die "Patch failed -- see patch-helper-resolver.sh output above."
     # Gate the macOS-only "must be in /Applications" guard to darwin. On Linux it
     # otherwise shows a blocking "Move Flow to Applications folder" dialog and
     # calls app.quit() on launch. (Validated: 2026-06-04 launch.)
     auto "Running patch-mac-gates.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/mac-gates.sh" "$target_bundle" \
-      || warn "Mac-gate patch failed -- see patch-mac-gates.sh output above."
+      || die "Mac-gate patch failed -- see patch-mac-gates.sh output above."
     # Spread the session env (WAYLAND_DISPLAY/DISPLAY/XDG_RUNTIME_DIR/DBUS_...)
     # into the helper-spawn env object. Without it the Linux helper sees no
     # session and falls to the no-op `stub` injection backend, so text is never
     # injected. (Validated: 2026-06-04 PasteText stub.) See helper-env.sh.
     auto "Running patch-helper-env.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/helper-env.sh" "$target_bundle" \
-      || warn "Helper-env patch failed -- see patch-helper-env.sh output above."
+      || die "Helper-env patch failed -- see patch-helper-env.sh output above."
     # Make the hub/settings BrowserWindow frameless on Linux like win32 (it
     # otherwise falls to the Electron default: native frame + visible menu bar).
     # Pairs with linux-renderer-chrome.sh below so the .win32 custom title-bar
     # controls render correctly. See docs/learnings/platform-gates.md.
     auto "Running linux-window-frame.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-window-frame.sh" "$target_bundle" \
-      || warn "Window-frame patch failed -- see linux-window-frame.sh output above."
+      || die "Window-frame patch failed -- see linux-window-frame.sh output above."
     # Make the Hub window focusable on Linux: upstream creates it focusable:!1
     # on every platform and only restores focus behind isMac gates. On X11 a
     # focusable:false BrowserWindow is created override-redirect (unmanaged):
@@ -293,12 +300,12 @@ step3_patch_bundle() {
     # linux-hub-focusable.sh.
     auto "Running linux-hub-focusable.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-hub-focusable.sh" "$target_bundle" \
-      || warn "Hub-focusable patch failed -- see linux-hub-focusable.sh output above."
+      || die "Hub-focusable patch failed -- see linux-hub-focusable.sh output above."
     # Parse the wispr-flow: deep-link URL out of argv at cold start on Linux too
     # (the parse was win32-only; the warm-start second-instance path already works).
     auto "Running linux-deeplink.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-deeplink.sh" "$target_bundle" \
-      || warn "Deep-link patch failed -- see linux-deeplink.sh output above."
+      || die "Deep-link patch failed -- see linux-deeplink.sh output above."
     # Take the Electron single-instance lock at the very top of the bundle,
     # before ANY init runs. The vendor only requests the lock at the end of
     # its ~8.3 MB bundle, so a second launch fully initializes (native .node
@@ -311,12 +318,12 @@ step3_patch_bundle() {
     # patches/linux-early-singleton.sh.
     auto "Running linux-early-singleton.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-early-singleton.sh" "$target_bundle" \
-      || warn "Early-singleton patch failed -- see linux-early-singleton.sh output above."
+      || die "Early-singleton patch failed -- see linux-early-singleton.sh output above."
     # Disable the status-pill drag gesture on Linux: it can never complete
     # under native Wayland and strands an input-blocking dimming overlay.
     auto "Running linux-disable-pill-drag.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-disable-pill-drag.sh" "$target_bundle" \
-      || warn "linux-disable-pill-drag.sh failed -- see its output above."
+      || die "linux-disable-pill-drag.sh failed -- see its output above."
     # Seed fresh Linux profiles with the WINDOWS default shortcut/PTT map. The
     # main process picks the defaults with a `"win32"===process.platform` flag,
     # so on Linux it wrote the macOS map -- whose PTT key resolves to keycode -1
@@ -326,7 +333,7 @@ step3_patch_bundle() {
     # consumers (Windows-only OS/registry/path APIs) keep the real platform.
     auto "Running linux-main-shortcut-defaults.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-main-shortcut-defaults.sh" "$target_bundle" \
-      || warn "Shortcut-defaults patch failed -- see linux-main-shortcut-defaults.sh output above."
+      || die "Shortcut-defaults patch failed -- see linux-main-shortcut-defaults.sh output above."
 
     # Renderer + preload patches live alongside the main bundle under .webpack/.
     local webpack_root="${target_bundle%/main/index.js}"
@@ -337,9 +344,9 @@ step3_patch_bundle() {
     if [[ -f "$hub_renderer" ]]; then
       auto "Running linux-renderer-chrome.sh on $hub_renderer"
       bash "$SCRIPT_DIR/patches/linux-renderer-chrome.sh" "$hub_renderer" \
-        || warn "Renderer-chrome patch failed -- see linux-renderer-chrome.sh output above."
+        || die "Renderer-chrome patch failed -- see linux-renderer-chrome.sh output above."
     else
-      warn "Hub renderer bundle not found at $hub_renderer -- skipping chrome patch."
+      die "Hub renderer bundle not found at $hub_renderer (its marker is required)."
     fi
     # Treat Linux like Windows for renderer platform UI WITHOUT lying to the
     # bridge: leave window.electron.platform.isWindows reporting its real value
@@ -355,14 +362,14 @@ step3_patch_bundle() {
       grep -qF 'platform?.isWindows' "$renderer" || continue
       auto "Running linux-renderer-treat-as-windows.sh on $renderer"
       bash "$SCRIPT_DIR/patches/linux-renderer-treat-as-windows.sh" "$renderer" \
-        || warn "Treat-as-windows patch failed on $renderer -- see output above."
+        || die "Treat-as-windows patch failed on $renderer -- see output above."
       renderer_count=$((renderer_count + 1))
     done
     if [[ "$renderer_count" -eq 0 ]]; then
-      warn "No renderer reads platform.isWindows under $webpack_root/renderer -- skipping treat-as-windows patch."
+      die "No renderer reads platform.isWindows under $webpack_root/renderer (its marker is required)."
     fi
   else
-    warn "No main bundle available to patch."
+    die "No main bundle available to patch."
   fi
 }
 
