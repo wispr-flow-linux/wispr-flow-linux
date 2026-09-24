@@ -19,6 +19,12 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   holds the lock or when any file would be overwritten. `--doctor` warns
   while a legacy dir remains.
 
+### Changed
+
+- `ACKNOWLEDGMENTS.md` is removed. Contributor credit goes by handle in the
+  commit body, and `CONTRIBUTING.md` and D-012 no longer ask for a line in
+  the file on every merged external PR or credited close.
+
 ## [v1.0.4] - 2026-09-24
 
 ### Added

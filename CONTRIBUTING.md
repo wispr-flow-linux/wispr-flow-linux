@@ -151,8 +151,6 @@ URLs, and alt text can run over when breaking them hurts readability.
 - Branch: `fix/123-description` or `feature/123-description`.
 - PR body links the issue: `Fixes #123` or `Refs #123`.
 - AI-assisted? Say so (see below).
-- Merged external PRs, and issues whose diagnosis or snippet a fix uses, get
-  a line in [`ACKNOWLEDGMENTS.md`](ACKNOWLEDGMENTS.md).
 
 ## Pull request policy
 
@@ -161,8 +159,8 @@ How open PRs are handled, so nobody is surprised by a close or a cherry-pick
 
 - **Duplicates close with credit.** When two PRs fix the same thing, the
   earliest one that is mergeable lands and the other is closed with a comment
-  naming it. If the closed PR's diagnosis or diff was used, its author gets a
-  line in [`ACKNOWLEDGMENTS.md`](ACKNOWLEDGMENTS.md).
+  naming it. If the closed PR's diagnosis or diff was used, its author is
+  credited by handle in the commit body.
 - **Thirty days of silence.** A PR whose author has not replied to a review
   for 30 days may be finished under the maintainer-edits policy below (your
   commit stays yours; the maintainer's changes go in a second commit) or

@@ -48,7 +48,7 @@ Phase 6  pill strategy + helper v0.1.3         (needs a decision first)
 | #59 | nihalebr | closed 09-21 | Stale one-line bump to 1.6.827; credited to #84. |
 | #40 | Anirudh-K96 | merged 09-22 | Bumped to helper v0.1.2; hash derived by NAR-hashing the tarball (reproduces the v0.1.0 hash). |
 | #39 | jaikr-dev | merged 09-22 as 528b096 | Hub `focusable` gate; one site on 1.5.789 and 1.6.897. Closed #36 #56 #72. |
-| #45 | Techyid613 | closed 09-22 | Byte-identical to #39; credited in ACKNOWLEDGMENTS.md. |
+| #45 | Techyid613 | closed 09-22 | Byte-identical to #39; credited in the close comment. |
 | #74 | vascode2 | closed 09-22 | Same fix; anchor matched 0 sites; the `_NET_WM_ALLOWED_ACTIONS` diagnosis is credited. |
 | #51 | jcartu | merged 09-22 as 77f1bbb | Early singleton lock; banner shape holds on 1.6.897; changelog trimmed and credited. |
 | #69 | crafteraadarsh | round-trip posted 09-22 | Autostart shim. Asked for bats, changelog, troubleshooting entry, doctor line, GNOME no-tray check, and a rebase. |
@@ -161,16 +161,14 @@ published). Both follow-ups landed as #89.**
 ### Phase 3 — merge the clean PRs, close the duplicates
 
 **Status (2026-09-22): done.** #39, #37, #42, #51, #66, #40 merged in that
-order; #45, #74, #77 closed with credit; `ACKNOWLEDGMENTS.md` landed as
-#87 with a CONTRIBUTING bullet.
+order; #45, #74, #77 closed with credit. (`ACKNOWLEDGMENTS.md` landed as
+#87 and was removed on 2026-09-24; credit lives in commit bodies.)
 
 - Push the small edits yourself (all PRs allow maintainer edits): #40 pin
   bump, #42 wording, #51 changelog, #66 comment wrap.
 - Merge #39, #37, #42, #51, #66, #40 in that order.
 - Close #45, #74, #77, #59 with one comment each naming the surviving PR and
-  crediting the author. Add each merged external author to a new
-  `ACKNOWLEDGMENTS.md` (cdd convention: updated on every merged external PR
-  and whenever an issue author's snippet is used).
+  crediting the author.
 
 ### Phase 4 — contributor round-trips
 
