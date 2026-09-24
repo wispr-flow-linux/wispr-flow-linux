@@ -187,7 +187,7 @@ order; #45, #74, #77 closed with credit. (`ACKNOWLEDGMENTS.md` landed as
 Do these after the first clean auto-bump, each as its own PR.
 
 **Status (2026-09-22, second session):** items 2 (#96), 3 (#92), 7 (#98),
-8 and 10 (#93, D-012) landed. Item 6 is covered by `extract_installer`'s
+8 and 10 (#93) landed. Item 6 is covered by `extract_installer`'s
 nupkg-name check from #84 (the pin's sha256 fixes the bytes; the name
 fixes the label), so no further code. Item 5 is applied as patches are
 touched (#99 added the pill-drag near misses). Items 1, 4 and 9 are open.

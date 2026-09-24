@@ -25,7 +25,6 @@ decision date, and an owner.
 | [D-009](#d-009--native-sqlite-addons-as-pinned-prebuilt-assets-not-a-build-time-rebuild) | 2026-06-06 | Accepted | Native sqlite addons as pinned prebuilt assets, not a build-time rebuild |
 | [D-010](#d-010--the-installer-is-pinned-in-tree-not-resolved-at-build-time) | 2026-09-21 | Accepted | The installer is pinned in-tree, not resolved at build time |
 | [D-011](#d-011--the-publish-chain-is-ungated-and-fails-closed) | 2026-09-22 | Accepted | The publish chain is ungated and fails closed |
-| [D-012](#d-012--pull-requests-duplicates-close-with-credit-silence-yields-to-a-cherry-pick) | 2026-09-22 | Accepted | Pull requests: duplicates close with credit, silence yields to a cherry-pick |
 
 ---
 
@@ -627,69 +626,3 @@ had failed nightly for a week before that without a signal.
   [`RELEASING.md`](../RELEASING.md),
   [`.github/workflows/ci.yml`](../.github/workflows/ci.yml),
   [#84](https://github.com/wispr-flow-linux/wispr-flow-linux/pull/84).
-
-## D-012 — Pull requests: duplicates close with credit, silence yields to a cherry-pick
-
-- **Status:** Accepted
-- **Decided:** 2026-09-22
-- **Owner:** @aaddrick
-
-### Context
-
-The September 2026 triage found 17 open pull requests, several of them
-fixing the same bug from different forks (three for the Hub focusable gate
-alone), a stack of four that depended on an unmerged helper release, and
-authors who had gone quiet after a review. Every one was a first-time
-contributor whose CI runs sat unapproved. There was no written rule for
-which duplicate lands, what happens to a PR nobody answers for, or how a
-stacked PR announces itself, so each close had to argue its own case.
-
-### Decision
-
-The policy is written into [`CONTRIBUTING.md`](../CONTRIBUTING.md) under
-"Pull request policy":
-
-- Duplicates close with credit to the earliest mergeable PR; a used diagnosis
-  or diff is credited by handle in the commit body.
-- A PR with no author response for 30 days may be finished under the
-  maintainer-edits policy (the author's commit kept, the maintainer's
-  changes in a second commit) or closed, and can be reopened.
-- First-time contributors get CI approved on request, every push.
-- A stacked PR says so in its first line and names its base.
-- A PR names the Wispr bundle its patch was verified against; the pin is
-  what ships.
-
-### Rationale
-
-- **One maintainer, many forks.** The rules turn each close into a link to
-  the policy instead of a paragraph of justification, and they make the
-  cherry-pick path legitimate rather than something done quietly.
-- **Credit is the cost of closing.** A closed duplicate still cost its author
-  the work; the commit body credit is what makes the close fair.
-- **Thirty days is long enough to be silence.** Shorter and a busy
-  contributor is cut off; longer and the fix drifts past the next upstream
-  bump and has to be redone anyway.
-
-### Alternatives considered
-
-- **First PR opened wins.** Rejected: the earliest PR is often the one with
-  the wrong anchor or no test, and landing it would mean rewriting it.
-- **Never cherry-pick, only close.** Rejected: it throws away working fixes
-  over a missing reply, and the maintainer-edits checkbox already grants the
-  permission.
-- **No time limit.** Rejected: open PRs against a re-minified bundle rot;
-  a stale one is more work to review than to redo.
-
-### Consequences
-
-- Close comments cite the policy and name the surviving PR.
-- Credit lives in commit bodies. An `ACKNOWLEDGMENTS.md` file kept
-  alongside it was dropped on 2026-09-24: it needed a follow-up on every
-  merge and duplicated the commit credit.
-- The 30-day clock is measured from the maintainer's last review comment;
-  the cherry-pick keeps the author's commit and adds a second one.
-
-### References
-
-- [`CONTRIBUTING.md`](../CONTRIBUTING.md),
-  [D-011](#d-011--the-publish-chain-is-ungated-and-fails-closed).
