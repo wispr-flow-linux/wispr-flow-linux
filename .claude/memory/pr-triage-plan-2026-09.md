@@ -56,10 +56,10 @@ Phase 6  pill strategy + helper v0.1.3         (needs a decision first)
 | #67 | crafteraadarsh | drop | 200x110 on all Linux clips toasts for X11 users; moot once #78 lands. |
 | #68 | crafteraadarsh | round-trip posted 09-22 | Asked for a main-bundle patch on the `ShowAutoPolishPicker`/`ShowFetchLinkPicker` forwarding handlers adding `statusWindow.getBounds()`. |
 | #78 | crafteraadarsh | hold, comment posted 09-22 | Right approach; blocked on helper #19/#20 + v0.1.3 and the #68 rework. |
-| #73 | vascode2 | diagnostic ask posted 09-22 | Both remaining anchors match 0 sites on 1.6.897; see "#73 diagnostic ask" below. |
+| #73 | vascode2 | review posted 09-24 | Reworked 09-22 to the always-on-top watchdog alone; applies once on 1.6.897/1.6.937. Asked to move it ahead of the `systemState` early-out, scope the claim (Refs #71), rebase onto `_lib.sh`/`die`/tripwire/quote class. |
 | #77 | vascode2 | closed 09-22 | Context menu has no alpha poll and is full-work-area by design; carried #74's commit. |
 | #42 | caio-passos | merged 09-22 as 30bf36a | Cause sentence left open: mutter ships ext-data-control since GNOME 48. |
-| #82 | vascode2 | round-trip posted 09-22 | New since the plan. Tray-only Hub at launch; anchor hardcodes the logger name and matches 0 sites on 1.5.789/1.6.897. 1.6.897 already has a win32-gated "auto launch at login is enabled" skip plus `--show-hub-at-launch`; asked to widen that gate instead and drop the #73/#74/#77 stack. |
+| #82 | vascode2 | ask retracted 09-24; close in favour of #69 recommended | The 09-22 widening ask was wrong: `openAtLogin` defaults true and Linux has no autostart without #69, so it would hide the Hub on every launch. Earlier note: | New since the plan. Tray-only Hub at launch; anchor hardcodes the logger name and matches 0 sites on 1.5.789/1.6.897. 1.6.897 already has a win32-gated "auto launch at login is enabled" skip plus `--show-hub-at-launch`; asked to widen that gate instead and drop the #73/#74/#77 stack. |
 | #37 | rajivranjanmars | merged 09-22 as 608a3c7 | Accurate against `doctor.sh` and the learnings. |
 
 Merge order for the clean set: #39 → #37 → #42 → #51 → #66 → #40. #51 and
