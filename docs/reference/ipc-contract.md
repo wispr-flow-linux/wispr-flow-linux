@@ -143,6 +143,8 @@ Floating web panel (mac overlay): `ShowFloatingWebPanel`, `HideFloatingWebPanel`
 `FloatingWebPanelEvent`, `EvaluateFloatingWebPanelJS`, `PositionBrowserWindow`.
 App-context scraping: `AppContextHTML`, `AppContextUpdate`, `AppInfoUpdate`, `DockInfoUpdate`,
 `KeypressEvent` (emitted by helper).
+macOS 26 accessibility drag guidance (1.6.937+, sent only from `isMac`-gated code, never on
+Linux): `SetAccessibilityGuidance`, `GetSystemSettingsWindowBounds`.
 
 > Unknown commands should be answered safely: emit a `HelperAPIError` response (see §5) or a benign
 > ACK, never crash. The app tolerates missing optional capabilities.
@@ -289,7 +291,10 @@ successful paste (cursor moves, Enter-to-send) gated on `PasteOutcome`, so emitt
 ## 8. Helper-path resolver (the one main-process change needed)
 
 ```js
-// current (bundle ~3661149): two-way switch, no linux case
+// two-way switch, no linux case. Inline in the spawn function through
+// 1.6.897; since 1.6.937 the same ternary is the body of an exported
+// resolver (`const l=()=>isMac?…:…`) that the spawn function and the
+// meeting recorder's native capture both call.
 const path = isMac
   ? `${root}/swift-helper-app-dist/Wispr Flow.app/Contents/MacOS/Wispr Flow`
   : `${root}\\Release\\Wispr Flow Helper.exe`;

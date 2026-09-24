@@ -200,6 +200,18 @@ were fixed (#95: 102 MB of `*.orig` patch backups packed into every asar;
 unfiled audit items are done: step 2 (#97), the pill-drag prelude (#99),
 the gate audit (recorded in `wispr-1.6.897-audit.md`).
 
+**Status (2026-09-24):** items 1 and 4 landed as #108 (`_lib.sh`,
+`tripwires.tsv`, `check-upstream-tripwires.sh` in step 3 and the
+patch-stage test; the marker list stays, since the tripwires cover every
+patch but verify the pristine tree, not the shipped asar). The 1.6.937
+auto-bump landed red on `main` and exposed two more pipeline defects, both
+fixed the same day: step 3 warned on a failed patch instead of dying
+(#104, #105) and the nightly committed and tagged before any check ran
+(#103, #106; the bump now runs bats and the patch-stage test first and
+files a `bump-failure` issue on red). The bump itself needed #102
+(helper-resolver re-anchored on the ternary head; the pin-hardcoded tests
+read the pin). Item 9 is the only Phase 5 item open.
+
 1. **Upstream tripwires instead of marker grepping.** cdd deleted its
    `verify-patches.sh` in v3.0.0 and replaced it with
    `_check_upstream_tripwires` (`scripts/patches/app-asar.sh:88`), which greps
