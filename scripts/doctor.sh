@@ -433,6 +433,44 @@ _doctor_check_legacy_data_dir() {
 }
 
 #------------------------------------------------------------------------------
+# Open at login — the XDG autostart entry linux-autostart.sh writes when the
+# setting is turned on. Silent when there is none. The entry's TryExec= names
+# the launcher (or the AppImage's path); desktops skip it once that is gone,
+# and the app repairs it the next time it is started from where it now is.
+# An entry without TryExec= (a hand-written one) is checked by its quoted
+# Exec= path, when it has the plain form.
+#------------------------------------------------------------------------------
+_doctor_check_autostart() {
+	local entry line target
+	entry="${XDG_CONFIG_HOME:-$HOME/.config}/autostart/wispr-flow.desktop"
+	[[ -f $entry ]] || return 0
+
+	if grep -qE '^(Hidden=true|X-GNOME-Autostart-enabled=false)[[:space:]]*$' \
+		"$entry"; then
+		_pass "Open at login: off (disabled in $entry)"
+		return
+	fi
+	line="$(grep -m1 '^TryExec=' "$entry")" || line=''
+	if [[ -n $line ]]; then
+		target="${line#TryExec=}"
+		target="${target//\\\\/\\}"
+	else
+		line="$(grep -m1 '^Exec=' "$entry")" || line=''
+		# Only the plain quoted form is checked; an escaped path is skipped
+		# rather than guessed at.
+		if [[ $line =~ ^Exec=\"([^\"\\\`\$]+)\"\ --hidden$ ]]; then
+			target="${BASH_REMATCH[1]//%%/%}"
+		fi
+	fi
+	if [[ -n $target ]] && ! command -v -- "$target" >/dev/null; then
+		_warn "Open at login: $entry starts $target, which is missing or not executable"
+		_info 'Start Wispr Flow once from where it is now to repair it.'
+		return
+	fi
+	_pass "Open at login: on ($entry)"
+}
+
+#------------------------------------------------------------------------------
 # Electron runtime — the renamed Electron binary the launcher exec's must exist
 # and be executable. Version is read from the sibling 'version' file rather than
 # launching Electron (which can hang).
@@ -591,6 +629,7 @@ run_doctor() {
 	_doctor_check_disk_space
 	_doctor_check_singleton_lock
 	_doctor_check_legacy_data_dir
+	_doctor_check_autostart
 	_doctor_check_recent_crashes
 	echo
 

@@ -404,3 +404,73 @@ command() {
 	[[ $output == *"[WARN]"*"is left over"* ]]
 	[[ $output == *"reads $XDG_CONFIG_HOME/Wispr Flow/flow.sqlite"* ]]
 }
+
+# =============================================================================
+# _doctor_check_autostart
+# =============================================================================
+
+_write_autostart() {
+	mkdir -p "$XDG_CONFIG_HOME/autostart"
+	printf '[Desktop Entry]\n%s\n' "$@" \
+		> "$XDG_CONFIG_HOME/autostart/wispr-flow.desktop"
+}
+
+@test "_doctor_check_autostart: silent when there is no entry" {
+	run _doctor_check_autostart
+	[[ -z $output ]]
+}
+
+@test "_doctor_check_autostart: passes on a packaged-launcher entry" {
+	_write_autostart 'Exec=wispr-flow --hidden'
+	run _doctor_check_autostart
+	[[ $output == *"[PASS] Open at login: on"* ]]
+}
+
+@test "_doctor_check_autostart: reports an entry the desktop disabled" {
+	_write_autostart 'Exec=wispr-flow --hidden' 'X-GNOME-Autostart-enabled=false'
+	run _doctor_check_autostart
+	[[ $output == *"Open at login: off"* ]]
+}
+
+@test "_doctor_check_autostart: warns when the AppImage it starts is gone" {
+	_write_autostart "Exec=\"$TEST_TMP/gone.AppImage\" --hidden"
+	run _doctor_check_autostart
+	[[ $output == *"[WARN]"*"$TEST_TMP/gone.AppImage, which is missing"* ]]
+	_doctor_failures=0
+	_doctor_check_autostart >/dev/null
+	[[ $_doctor_failures -eq 0 ]]
+}
+
+@test "_doctor_check_autostart: passes when the AppImage is there (real file)" {
+	: > "$TEST_TMP/Wispr Flow.AppImage"
+	chmod +x "$TEST_TMP/Wispr Flow.AppImage"
+	_write_autostart "Exec=\"$TEST_TMP/Wispr Flow.AppImage\" --hidden"
+	run _doctor_check_autostart
+	[[ $output == *"[PASS] Open at login: on"* ]]
+}
+
+@test "_doctor_check_autostart: TryExec= wins, and a bare name is looked up in PATH" {
+	# a PATH of its own, so an installed wispr-flow cannot answer for it
+	mkdir -p "$TEST_TMP/bin"
+	ln -s "$(command -v grep)" "$TEST_TMP/bin/grep"
+	_write_autostart 'Exec=wispr-flow --hidden' 'TryExec=wispr-flow'
+	PATH="$TEST_TMP/bin" run _doctor_check_autostart
+	[[ $output == *"[WARN]"*"starts wispr-flow, which is missing"* ]]
+	printf '#!/bin/sh\n' > "$TEST_TMP/bin/wispr-flow"
+	chmod +x "$TEST_TMP/bin/wispr-flow"
+	PATH="$TEST_TMP/bin" run _doctor_check_autostart
+	[[ $output == *"[PASS] Open at login: on"* ]]
+}
+
+@test "_doctor_check_autostart: unescapes a TryExec= path (real file)" {
+	mkdir -p "$TEST_TMP/a\\b"
+	: > "$TEST_TMP/a\\b/w.AppImage"
+	chmod +x "$TEST_TMP/a\\b/w.AppImage"
+	_write_autostart "TryExec=$TEST_TMP/a\\\\b/w.AppImage"
+	run _doctor_check_autostart
+	[[ $output == *"[PASS] Open at login: on"* ]]
+	# near miss: the same file, not executable, is not a launcher
+	chmod -x "$TEST_TMP/a\\b/w.AppImage"
+	run _doctor_check_autostart
+	[[ $output == *"[WARN]"*"which is missing or not executable"* ]]
+}

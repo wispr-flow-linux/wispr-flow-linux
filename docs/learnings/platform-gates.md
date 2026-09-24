@@ -155,6 +155,7 @@ backup, `node --check`s the result, and is idempotent (re-run = byte-identical).
 | Status-pill drag-to-reposition can never complete (client-side absolute window positioning has no native-Wayland equivalent) and strands an input-blocking dimming overlay → force the drag-overlay activation flag false on Linux | [`linux-disable-pill-drag.sh`](../../scripts/patches/linux-disable-pill-drag.sh) | `WISPR_LINUX_DISABLE_PILL_DRAG` |
 | Fresh Linux profiles were **seeded** with macOS chords, so push-to-talk landed on keycode `-1` (no Linux key) — blank PTT in Settings, no way past the onboarding shortcuts step (#33, #46) → widen the win32 flag *inside the main bundle's shortcuts module only* | [`linux-main-shortcut-defaults.sh`](../../scripts/patches/linux-main-shortcut-defaults.sh) | `WISPR_LINUX_MAIN_SHORTCUT_DEFAULTS` |
 | The app data dir (database, meetings, backups, extension state) and the logs dir took the macOS arm, so Linux wrote `~/Library/Application Support/Wispr Flow` (#100) → a Linux arm under `$XDG_CONFIG_HOME/Wispr Flow`, the dir Windows also shares with Electron's `userData`; the launcher moves an existing legacy dir over | [`linux-xdg-data-dir.sh`](../../scripts/patches/linux-xdg-data-dir.sh) | `WISPR_LINUX_XDG_DATA_DIR` |
+| "Open at login" wrote nothing and `wasOpenedAtLogin` was always false, because Electron's login-item API is macOS/Windows only, so the Hub opened on every launch (#81) → replace `app.set/getLoginItemSettings` on Linux with an XDG autostart entry whose `Exec=` carries `--hidden` (no call-site anchors; the three callers are tripwires) | [`linux-autostart.sh`](../../scripts/patches/linux-autostart.sh) + [`linux-autostart.js`](../../scripts/patches/linux-autostart.js) | `WISPR_LINUX_AUTOSTART` |
 
 `linux-renderer-treat-as-windows.sh` is the high-leverage one: per renderer it
 widens the *one* place `isWindows` is bound into a module-local
@@ -235,6 +236,8 @@ Linux).
 autostart entry. A fresh 1.6.937 profile runs the new-user hook that sets it,
 and no `autostart/` directory appears. The `openAtLogin` pref defaults to true
 regardless, so it says nothing about how the app was started (#69, #82).
+`linux-autostart.sh` now backs both login-item methods with an XDG entry
+(#81).
 Second, the macOS `~/Library/...` path strings in the platform module are read
 at runtime. `WISPR_APP_SUPPORT_DIR` and `WISPR_LOG_DIR` are exports to child
 processes, set from `app.getPath()` after startup. They override nothing, and
