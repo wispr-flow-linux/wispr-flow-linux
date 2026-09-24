@@ -567,6 +567,15 @@ and AUR jobs skip it. The bump workflow never produces rc tags. A bad release
 that shipped is marked pre-release and followed by a new tag, never deleted
 ([`RELEASING.md`](../RELEASING.md)).
 
+**Amended 2026-09-24 (issue #103).** The bump workflow runs the bats suite
+and `tests/test-patch-stage.sh` over the newly pinned installer before it
+commits, and pushes the commit and the tag only on green. A red pre-check
+leaves `main` and the tags untouched and opens or bumps a `bump-failure`
+issue that the next green run closes. This is the same machine check the
+tag build would run, moved ahead of the push; it is not a human gate. The
+1.6.937 bump had landed red on `main` with no issue filed, and the workflow
+had failed nightly for a week before that without a signal.
+
 ### Rationale
 
 - **One maintainer.** A gate that waits on a person is a daily click with
