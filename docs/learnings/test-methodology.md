@@ -333,28 +333,45 @@ scripts/test-review.sh --calibrate tests/fixtures/test-review
 
 Two layers:
 
-- **Grep, exact.** A changed script no `tests/*.bats` file names is a FAIL;
-  one named only by `tests/*.sh` is a FAIL too, since PRs run only the bats
+- **Exact.** A changed script no `tests/*.bats` file names is a FAIL; one
+  named only by `tests/*.sh` is a FAIL too, since PRs run only the bats
   suite and the artifact and patch-stage tests run on tags or locally. A
   `scripts/patches/` change with no `linux-patches.bats` change is worth a
-  look.
+  look. A `!` that is not a changed test's last command is shellcheck's
+  SC2314/SC2315 at error level and a FAIL; as the last command it is a
+  shellcheck note and not reported.
 - **Jev, judged.** TypeSafe's Jev answers typed yes/no and choice questions
   with probabilities. Each changed `@test` (with its file's `setup()` and the
-  code it calls), each changed function (with the tests that name it, or the
-  bats files that run its script) and the PR description go in one call
-  each. The questions are mutation-check items 1-5 above plus the
-  test-integrity auditor checks: stubs that never drive the guard to fire, a
-  test restating a pinned constant, a test grepping the source instead of
-  running it, a syntax or marker check offered as behaviour, and host
-  dependence (reported as an environment note, not a failure). Item 6 needs
-  an execution and is not asked.
+  code it calls) is asked what one test can show: a side effect asserted
+  through `run`, a restated constant, a grep of the source, a syntax or
+  marker check, host dependence. Each changed function (with the tests that
+  name it, or the bats files that run its script) is asked what only the
+  whole suite shows: whether a test drives the changed branch, has a
+  near-miss fixture for an anchor, runs the real tool on one FAIL branch,
+  makes a stub fail, and whether the code can print `[PASS]` on data it
+  never validated. The PR description is asked whether it claims a
+  verification no committed test carries. Item 6 needs an execution and is
+  not asked.
 
-Questions, remediation text and which answer fires which check live in
-[`scripts/test-review-checks.json`](../../scripts/test-review-checks.json);
-thresholds are `TEST_REVIEW_*` variables. A check with an `applies` question
-fires only when it applies (≥ 0.5): under 0.3 compliance is FAIL, under 0.7
-is "worth a look". A missing or malformed answer, or an API error, makes the
-run INCOMPLETE (exit 2), never a PASS.
+Questions, remediation text, and each check's threshold and verdict live in
+[`scripts/test-review-checks.json`](../../scripts/test-review-checks.json).
+Only the side-effect-through-`run` and undriven-change checks are FAIL; the
+source-reading and restated-constant checks also flag deliberate structure
+tests (the launcher call order, the pin's format anchor), so they are
+"worth a look", and host dependence is an environment note. A missing or
+malformed answer, or an API error, makes the run INCOMPLETE (exit 2), never
+a PASS.
+
+The first calibration against jev-1.13.0 is why the checks sit where they
+do. Asked per test, "has a near-miss fixture", "runs the real tool" and
+"PASS only on parsed data" did not separate the bad case from the clean ones
+(the parsed-data answer came out inverted) and flagged about 500 findings
+across the known-good suite: a near miss usually lives in a sibling test,
+which a one-test unit cannot see. Those moved to the function level. The
+five per-test checks that kept FAIL or CHECK separated cleanly (source
+reading 0.96 on the bad case against 0.11 or less on the clean ones), and
+at their thresholds the full suite drops to a handful of findings, each an
+accurate description of a deliberate structure test.
 
 The key goes in the repository's Actions secrets as `TYPESAFE_API_KEY`.
 Without it (and on every fork or Dependabot PR, which GitHub denies secrets)
@@ -363,14 +380,15 @@ The workflow is plain `pull_request`, never `pull_request_target`, because it
 executes the PR's own copy of the script.
 
 **Calibrate before trusting it.** `tests/fixtures/test-review/` holds one
-known-bad case per check, built from the failures on this page, and two clean
-cases in the repo's honest style. `--calibrate` fails on any case whose fired
+known-bad case per check, built from the failures on this page, and clean
+counterparts in the repo's honest style; a case with a `level` file holding
+`function` is reviewed as one function's whole suite. `--calibrate` fails on any case whose fired
 checks differ from its `expect` file and prints Jev's raw answers for tuning.
 The workflow runs both whenever a PR changes the checker's script, questions
 or cases, and on demand from the Actions tab (`mode: calibrate` or `all`);
 rerun them after every Jev model change (the report names the model that
-answered). Keep it advisory until both come back clean. The PR code goes to TypeSafe's API, which is fine for this public
-repo.
+answered). Keep it advisory until both come back clean. The PR code goes to
+TypeSafe's API, which is fine for this public repo.
 
 ## Cross-references
 

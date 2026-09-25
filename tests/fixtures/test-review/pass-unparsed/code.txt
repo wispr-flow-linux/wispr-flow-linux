@@ -1,13 +1,5 @@
-_doctor_check_disk() {
-	local avail
-	avail=$(df --output=avail -BM "$HOME" | tail -1 | tr -d ' M')
-	if [[ -z $avail ]]; then
-		_warn 'could not read free space'
-		return
-	fi
-	if (( avail < 500 )); then
-		_fail "only ${avail}M free"
-		return
-	fi
-	_pass "free space: ${avail}M"
+_doctor_check_password_store() {
+	local conf="$1" store
+	store=$(sed -n 's/^password-store=//p' "$conf" 2>/dev/null)
+	_pass "Password store: $store"
 }

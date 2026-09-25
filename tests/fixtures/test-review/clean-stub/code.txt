@@ -1,0 +1,13 @@
+_doctor_check_sandbox() {
+	local path="$1" mode
+	mode=$(stat -c '%a' "$path" 2>/dev/null)
+	if [[ ! $mode =~ ^[0-7]+$ ]]; then
+		_warn "cannot read the mode of $path"
+		return
+	fi
+	if [[ $mode != 4755 ]]; then
+		_fail "chrome-sandbox mode is $mode, want 4755"
+		return
+	fi
+	_pass 'chrome-sandbox is setuid root'
+}

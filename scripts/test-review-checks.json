@@ -1,5 +1,5 @@
 {
-  "_comment": "Questions and checks for scripts/test-review.sh. Each level's `questions` object is sent to Jev verbatim; `checks` says how to turn the answers into findings. A noul check fires when `applies` (if any) is at least the applies threshold and `ok` falls under the fail/check thresholds; `invert` reads the `ok` question as a defect probability. A choice check fires when the chosen label is in `bad` at the given confidence. `bucket` env findings are environment notes, never FAIL. Sources: docs/learnings/test-methodology.md (the mutation check, items 1-5) and the adapted test-integrity auditor checks.",
+  "_comment": "Questions and checks for scripts/test-review.sh. Each level's `questions` object is sent to Jev verbatim; `checks` says how answers become findings. A noul check fires when its `applies` question (if any) is at least `applies_min` (default 0.5) and its `ok` answer, read as 1 - p when `invert` is set, is under `below`. A choice check fires when the chosen label is in `bad` at `confidence_min` or more. `verdict` is FAIL, CHECK (worth a look) or ENV (environment, never a failure). Thresholds come from calibration against tests/fixtures/test-review and the full suite with jev-1.13.0: a check keeps FAIL only where the bad case and the clean cases separate cleanly. Suite-level properties (a near-miss fixture exists, one FAIL branch hits the real tool, a stub drives the guard, PASS only on parsed data) are asked per changed function, where Jev sees every test for it, not per test. The negative-assertion trap is shellcheck SC2314/SC2315, checked exactly by the script.",
   "test": {
     "questions": {
       "side_effect_applies": {
@@ -9,42 +9,6 @@
       "side_effect_direct": {
         "type": "noul",
         "instructions": "Every assertion on such a counter or flag follows a direct call of the helper, not a bats `run` call, which would discard the mutation in a subshell."
-      },
-      "anchor_applies": {
-        "type": "noul",
-        "instructions": "The code under test matches its input with a grep, regex or string anchor."
-      },
-      "near_miss": {
-        "type": "noul",
-        "instructions": "The test's fixtures include input one character or one call shape away from the anchor that must NOT match, such as a decoy site, a dropped ^ or a missing suffix."
-      },
-      "stub_applies": {
-        "type": "noul",
-        "instructions": "The test replaces an external tool or a helper with a function stub or a PATH shim."
-      },
-      "real_tool": {
-        "type": "noul",
-        "instructions": "At least one failure-branch assertion runs the real external tool against a real fixture instead of the stub."
-      },
-      "stub_can_fail": {
-        "type": "noul",
-        "instructions": "The stubs can return failure shapes, and the test drives the guard under test to fire: a [FAIL] line, a patch restoring its backup, a tripwire mismatch, a rejected pin."
-      },
-      "pass_applies": {
-        "type": "noul",
-        "instructions": "The code under test can print a [PASS] line."
-      },
-      "pass_parsed": {
-        "type": "noul",
-        "instructions": "[PASS] can only print after the value was read and validated: not empty, numeric before arithmetic, and every file type handled."
-      },
-      "negative_applies": {
-        "type": "noul",
-        "instructions": "The test contains a negative assertion, such as `! grep` or an expected non-match."
-      },
-      "negative_reaches": {
-        "type": "noul",
-        "instructions": "Each negative assertion is the test's last command, or uses `run` followed by a `$status` check, so its failure reaches bats."
       },
       "restates_const": {
         "type": "noul",
@@ -75,55 +39,19 @@
         "title": "Side effect asserted through `run`",
         "applies": "side_effect_applies",
         "ok": "side_effect_direct",
+        "below": 0.3,
+        "verdict": "FAIL",
         "fix": "Call the helper directly (not via `run`) before asserting the counter, as doctor.bats does.",
         "doc": "run-helper-subshells-away-every-variable-mutation"
-      },
-      {
-        "id": "near-miss",
-        "title": "Anchor without a near-miss fixture",
-        "applies": "anchor_applies",
-        "ok": "near_miss",
-        "fix": "Add a fixture one character or one call shape from the anchor that must not match, and confirm loosening the anchor turns a test red.",
-        "doc": "anchor-tests-need-a-near-miss-fixture"
-      },
-      {
-        "id": "stub-only",
-        "title": "Stub mirrors the production call",
-        "applies": "stub_applies",
-        "ok": "real_tool",
-        "fix": "Run one FAIL-branch test against the real tool on a real fixture; keep the stub only for the un-fakeable case.",
-        "doc": "a-stub-that-mirrors-the-production-call-cant-catch-a-change-to-that-call"
-      },
-      {
-        "id": "stub-subject",
-        "title": "Stubs never drive the guard to fire",
-        "applies": "stub_applies",
-        "ok": "stub_can_fail",
-        "fix": "Give the stub a failure shape and assert the guard fires (the [FAIL], the restore, the mismatch, the rejection).",
-        "doc": "the-mutation-check"
-      },
-      {
-        "id": "pass-unparsed",
-        "title": "[PASS] on data never read",
-        "applies": "pass_applies",
-        "ok": "pass_parsed",
-        "fix": "Guard empty and non-numeric values and every file type before the PASS branch, and add a test feeding each bad shape.",
-        "doc": "pass-must-mean-read-and-verified-never-failed-to-read"
-      },
-      {
-        "id": "negative-noop",
-        "title": "Negative assertion never reaches bats",
-        "applies": "negative_applies",
-        "ok": "negative_reaches",
-        "fix": "Use `run grep ...` then `[[ $status -ne 0 ]]`, or make the negation the last command.",
-        "doc": "negative-assertions-that-dont-fail-sc2314"
       },
       {
         "id": "restates-constant",
         "title": "Test restates a pinned constant",
         "ok": "restates_const",
         "invert": true,
-        "fix": "Feed the check a wrong value (a moved count, a 63-char sha) and assert it is rejected, as installer-pin.bats does.",
+        "below": 0.15,
+        "verdict": "CHECK",
+        "fix": "If it guards behaviour, feed the check a wrong value (a moved count, a 63-char sha) and assert it is rejected, as installer-pin.bats does.",
         "doc": "review-heuristics"
       },
       {
@@ -131,7 +59,9 @@
         "title": "Test greps the source instead of running it",
         "ok": "reads_source",
         "invert": true,
-        "fix": "Run the script or patch on a fixture and assert its output, exit status and resulting files.",
+        "below": 0.2,
+        "verdict": "CHECK",
+        "fix": "Unless it pins deliberate structure, run the script or patch on a fixture and assert its output, exit status and resulting files.",
         "doc": "review-heuristics"
       },
       {
@@ -140,7 +70,9 @@
         "kind": "choice",
         "question": "level",
         "bad": ["syntax", "marker"],
-        "fix": "bash -n, shellcheck, node --check and patch markers are the floor. Add a test that runs the changed behaviour on a fixture.",
+        "confidence_min": 0.8,
+        "verdict": "CHECK",
+        "fix": "bash -n, shellcheck, node --check and patch markers are the floor. If the change is behavioural, add a test that runs it on a fixture.",
         "doc": "review-heuristics"
       },
       {
@@ -148,7 +80,8 @@
         "title": "Depends on the host",
         "ok": "host_dependent",
         "invert": true,
-        "bucket": "env",
+        "below": 0.1,
+        "verdict": "ENV",
         "fix": "Sandbox HOME and XDG_* in setup(), unset ambient variables, and shim network tools on PATH.",
         "doc": "host-state-isolation"
       }
@@ -159,6 +92,34 @@
       "drives_change": {
         "type": "noul",
         "instructions": "At least one of these tests runs the changed function (directly, or by running the script that defines it) through its changed branch and would see a different result if that branch were broken, rather than only calling it."
+      },
+      "anchor_applies": {
+        "type": "noul",
+        "instructions": "The function matches its input with a grep, regex or string anchor."
+      },
+      "near_miss_missing": {
+        "type": "noul",
+        "instructions": "None of these tests feeds the function an input one character or one call shape away from its anchor that must be rejected, such as a decoy site, a dropped ^ or a missing suffix."
+      },
+      "stub_applies": {
+        "type": "noul",
+        "instructions": "These tests replace an external tool the function calls with a function stub or a PATH shim."
+      },
+      "stub_only": {
+        "type": "noul",
+        "instructions": "No failure-branch test runs the real external tool on a real fixture; every failure these tests produce comes from a stub."
+      },
+      "stub_never_fails": {
+        "type": "noul",
+        "instructions": "No test makes a stub return a failure shape that drives the function's guard to fire; every stub returns the happy path."
+      },
+      "pass_applies": {
+        "type": "noul",
+        "instructions": "The function can print a [PASS] line."
+      },
+      "pass_unparsed": {
+        "type": "noul",
+        "instructions": "The function can reach its [PASS] line with a value it never validated: empty, non-numeric where arithmetic follows, or a file type it does not handle."
       }
     },
     "checks": [
@@ -166,8 +127,54 @@
         "id": "change-undriven",
         "title": "Changed branch not driven by any test",
         "ok": "drives_change",
+        "below": 0.3,
+        "verdict": "FAIL",
         "fix": "Add a test that takes the changed branch and asserts what it produces.",
         "doc": "the-mutation-check"
+      },
+      {
+        "id": "near-miss",
+        "title": "Anchor without a near-miss fixture",
+        "applies": "anchor_applies",
+        "ok": "near_miss_missing",
+        "invert": true,
+        "below": 0.3,
+        "verdict": "CHECK",
+        "fix": "Add a fixture one character or one call shape from the anchor that must not match, and confirm loosening the anchor turns a test red.",
+        "doc": "anchor-tests-need-a-near-miss-fixture"
+      },
+      {
+        "id": "stub-only",
+        "title": "Stub mirrors the production call",
+        "applies": "stub_applies",
+        "ok": "stub_only",
+        "invert": true,
+        "below": 0.3,
+        "verdict": "CHECK",
+        "fix": "Run one FAIL-branch test against the real tool on a real fixture; keep the stub only for the un-fakeable case.",
+        "doc": "a-stub-that-mirrors-the-production-call-cant-catch-a-change-to-that-call"
+      },
+      {
+        "id": "stub-subject",
+        "title": "Stubs never drive the guard to fire",
+        "applies": "stub_applies",
+        "ok": "stub_never_fails",
+        "invert": true,
+        "below": 0.3,
+        "verdict": "CHECK",
+        "fix": "Give the stub a failure shape and assert the guard fires (the [FAIL], the restore, the mismatch, the rejection).",
+        "doc": "the-mutation-check"
+      },
+      {
+        "id": "pass-unparsed",
+        "title": "[PASS] on data never read",
+        "applies": "pass_applies",
+        "ok": "pass_unparsed",
+        "invert": true,
+        "below": 0.3,
+        "verdict": "CHECK",
+        "fix": "Guard empty and non-numeric values and every file type before the PASS branch, and add a test feeding each bad shape.",
+        "doc": "pass-must-mean-read-and-verified-never-failed-to-read"
       }
     ]
   },
@@ -184,6 +191,8 @@
         "title": "Claimed verification not committed as a test",
         "ok": "claims_uncommitted",
         "invert": true,
+        "below": 0.3,
+        "verdict": "CHECK",
         "fix": "Codify the verification the description cites as a committed test.",
         "doc": "review-heuristics"
       }

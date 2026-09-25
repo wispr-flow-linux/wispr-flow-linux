@@ -3,23 +3,26 @@
 # test-review.sh -- advisory test-integrity review of a branch's diff: would
 # the tests fail if the change were broken?
 #
-# Two layers. Grep answers what it can exactly: a changed script or function
-# that no tests/*.bats file names, a script covered only by the tag-time or
-# local tests, a patch change with no fixture change. TypeSafe's Jev answers
-# the judgement calls, one call per changed @test, per changed function and
-# per PR description, with the yes/no and choice questions and the thresholds
-# in scripts/test-review-checks.json (the mutation-check items 1-5 from
-# docs/learnings/test-methodology.md plus the test-integrity auditor checks).
-# Item 6, "revert the fix, does a test fail?", needs an execution and is not
-# asked.
+# Two layers. Exact checks answer what they can: a changed script no
+# tests/*.bats file names, a script covered only by the tag-time or local
+# tests, a patch change with no fixture change, and shellcheck's SC2314/
+# SC2315 (a `!` assertion that cannot fail the test) in a changed test.
+# TypeSafe's Jev answers the judgement calls, one call per changed @test, per
+# changed function and per PR description, with the questions, thresholds
+# and verdicts in scripts/test-review-checks.json (the mutation-check items
+# from docs/learnings/test-methodology.md plus the test-integrity auditor
+# checks). Item 6, "revert the fix, does a test fail?", needs an execution
+# and is not asked.
 #
 # Usage:
 #   scripts/test-review.sh [--base <ref>]  review HEAD against its merge
 #                                           base with <ref> (origin/main)
 #   scripts/test-review.sh --all            review every @test in tests/
 #   scripts/test-review.sh --calibrate <dir>
-#     run each case under <dir> (test.bats, optional code.txt, expect listing
-#     the check ids that must fire) and fail on any mismatch
+#     run each case under <dir> (test.bats, optional code.txt, optional
+#     `level` holding "function" to review the tests as one function's
+#     suite, and expect listing the check ids that must fire) and fail on
+#     any mismatch
 #
 # Environment:
 #   TYPESAFE_API_KEY    Jev key; unset skips the Jev layer by name (the grep
@@ -27,8 +30,6 @@
 #   TYPESAFE_BASE_URL   default https://api.typesafe.ai
 #   TEST_REVIEW_MODEL   default jev-latest
 #   TEST_REVIEW_PR_BODY the PR description, for the claimed-verification check
-#   TEST_REVIEW_APPLIES / _FAIL / _CHECK / _CHOICE_FAIL / _CHOICE_CHECK
-#                       thresholds (0.5 / 0.3 / 0.7 / 0.8 / 0.5)
 #   TEST_REVIEW_RETRY_DELAY  first retry delay in seconds (2)
 #
 # Writes a Markdown report to stdout and $GITHUB_STEP_SUMMARY, and workflow
@@ -95,16 +96,7 @@ errors="$work/errors.txt"
 : > "$errors"
 model_used=''
 
-thresholds=$(jq -n \
-	--argjson applies "${TEST_REVIEW_APPLIES:-0.5}" \
-	--argjson fail "${TEST_REVIEW_FAIL:-0.3}" \
-	--argjson check "${TEST_REVIEW_CHECK:-0.7}" \
-	--argjson choice_fail "${TEST_REVIEW_CHOICE_FAIL:-0.8}" \
-	--argjson choice_check "${TEST_REVIEW_CHOICE_CHECK:-0.5}" \
-	'$ARGS.named') || {
-	echo 'ERROR: a TEST_REVIEW_* threshold is not a number' >&2
-	exit 2
-}
+sc_skipped=''
 
 #-------------------------------------------------------------------------------
 # Source structure
@@ -236,6 +228,40 @@ _test_units() {
 	done
 }
 
+# FAIL findings for shellcheck SC2314/SC2315 at error level (a `!` that is
+# not the test's last command, so bats never sees it fail) inside the @test
+# blocks given as start/end/kind/name on stdin. A `!` as the last command
+# is only a note (fragile, still effective) and is not reported.
+_sc_negative() {
+	local file="$1" blocks line hit
+	blocks=$(cat)
+	[[ -n $blocks ]] || return 0
+	if ! command -v shellcheck >/dev/null 2>&1; then
+		sc_skipped=1
+		return 0
+	fi
+	while IFS=: read -r _ line _; do
+		hit=$(awk -F '\t' -v l="$line" \
+			'$1 <= l && l <= $2 { print $4; exit }' <<< "$blocks")
+		[[ -n $hit ]] || continue
+		_finding FAIL negative-noop 'Negative assertion never reaches bats' \
+			"$file" "$line" "$hit" \
+			'Use `run grep ...` then `[[ $status -ne 0 ]]`, or make the negation the last command.' \
+			'negative-assertions-that-dont-fail-sc2314' \
+			'shellcheck SC2314/SC2315'
+	done < <(shellcheck -s bats -S error -i SC2314,SC2315 -f gcc "$file" \
+		2>/dev/null)
+}
+
+# The Jev units and the exact checks for the given @test blocks of one bats
+# file; $3 overrides the code under test (calibration).
+_review_bats() {
+	local file="$1" blocks="$2" code="${3:-}"
+	[[ -n $blocks ]] || return 0
+	_test_units "$file" "$code" <<< "$blocks"
+	_sc_negative "$file" <<< "$blocks"
+}
+
 # Grep-layer checks plus one function unit per changed function of a
 # changed shell source that some bats file names.
 _script_units() {
@@ -298,8 +324,8 @@ _collect_diff() {
 		case "$file" in
 			tests/fixtures/*) ;;
 			tests/*.bats)
-				_changed_lines "$file" | _touched_blocks "$file" test \
-					| _test_units "$file"
+				_review_bats "$file" "$(_changed_lines "$file" \
+					| _touched_blocks "$file" test)"
 				;;
 			scripts/*.sh|build.sh)
 				[[ $file == scripts/patches/*.sh ]] && patch_changed=1
@@ -366,31 +392,27 @@ _evaluate() {
 	fi
 	meta=$(jq -c '{file, line, name}' <<< "$unit")
 	jq -c --argjson checks "$(jq -c ".$level.checks" "$checks_file")" \
-		--argjson meta "$meta" --argjson t "$thresholds" '
+		--argjson meta "$meta" '
 		.answers as $a
 		| $checks[] as $c
 		| if ($c.kind // "noul") == "choice" then
 			$a[$c.question] as $x
-			| select($c.bad | index($x.choice))
-			| (if $x.confidence >= $t.choice_fail then "FAIL"
-			   elif $x.confidence >= $t.choice_check then "CHECK"
-			   else empty end) as $v
-			| {verdict: $v,
-			   detail: "\($c.question)=\($x.choice), confidence \($x.confidence)"}
+			| select(($c.bad | index($x.choice))
+			         and $x.confidence >= $c.confidence_min)
+			| {detail: "\($c.question)=\($x.choice), confidence \($x.confidence)"}
 		  else
 			(if $c.applies then $a[$c.applies].noul else 1 end) as $ap
-			| select($ap >= $t.applies)
+			| select($ap >= ($c.applies_min // 0.5))
 			| $a[$c.ok].noul as $raw
-			| (if $c.invert then 1 - $raw else $raw end) as $ok
-			| (if $ok < $t.fail then "FAIL"
-			   elif $ok < $t.check then "CHECK"
-			   else empty end) as $v
-			| {verdict: (if $c.bucket == "env" then "ENV" else $v end),
-			   detail: ((if $c.applies
+			# An inverted check compares p against 1 - below: 1 - p
+			# rounds (1 - 0.8 < 0.2 in floating point).
+			| select(if $c.invert then $raw > 1 - $c.below
+			         else $raw < $c.below end)
+			| {detail: ((if $c.applies
 			             then "\($c.applies) \($ap), " else "" end)
 			            + "\($c.ok) \($raw)")}
 		  end
-		| {verdict, id: $c.id, title: $c.title, fix: $c.fix,
+		| {verdict: $c.verdict, id: $c.id, title: $c.title, fix: $c.fix,
 		   doc: $c.doc, detail} + $meta' "$response" >> "$findings"
 }
 
@@ -486,6 +508,11 @@ _report() {
 			echo "SKIPPED the Jev layer for $jev_skipped unit(s):" \
 				'TYPESAFE_API_KEY is not set. Only the grep checks ran.'
 		fi
+		if [[ -n $sc_skipped ]]; then
+			echo
+			echo 'SKIPPED the SC2314 negative-assertion check:' \
+				'shellcheck is not installed.'
+		fi
 		_section FAIL 'FAIL'
 		_section CHECK 'Worth a look'
 		_section ENV 'Environment (not a test failure)'
@@ -513,8 +540,18 @@ _calibrate() {
 		file="$case_dir/test.bats"
 		code=''
 		[[ -f $case_dir/code.txt ]] && code="$case_dir/code.txt"
-		_blocks "$file" | awk -F '\t' '$3 == "test"' \
-			| _test_units "$file" "$code"
+		if [[ $(cat "$case_dir/level" 2>/dev/null) == function ]]; then
+			# The whole file is one function's suite.
+			jq -nc --arg file "$file" \
+				--arg body "$(head -c "$CAP_CODE" "${code:-/dev/null}")" \
+				--arg tests "$(head -c 20000 "$file")" \
+				'{level: "function", file: $file, line: 1, name: "suite",
+				  state: {file: $file, function_body: $body, diff: "",
+				          tests: $tests}}' >> "$units"
+			continue
+		fi
+		_review_bats "$file" \
+			"$(_blocks "$file" | awk -F '\t' '$3 == "test"')" "$code"
 	done
 	if [[ -z ${TYPESAFE_API_KEY:-} ]]; then
 		echo 'ERROR: calibration needs TYPESAFE_API_KEY' >&2
@@ -556,7 +593,7 @@ case "$mode" in
 		;;
 	all)
 		for f in tests/*.bats; do
-			_blocks "$f" | awk -F '\t' '$3 == "test"' | _test_units "$f"
+			_review_bats "$f" "$(_blocks "$f" | awk -F '\t' '$3 == "test"')"
 		done
 		_run_units
 		_report

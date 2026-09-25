@@ -163,16 +163,29 @@ _requests() {
 	[[ $output != *'untouched test'* ]]
 }
 
-@test "applies high and complies low is FAIL; complies middling is CHECK" {
-	echo '# touch' >> "$REPO/tests/tool.bats"
+@test "each check reports at its own verdict: FAIL and worth a look" {
 	sed -i 's/^\ttrue$/\ttrue # x/' "$REPO/tests/tool.bats"
 	_commit
 	FAKE_JEV_ANSWERS='{"side_effect_applies":{"type":"noul","noul":0.9},
-		"side_effect_direct":{"type":"noul","noul":0.1},
-		"anchor_applies":{"type":"noul","noul":0.9},
-		"near_miss":{"type":"noul","noul":0.5}}' _review
+		"side_effect_direct":{"type":"noul","noul":0.29},
+		"reads_source":{"type":"noul","noul":0.81}}' _review
 	[[ $status -eq 1 ]]
-	[[ $output == *'### FAIL'*'Side effect asserted through `run`'*'### Worth a look'*'Anchor without a near-miss fixture'* ]]
+	[[ $output == *'### FAIL'*'Side effect asserted through `run`'*'### Worth a look'*'Test greps the source instead of running it'* ]]
+}
+
+@test "a check's own threshold is a boundary: at it, nothing fires" {
+	sed -i 's/^\ttrue$/\ttrue # x/' "$REPO/tests/tool.bats"
+	_commit
+	# run-subshell fires under 0.3, reads-source over 0.8 (1 - p < 0.2),
+	# syntax-floor on a marker answer at confidence 0.8 or more.
+	FAKE_JEV_ANSWERS='{"side_effect_applies":{"type":"noul","noul":0.9},
+		"side_effect_direct":{"type":"noul","noul":0.3},
+		"reads_source":{"type":"noul","noul":0.8},
+		"level":{"type":"choice","choice":"marker","confidence":0.79}}' _review
+	[[ $status -eq 0 ]]
+	[[ $output != *'Side effect asserted'* ]]
+	[[ $output != *'greps the source'* ]]
+	[[ $output != *'Syntax or marker'* ]]
 }
 
 @test "a check that does not apply never fires, however low it complies" {
@@ -189,7 +202,9 @@ _requests() {
 	_commit
 	FAKE_JEV_ANSWERS='{"restates_const":{"type":"noul","noul":0.9},
 		"level":{"type":"choice","choice":"marker","confidence":0.85}}' _review
-	[[ $status -eq 1 ]]
+	# Both are worth a look, not FAIL: they flag deliberate structure tests.
+	[[ $status -eq 0 ]]
+	[[ $output == *'### Worth a look'* ]]
 	[[ $output == *'Test restates a pinned constant** (restates_const 0.9)'* ]]
 	[[ $output == *'Syntax or marker check offered as behaviour** (level=marker, confidence 0.85)'* ]]
 }
@@ -216,7 +231,7 @@ _requests() {
 @test "a missing answer is an error, not a pass" {
 	sed -i 's/^\ttrue$/\ttrue # x/' "$REPO/tests/tool.bats"
 	_commit
-	FAKE_JEV_ANSWERS='{"near_miss":null}' _review
+	FAKE_JEV_ANSWERS='{"side_effect_direct":null}' _review
 	[[ $status -eq 2 ]]
 	[[ $output == *'untouched test: answer missing or malformed'* ]]
 }
@@ -349,6 +364,61 @@ SHIM
 	[[ $output == *'[MISS] bad: want restates-constant got none'* ]]
 	run jq -r .state.code_under_test "$TEST_TMP/requests/1.json"
 	[[ $output == 'code' ]]
+}
+
+@test "a mid-test negation is a FAIL; one as the last command is not" {
+	cat >> "$REPO/tests/tool.bats" <<'SRC'
+AT_TEST "mid-test negation" {
+	! grep -q x /dev/null
+	true
+}
+AT_TEST "last-command negation" {
+	true
+	! grep -q x /dev/null
+}
+SRC
+	sed -i 's/^AT_TEST/@test/' "$REPO/tests/tool.bats"
+	_commit
+	_review
+	[[ $status -eq 1 ]]
+	[[ $output == *'`tests/tool.bats:13` `mid-test negation`: **Negative assertion never reaches bats**'* ]]
+	[[ $output != *'`last-command negation`: **Negative'* ]]
+}
+
+@test "a negation in an unchanged test is not reported on this diff" {
+	cat >> "$REPO/tests/tool.bats" <<'SRC'
+AT_TEST "old mid-test negation" {
+	! grep -q x /dev/null
+	true
+}
+SRC
+	sed -i 's/^AT_TEST/@test/' "$REPO/tests/tool.bats"
+	git -C "$REPO" -c user.name=t -c user.email=t@t commit -qam old
+	git -C "$REPO" branch -f main
+	# Only the first `true` (the untouched test), not the old negation's.
+	sed -i '0,/^\ttrue$/s//\ttrue # x/' "$REPO/tests/tool.bats"
+	_commit
+	_review
+	[[ $output != *'Negative assertion'* ]]
+}
+
+@test "calibrate: a function-level case is one unit with the whole suite" {
+	local c="$TEST_TMP/calib"
+	mkdir -p "$c/suite"
+	printf 'AT_TEST "a" {\n\ttrue\n}\nAT_TEST "b" {\n\tfalse\n}\n' \
+		| sed 's/^AT_TEST/@test/' > "$c/suite/test.bats"
+	echo 'fn() { :; }' > "$c/suite/code.txt"
+	echo function > "$c/suite/level"
+	echo near-miss > "$c/suite/expect"
+	FAKE_JEV_ANSWERS='{"anchor_applies":{"type":"noul","noul":0.9},
+		"near_miss_missing":{"type":"noul","noul":0.9}}' \
+		run "$REPO/scripts/test-review.sh" --calibrate "$c"
+	[[ $status -eq 0 ]]
+	[[ $output == *'[OK]   suite: near-miss'* ]]
+	[[ $(_requests) -eq 1 ]]
+	run jq -r '.state.function_body, .state.tests, (.questions | keys[])' \
+		"$TEST_TMP/requests/1.json"
+	[[ $output == *'fn() { :; }'*'@test "a"'*'@test "b"'*'drives_change'* ]]
 }
 
 @test "an unknown flag is a usage error" {
