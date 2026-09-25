@@ -3,9 +3,11 @@
 # test-review.bats -- scripts/test-review.sh over a scratch git repo with a
 # real git history, real jq and a `curl` PATH shim standing in for Jev. The
 # shim answers every question the request asks with a clean default (noul 0,
-# drives_change 1, level behaviour) and merges $FAKE_JEV_ANSWERS over it, so
-# each test moves exactly the answer it is about. It logs each request so
-# the tests can pin which units reached Jev and what state they carried.
+# reaches_change 1, level all behaviour), echoes the requested model, and
+# merges $FAKE_JEV_ANSWERS (or $TEST_TMP/answers.<n> for the n-th call) over
+# it, so each test moves exactly the answer it is about. It logs each
+# request so the tests can pin which units reached Jev and what state they
+# carried. One sample per unit unless a test asks for more.
 #
 
 SCRIPT_DIR="$(cd "$(dirname "${BATS_TEST_FILENAME}")" && pwd)"
@@ -21,25 +23,34 @@ setup() {
 
 	cat > "$TEST_TMP/bin/curl" <<'SHIM'
 #!/usr/bin/env bash
-out='' data=''
+out='' data='' hdr=''
 while (($# > 0)); do
 	case "$1" in
 		-o) out="$2"; shift 2 ;;
+		-D) hdr="$2"; shift 2 ;;
 		--data-binary) data="${2#@}"; shift 2 ;;
 		*) shift ;;
 	esac
 done
 n=$(find "$TEST_TMP/requests" -type f | wc -l)
-cp "$data" "$TEST_TMP/requests/$((n + 1)).json"
+n=$((n + 1))
+cp "$data" "$TEST_TMP/requests/$n.json"
 status="${FAKE_JEV_STATUS:-200}"
+[[ -f $TEST_TMP/status.$n ]] && status=$(cat "$TEST_TMP/status.$n")
+answers="${FAKE_JEV_ANSWERS:-{\}}"
+[[ -f $TEST_TMP/answers.$n ]] && answers=$(cat "$TEST_TMP/answers.$n")
+[[ -n $hdr && -f $TEST_TMP/headers.$n ]] && cp "$TEST_TMP/headers.$n" "$hdr"
 if [[ $status == 200 ]]; then
-	jq --argjson o "${FAKE_JEV_ANSWERS:-{\}}" '{
-		model: "jev-test",
+	jq --argjson o "$answers" --arg m "${FAKE_JEV_MODEL:-}" '{
+		model: (if $m == "" then .model else $m end),
 		answers: ((.questions | with_entries(.value = (
 			if .value.type == "choice"
-			then {type: "choice", choice: "behaviour", confidence: 0.9}
+			then {type: "choice", choice: "behaviour", confidence: 1,
+			      probabilities: (.value.criteria
+			        | with_entries(.value = (if .key == "behaviour"
+			                                 then 1 else 0 end)))}
 			else {type: "noul",
-			      noul: (if .key == "drives_change" then 1 else 0 end)}
+			      noul: (if .key == "reaches_change" then 1 else 0 end)}
 			end))) * $o),
 		usage: {input_tokens: 1, output_tokens: 0}}' "$data" > "$out"
 else
@@ -49,9 +60,11 @@ printf '%s' "$status"
 SHIM
 	chmod +x "$TEST_TMP/bin/curl"
 	export PATH="$TEST_TMP/bin:$PATH"
-	export TYPESAFE_API_KEY=test-key TEST_REVIEW_RETRY_DELAY=0
-	unset FAKE_JEV_ANSWERS FAKE_JEV_STATUS TEST_REVIEW_PR_BODY \
-		GITHUB_ACTIONS GITHUB_STEP_SUMMARY TYPESAFE_BASE_URL
+	export TYPESAFE_API_KEY=test-key TEST_REVIEW_RETRY_DELAY=0 \
+		TEST_REVIEW_SAMPLES=1
+	unset FAKE_JEV_ANSWERS FAKE_JEV_STATUS FAKE_JEV_MODEL \
+		TEST_REVIEW_PR_BODY TEST_REVIEW_MODEL GITHUB_ACTIONS \
+		GITHUB_STEP_SUMMARY TYPESAFE_BASE_URL
 
 	# Base: a script with two functions, a bats file that tests one of them
 	# and names _count_all (the near miss for _count).
@@ -136,16 +149,19 @@ _requests() {
 	[[ $(_requests) -eq 1 ]]
 	run jq -r '.state.function, .state.tests,
 		(.questions | keys | join(","))' "$TEST_TMP/requests/1.json"
-	[[ $output == *'_count_all'*'count all prints all'*'drives_change'* ]]
+	[[ $output == *'_count_all'*'count all prints all'*'reaches_change'* ]]
 	[[ $output != *'untouched test'* ]]
 }
 
-@test "Jev saying no test drives the change is a FAIL" {
+@test "Jev saying no test reaches the change is a FAIL" {
 	sed -i 's/echo all/echo every/' "$REPO/scripts/tool.sh"
 	_commit
-	FAKE_JEV_ANSWERS='{"drives_change":{"type":"noul","noul":0.1}}' _review
+	FAKE_JEV_ANSWERS='{"reaches_change":{"type":"noul","noul":0.1}}' _review
 	[[ $status -eq 1 ]]
-	[[ $output == *'**Changed branch not driven by any test** (drives_change 0.1)'* ]]
+	[[ $output == *'**Changed branch not driven by any test** (reaches_change 0.1; margin 0.4)'* ]]
+	run jq -r .model "$TEST_TMP/requests/1.json"
+	# The version the conditions were calibrated on, never an alias.
+	[[ $output == 'jev-1.13.0' ]]
 }
 
 @test "only the changed @test block is sent, with setup() and its code" {
@@ -166,47 +182,62 @@ _requests() {
 @test "each check reports at its own verdict: FAIL and worth a look" {
 	sed -i 's/^\ttrue$/\ttrue # x/' "$REPO/tests/tool.bats"
 	_commit
-	FAKE_JEV_ANSWERS='{"side_effect_applies":{"type":"noul","noul":0.9},
-		"side_effect_direct":{"type":"noul","noul":0.29},
+	FAKE_JEV_ANSWERS='{"asserts_mutated_var":{"type":"noul","noul":0.9},
+		"mutation_via_run":{"type":"noul","noul":0.85},
 		"reads_source":{"type":"noul","noul":0.81}}' _review
 	[[ $status -eq 1 ]]
 	[[ $output == *'### FAIL'*'Side effect asserted through `run`'*'### Worth a look'*'Test greps the source instead of running it'* ]]
 }
 
-@test "a check's own threshold is a boundary: at it, nothing fires" {
+@test "a margin under the band is Uncertain, never the check's verdict" {
 	sed -i 's/^\ttrue$/\ttrue # x/' "$REPO/tests/tool.bats"
 	_commit
-	# run-subshell fires under 0.3, reads-source over 0.8 (1 - p < 0.2),
-	# syntax-floor on a marker answer at confidence 0.8 or more.
-	FAKE_JEV_ANSWERS='{"side_effect_applies":{"type":"noul","noul":0.9},
-		"side_effect_direct":{"type":"noul","noul":0.3},
-		"reads_source":{"type":"noul","noul":0.8},
-		"level":{"type":"choice","choice":"marker","confidence":0.79}}' _review
+	# run-subshell holds by 0.29 (0.79 - 0.5), inside the 0.3 band: it
+	# would be a FAIL at 0.8. The choice sums syntax and marker to 0.6.
+	FAKE_JEV_ANSWERS='{"asserts_mutated_var":{"type":"noul","noul":0.9},
+		"mutation_via_run":{"type":"noul","noul":0.79},
+		"level":{"type":"choice","choice":"marker",
+			"probabilities":{"syntax":0.2,"marker":0.4,"behaviour":0.4,
+				"other":0}}}' _review
 	[[ $status -eq 0 ]]
-	[[ $output != *'Side effect asserted'* ]]
-	[[ $output != *'greps the source'* ]]
-	[[ $output != *'Syntax or marker'* ]]
+	[[ $output != *'### FAIL'* ]]
+	[[ $output != *'### Worth a look'* ]]
+	[[ $output == *'### Uncertain (Jev within 0.3 of the line; never a FAIL)'* ]]
+	[[ $output == *'Side effect asserted through `run`** (asserts_mutated_var 0.9, mutation_via_run 0.79; margin 0.29)'* ]]
+	[[ $output == *'Syntax or marker check offered as behaviour** (level=syntax|marker 0.6; margin 0.1)'* ]]
 }
 
-@test "a check that does not apply never fires, however low it complies" {
+@test "a clear answer on the clean side is not reported at all" {
 	sed -i 's/^\ttrue$/\ttrue # x/' "$REPO/tests/tool.bats"
 	_commit
-	FAKE_JEV_ANSWERS='{"side_effect_applies":{"type":"noul","noul":0.69},
-		"side_effect_direct":{"type":"noul","noul":0.0}}' _review
+	FAKE_JEV_ANSWERS='{"asserts_mutated_var":{"type":"noul","noul":0.9},
+		"mutation_via_run":{"type":"noul","noul":0.2}}' _review
 	[[ $status -eq 0 ]]
 	[[ $output != *'Side effect asserted'* ]]
 }
 
-@test "inverted checks and the choice check fire on the defect side" {
+@test "a check fires only when all its conditions hold" {
 	sed -i 's/^\ttrue$/\ttrue # x/' "$REPO/tests/tool.bats"
 	_commit
-	FAKE_JEV_ANSWERS='{"restates_const":{"type":"noul","noul":0.9},
-		"level":{"type":"choice","choice":"marker","confidence":0.85}}' _review
+	FAKE_JEV_ANSWERS='{"asserts_mutated_var":{"type":"noul","noul":0.1},
+		"mutation_via_run":{"type":"noul","noul":1.0}}' _review
+	[[ $status -eq 0 ]]
+	[[ $output != *'Side effect asserted'* ]]
+}
+
+@test "a max condition and the choice check fire on the defect side" {
+	sed -i 's/^\ttrue$/\ttrue # x/' "$REPO/tests/tool.bats"
+	_commit
+	FAKE_JEV_ANSWERS='{"compares_literal":{"type":"noul","noul":0.9},
+		"feeds_wrong_value":{"type":"noul","noul":0.1},
+		"level":{"type":"choice","choice":"marker",
+			"probabilities":{"syntax":0.05,"marker":0.85,"behaviour":0.1,
+				"other":0}}}' _review
 	# Both are worth a look, not FAIL: they flag deliberate structure tests.
 	[[ $status -eq 0 ]]
 	[[ $output == *'### Worth a look'* ]]
-	[[ $output == *'Test restates a pinned constant** (restates_const 0.9)'* ]]
-	[[ $output == *'Syntax or marker check offered as behaviour** (level=marker, confidence 0.85)'* ]]
+	[[ $output == *'Test restates a pinned constant** (compares_literal 0.9, feeds_wrong_value 0.1; margin 0.4)'* ]]
+	[[ $output == *'Syntax or marker check offered as behaviour** (level=syntax|marker 0.9; margin 0.4)'* ]]
 }
 
 @test "a host-dependent test lands under Environment, not FAIL" {
@@ -231,7 +262,7 @@ _requests() {
 @test "a missing answer is an error, not a pass" {
 	sed -i 's/^\ttrue$/\ttrue # x/' "$REPO/tests/tool.bats"
 	_commit
-	FAKE_JEV_ANSWERS='{"side_effect_direct":null}' _review
+	FAKE_JEV_ANSWERS='{"mutation_via_run":null}' _review
 	[[ $status -eq 2 ]]
 	[[ $output == *'untouched test: answer missing or malformed'* ]]
 }
@@ -306,15 +337,28 @@ SHIM
 }
 
 @test "the PR description is asked about only when given" {
+	echo notes > "$REPO/NOTES.md"
+	git -C "$REPO" add -A
+	_commit
+	_review
+	[[ $(_requests) -eq 0 ]]
+	TEST_REVIEW_PR_BODY='Ran shellcheck by hand.' \
+		FAKE_JEV_ANSWERS='{"claims_verification":{"type":"noul","noul":0.9}}' \
+		_review
+	[[ $(_requests) -eq 1 ]]
+	[[ $output == *'`PR description`: **Claimed verification not committed as a test** (claims_verification 0.9; margin 0.4)'* ]]
+	run jq -r .state.description "$TEST_TMP/requests/1.json"
+	[[ $output == 'Ran shellcheck by hand.' ]]
+}
+
+@test "a claimed verification with a changed bats file is not flagged" {
 	sed -i 's/^\ttrue$/\ttrue # x/' "$REPO/tests/tool.bats"
 	_commit
 	TEST_REVIEW_PR_BODY='Ran shellcheck by hand.' \
-		FAKE_JEV_ANSWERS='{"claims_uncommitted":{"type":"noul","noul":0.8}}' \
+		FAKE_JEV_ANSWERS='{"claims_verification":{"type":"noul","noul":0.99}}' \
 		_review
 	[[ $(_requests) -eq 2 ]]
-	[[ $output == *'`PR description`: **Claimed verification not committed as a test**'* ]]
-	run jq -r .state.description "$TEST_TMP/requests/2.json"
-	[[ $output == 'Ran shellcheck by hand.' ]]
+	[[ $output != *'Claimed verification'* ]]
 }
 
 @test "under Actions: annotations and the step summary are written" {
@@ -354,7 +398,7 @@ SHIM
 	echo '' > "$c/clean/expect"
 	# Both cases get the same answers: the bad case's expectation holds and
 	# the clean case's does not.
-	FAKE_JEV_ANSWERS='{"restates_const":{"type":"noul","noul":0.9}}' \
+	FAKE_JEV_ANSWERS='{"compares_literal":{"type":"noul","noul":0.9}}' \
 		run "$REPO/scripts/test-review.sh" --calibrate "$c"
 	[[ $status -eq 1 ]]
 	[[ $output == *'[OK]   bad: restates-constant'* ]]
@@ -407,23 +451,139 @@ SRC
 	mkdir -p "$c/suite"
 	printf 'AT_TEST "a" {\n\ttrue\n}\nAT_TEST "b" {\n\tfalse\n}\n' \
 		| sed 's/^AT_TEST/@test/' > "$c/suite/test.bats"
-	echo 'fn() { :; }' > "$c/suite/code.txt"
+	printf 'fn() {\n\t:\n}\n' > "$c/suite/code.txt"
+	printf '+\t:\n' > "$c/suite/diff.txt"
 	echo function > "$c/suite/level"
 	echo near-miss > "$c/suite/expect"
-	FAKE_JEV_ANSWERS='{"anchor_applies":{"type":"noul","noul":0.9},
-		"near_miss_missing":{"type":"noul","noul":0.9}}' \
+	FAKE_JEV_ANSWERS='{"matches_anchor":{"type":"noul","noul":0.9},
+		"near_miss_tested":{"type":"noul","noul":0.1}}' \
 		run "$REPO/scripts/test-review.sh" --calibrate "$c"
 	[[ $status -eq 0 ]]
 	[[ $output == *'[OK]   suite: near-miss'* ]]
-	# The raw answers print for a passing case too.
-	[[ $output == *'"near_miss_missing":0.9'* ]]
+	# The answers print for a passing case too.
+	[[ $output == *'"near_miss_tested":"0.1"'* ]]
 	[[ $(_requests) -eq 1 ]]
-	run jq -r '.state.function_body, .state.tests, (.questions | keys[])' \
-		"$TEST_TMP/requests/1.json"
-	[[ $output == *'fn() { :; }'*'@test "a"'*'@test "b"'*'drives_change'* ]]
+	run jq -r '.state.function, .state.function_body, .state.diff,
+		.state.tests, (.questions | keys[])' "$TEST_TMP/requests/1.json"
+	[[ ${lines[0]} == fn ]]
+	[[ $output == *'fn() {'*'+'*'@test "a"'*'@test "b"'*'reaches_change'* ]]
+}
+
+@test "calibrate: the right answer inside the band is THIN, not OK" {
+	local c="$TEST_TMP/calib"
+	mkdir -p "$c/bad"
+	printf 'AT_TEST "t" {\n\ttrue\n}\n' | sed 's/^AT_TEST/@test/' \
+		> "$c/bad/test.bats"
+	echo 'reads-source' > "$c/bad/expect"
+	# Fires (0.75 > 0.5) but clears the line by 0.25, under the 0.3 band.
+	FAKE_JEV_ANSWERS='{"reads_source":{"type":"noul","noul":0.75}}' \
+		run "$REPO/scripts/test-review.sh" --calibrate "$c"
+	[[ $status -eq 1 ]]
+	[[ $output == *'[THIN] bad: reads-source, but inside the band: reads-source 0.25..0.25'* ]]
+	FAKE_JEV_ANSWERS='{"reads_source":{"type":"noul","noul":0.8}}' \
+		run "$REPO/scripts/test-review.sh" --calibrate "$c"
+	[[ $status -eq 0 ]]
+	[[ $output == *'[OK]   bad: reads-source'* ]]
+}
+
+@test "calibrate: one drifting sample fails the case, though the mean is clear" {
+	local c="$TEST_TMP/calib"
+	mkdir -p "$c/clean"
+	printf 'AT_TEST "t" {\n\ttrue\n}\n' | sed 's/^AT_TEST/@test/' \
+		> "$c/clean/test.bats"
+	: > "$c/clean/expect"
+	# Samples 0, 0, 0.3: mean 0.1 clears the band, the third sample
+	# (margin -0.2) does not.
+	echo '{"reads_source":{"type":"noul","noul":0.3}}' > "$TEST_TMP/answers.3"
+	TEST_REVIEW_SAMPLES=3 run "$REPO/scripts/test-review.sh" --calibrate "$c"
+	[[ $status -eq 1 ]]
+	[[ $(_requests) -eq 3 ]]
+	[[ $output == *'[THIN] clean: none, but inside the band: reads-source -0.5..-0.2'* ]]
+	[[ $output == *'"reads_source":"0.1 (0-0.3)"'* ]]
+}
+
+@test "the review averages its samples before judging" {
+	sed -i 's/^\ttrue$/\ttrue # x/' "$REPO/tests/tool.bats"
+	_commit
+	# 0.9, 0.9, 0.0: mean 0.6 is inside the band, so Uncertain.
+	echo '{"reads_source":{"type":"noul","noul":0.9}}' \
+		| tee "$TEST_TMP/answers.1" > "$TEST_TMP/answers.2"
+	TEST_REVIEW_SAMPLES=3 _review
+	[[ $status -eq 0 ]]
+	[[ $(_requests) -eq 3 ]]
+	[[ $output == *'with `jev-1.13.0`, 3 sample(s) each'* ]]
+	[[ $output == *'### Uncertain'*'greps the source instead of running it** (reads_source 0.6; margin 0.1)'* ]]
+	[[ $output != *'### Worth a look'* ]]
+}
+
+@test "an answer from another model than asked is an error, not a pass" {
+	sed -i 's/^\ttrue$/\ttrue # x/' "$REPO/tests/tool.bats"
+	_commit
+	FAKE_JEV_MODEL=jev-1.14.0 _review
+	[[ $status -eq 2 ]]
+	[[ $output == *'untouched test: answered by jev-1.14.0, asked for jev-1.13.0'* ]]
+}
+
+@test "a model override is asked for and the report says it is uncalibrated" {
+	sed -i 's/^\ttrue$/\ttrue # x/' "$REPO/tests/tool.bats"
+	_commit
+	TEST_REVIEW_MODEL=jev-preview _review
+	[[ $status -eq 0 ]]
+	[[ $output == *'calibrated on `jev-1.13.0`, not `jev-preview`'* ]]
+	run jq -r .model "$TEST_TMP/requests/1.json"
+	[[ $output == 'jev-preview' ]]
+}
+
+@test "a 529 is retried after the server's Retry-After, not the backoff" {
+	sed -i 's/^\ttrue$/\ttrue # x/' "$REPO/tests/tool.bats"
+	_commit
+	echo 529 > "$TEST_TMP/status.1"
+	printf 'HTTP/2 529\r\nretry-after: 0\r\n\r\n' > "$TEST_TMP/headers.1"
+	# A backoff this long would outlast the test; Retry-After 0 must win.
+	SECONDS=0
+	TEST_REVIEW_RETRY_DELAY=120 _review
+	[[ $status -eq 0 ]]
+	[[ $(_requests) -eq 2 ]]
+	((SECONDS < 60))
+}
+
+@test "a field condition is exact: no [PASS] line, no pass-unparsed" {
+	sed -i 's/echo all/echo every/' "$REPO/scripts/tool.sh"
+	_commit
+	FAKE_JEV_ANSWERS='{"pass_on_unchecked":{"type":"noul","noul":0.99}}' \
+		_review
+	[[ $status -eq 0 ]]
+	[[ $output != *'[PASS] on data never read'* ]]
+	sed -i 's/echo every/_pass "all: $x"/' "$REPO/scripts/tool.sh"
+	_commit
+	FAKE_JEV_ANSWERS='{"pass_on_unchecked":{"type":"noul","noul":0.99}}' \
+		_review
+	[[ $output == *'[PASS] on data never read** (pass_on_unchecked 0.99; margin 0.49)'* ]]
+}
+
+@test "--all sweeps the functions tests name, where no change can be undriven" {
+	FAKE_JEV_ANSWERS='{"reaches_change":{"type":"noul","noul":0}}' \
+		run "$REPO/scripts/test-review.sh" --all
+	[[ $status -eq 0 ]]
+	# Two @test units plus _count_all, the one function a test names.
+	[[ $(_requests) -eq 3 ]]
+	run jq -r 'select(.state.function) | .state.function, .state.diff' \
+		"$TEST_TMP"/requests/*.json
+	[[ $output == '_count_all' ]]
 }
 
 @test "an unknown flag is a usage error" {
 	_review --bogus
 	[[ $status -eq 2 ]]
+}
+
+@test "a check that cannot be evaluated is an error, not a pass" {
+	jq '.test.checks[0].when[0] = {"field": "test_body", "regex": "("}' \
+		"$REPO/scripts/test-review-checks.json" > "$TEST_TMP/checks.json"
+	cp "$TEST_TMP/checks.json" "$REPO/scripts/test-review-checks.json"
+	sed -i 's/^\ttrue$/\ttrue # x/' "$REPO/tests/tool.bats"
+	_commit
+	_review
+	[[ $status -eq 2 ]]
+	[[ $output == *'untouched test: checks could not be evaluated'* ]]
 }

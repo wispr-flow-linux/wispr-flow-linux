@@ -1,0 +1,9 @@
+@@ -1,7 +1,7 @@
+ _doctor_check_uinput_perms() {
+ 	local mode
+ 	mode=$(stat -c '%a' /dev/uinput 2>/dev/null)
+-	if [[ $mode == 666 ]]; then
++	if [[ $mode == 660 || $mode == 666 ]]; then
+ 		echo '[PASS] /dev/uinput is writable by the input group'
+ 	else
+ 		_fail "/dev/uinput mode is $mode"

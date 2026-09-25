@@ -6,7 +6,9 @@ run-name: |
   }}
 
 # Advisory test-integrity review of a PR's diff (scripts/test-review.sh):
-# grep checks plus TypeSafe Jev judgements on each changed test and function.
+# grep checks plus TypeSafe Jev judgements on each changed test and function,
+# each asked three times and averaged, against the Jev version pinned in
+# scripts/test-review-checks.json.
 # Standalone rather than a job in ci.yml so a third-party API outage can
 # never hold the release chain, and continue-on-error so it never blocks a
 # merge. Do not make it a required check until the thresholds are calibrated.
@@ -39,7 +41,7 @@ jobs:
     name: Test integrity review (advisory)
     runs-on: ubuntu-latest
     continue-on-error: true
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -61,7 +63,9 @@ jobs:
 
       # A PR that changes the checker's script, questions or calibration
       # cases re-proves them: the cases must fire exactly their expected
-      # checks, and the current suite is reported whole for false positives.
+      # checks, clear of the band in every sample, and the current suite
+      # (every test and every function a test names) is reported whole for
+      # false positives.
       - name: Check whether the checker changed
         id: checker
         env:
