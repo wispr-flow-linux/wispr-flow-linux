@@ -1,0 +1,2 @@
+# scripts/patches/mac-gates.sh (excerpt)
+perl -0pi -e 's/(if\(![\w$]+\.app\.isInApplicationsFolder\(\)\))/if(process.platform==="darwin"&&!$2)/' "$bundle"

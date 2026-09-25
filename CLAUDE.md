@@ -100,7 +100,8 @@ This repo's tree:
   style guides.
 - `nix/`, `flake.nix` — Nix packaging.
 - `.github/workflows/` — CI gates (`shellcheck`, `codespell`, `test-flags`,
-  `tests`) that run on every push/PR, plus the **tag-driven release/publish
+  `tests`) that run on every push/PR, the advisory `test-review` PR check,
+  plus the **tag-driven release/publish
   pipeline** (`ci.yml` build→test→release→APT→DNF→AUR, reusable
   `build-amd64`/`build-arm64`/`test-artifacts`, `check-wispr-version`,
   `apt-repo-heartbeat`, `cleanup-runs`, `update-flake-lock`). The publish chain

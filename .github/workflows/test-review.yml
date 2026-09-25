@@ -1,0 +1,57 @@
+name: Test Review
+run-name: |
+  Test Review: ${{
+    github.event_name == 'pull_request' && format('PR #{0} by @{1} - {2}', github.event.pull_request.number, github.actor, github.event.pull_request.title) ||
+    format('{0} triggered by @{1}', github.event_name, github.actor)
+  }}
+
+# Advisory test-integrity review of a PR's diff (scripts/test-review.sh):
+# grep checks plus TypeSafe Jev judgements on each changed test and function.
+# Standalone rather than a job in ci.yml so a third-party API outage can
+# never hold the release chain, and continue-on-error so it never blocks a
+# merge. Do not make it a required check until the thresholds are calibrated.
+#
+# Plain pull_request, never pull_request_target: the job runs the PR's own
+# script, so it must not see the key on a fork PR. GitHub withholds secrets
+# from fork and Dependabot PRs; the script then runs its grep checks and
+# names the skipped Jev layer.
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch: # Reviews every test in tests/ (--all).
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-review-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Test integrity review (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          # The review diffs HEAD against its merge base with the target.
+          fetch-depth: 0
+
+      - name: Review tests
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          # Through env, never interpolated into the script: the body is
+          # PR-author text.
+          TEST_REVIEW_PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [[ $GITHUB_EVENT_NAME == pull_request ]]; then
+            scripts/test-review.sh --base "origin/$BASE_REF"
+          else
+            scripts/test-review.sh --all
+          fi

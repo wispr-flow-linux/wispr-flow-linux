@@ -1,0 +1,2 @@
+# scripts/patches/linux-autostart.sh rewrites the login-item setter so it
+# writes ~/.config/autostart/wispr-flow.desktop with Exec=... --hidden.
