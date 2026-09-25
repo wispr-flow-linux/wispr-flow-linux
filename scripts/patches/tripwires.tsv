@@ -37,6 +37,7 @@ linux-xdg-data-dir	main	F	1	the macOS logs dir join	"Library","Logs","Wispr Flow
 linux-autostart	main	F	1	the Hub launch decision's opened-at-login read	getLoginItemSettings().wasOpenedAtLogin
 linux-autostart	main	P	1	the Settings open-at-login toggle	setLoginItemSettings\(\{openAtLogin:[\w$]+\}\)
 linux-autostart	main	F	1	the new-user open-at-login default	setLoginItemSettings({openAtLogin:!0})
+linux-status-window-visibility	main	F	1	the monitorMove interval's destroyed-callback log line	ignoring monitorMove interval
 linux-renderer-chrome	renderer/hub	F	2	the platform class added to <html>	classList.add(window.electron.platform.os)
 linux-renderer-treat-as-windows	renderer/*	F	1+	the per-renderer isWindows bind	platform?.isWindows??!1
 upstream	main	F	4	upstream's own Linux platform reads (a new one means a re-audit)	"linux"===process.platform

@@ -14,6 +14,9 @@
 #   * linux-main-shortcut-defaults.sh   -> Linux seeds the Windows chord map in main
 #   * linux-xdg-data-dir.sh             -> app data and logs dirs under XDG_CONFIG_HOME
 #   * linux-autostart.sh                -> login items backed by an XDG autostart entry
+#   * linux-status-window-visibility.sh -> re-asserts always-on-top on the
+#                                           Status window's monitorMove interval,
+#                                           ahead of its systemState early-out
 #   * helper-resolver.sh                 -> prepends a Linux case to the helper-path
 #                                           ternary (inline and exported shapes)
 #
@@ -1016,4 +1019,75 @@ _as_node() {
 	run node -e 'Object.defineProperty(process,"platform",{value:"darwin"});const app=require(process.env.FIX);app.setLoginItemSettings({openAtLogin:true});console.log(JSON.stringify(app.getLoginItemSettings()))'
 	[[ "$output" == '{"openAtLogin":false,"wasOpenedAtLogin":false,"launchItems":["stock"]}' ]]
 	[[ ! -e $ENTRY ]]
+}
+
+# =============================================================================
+# linux-status-window-visibility.sh
+# =============================================================================
+
+@test "status-window-visibility: watchdog sits AHEAD of the systemState early-out" {
+	cat > "$FIX" <<'JS'
+ke=async()=>{if("active"!==u.RA.systemState)return;const e=performance.now();if(u.RA.statusWindow&&!u.RA.statusWindow.isDestroyed())try{if(X.isLocked())return void o().warn("Monitor move mutex is locked, skipping monitorMove interval");await X.acquire()}finally{}else o().info("Window is destroyed, ignoring monitorMove interval")};
+JS
+	run bash "$PATCH_DIR/linux-status-window-visibility.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -q 'WISPR_LINUX_STATUS_VIS_WATCHDOG' "$FIX"
+	grep -qF 'ke=async()=>{/*WISPR_LINUX_STATUS_VIS_WATCHDOG*/{const w=u.RA.statusWindow;w&&!w.isDestroyed()&&!w.isAlwaysOnTop()&&w.setAlwaysOnTop(!0,"screen-saver");}if("active"!==u.RA.systemState)return;' "$FIX"
+	# the watchdog block's closing brace must come BEFORE the systemState
+	# check, not after -- it must run every tick regardless of dictation/idle
+	# state, which is exactly the gap the earlier (rejected) position missed.
+	watchdog_end=$(grep -bo 'screen-saver");}' "$FIX" | head -1 | cut -d: -f1)
+	earlyout_start=$(grep -bo 'if("active"!==u.RA.systemState)' "$FIX" | head -1 | cut -d: -f1)
+	[[ "$watchdog_end" -lt "$earlyout_start" ]]
+	node_check "$FIX"
+}
+
+@test "status-window-visibility: matches a different quote delimiter around active" {
+	cat > "$FIX" <<'JS'
+ke=async()=>{if('active'!==u.RA.systemState)return;const e=performance.now();if(u.RA.statusWindow&&!u.RA.statusWindow.isDestroyed())try{}finally{}else o().info("Window is destroyed, ignoring monitorMove interval")};
+JS
+	run bash "$PATCH_DIR/linux-status-window-visibility.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF "ke=async()=>{/*WISPR_LINUX_STATUS_VIS_WATCHDOG*/{const w=u.RA.statusWindow;w&&!w.isDestroyed()&&!w.isAlwaysOnTop()&&w.setAlwaysOnTop(!0,\"screen-saver\");}if('active'!==u.RA.systemState)return;" "$FIX"
+	node_check "$FIX"
+}
+
+@test "status-window-visibility: matches with different identifiers (re-minify churn)" {
+	cat > "$FIX" <<'JS'
+zz=async()=>{if("active"!==nn.qq.systemState)return;const p=performance.now();if(nn.qq.statusWindow&&!nn.qq.statusWindow.isDestroyed())try{}finally{}else vv().info("Window is destroyed, ignoring monitorMove interval")};
+JS
+	run bash "$PATCH_DIR/linux-status-window-visibility.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'zz=async()=>{/*WISPR_LINUX_STATUS_VIS_WATCHDOG*/{const w=nn.qq.statusWindow;w&&!w.isDestroyed()&&!w.isAlwaysOnTop()&&w.setAlwaysOnTop(!0,"screen-saver");}if("active"!==nn.qq.systemState)return;' "$FIX"
+	node_check "$FIX"
+}
+
+@test "status-window-visibility: idempotent on second run" {
+	cat > "$FIX" <<'JS'
+ke=async()=>{if("active"!==u.RA.systemState)return;const e=performance.now();if(u.RA.statusWindow&&!u.RA.statusWindow.isDestroyed())try{}finally{}else o().info("Window is destroyed, ignoring monitorMove interval")};
+JS
+	bash "$PATCH_DIR/linux-status-window-visibility.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-status-window-visibility.sh" "$FIX"
+}
+
+@test "status-window-visibility: bails non-zero when the interval callback is absent" {
+	cat > "$FIX" <<'JS'
+ke=async()=>{if("active"!==u.RA.systemState)return;doSomethingElse()};
+JS
+	run bash "$PATCH_DIR/linux-status-window-visibility.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_STATUS_VIS_WATCHDOG' "$FIX"
+}
+
+@test "status-window-visibility: bails when the developer string is too far from the callback" {
+	# Near miss: the callback shape matches, but "ignoring monitorMove interval"
+	# is a different, unrelated callback more than 1500 chars away.
+	cat > "$FIX" <<'JS'
+ke=async()=>{if("active"!==u.RA.systemState)return;const e=performance.now();if(u.RA.statusWindow&&!u.RA.statusWindow.isDestroyed())try{}finally{}};
+JS
+	printf '%s' "$(printf 'x%.0s' {1..1600})" >> "$FIX"
+	printf 'o().info("Window is destroyed, ignoring monitorMove interval");' >> "$FIX"
+	run bash "$PATCH_DIR/linux-status-window-visibility.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_STATUS_VIS_WATCHDOG' "$FIX"
 }

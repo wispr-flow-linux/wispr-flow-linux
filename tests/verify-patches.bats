@@ -43,6 +43,7 @@ declare -gA MARKER_SAMPLES=(
 	[shortcutdefaults]='(r.H8||"linux"===process.platform)/*WISPR_LINUX_MAIN_SHORTCUT_DEFAULTS*/?pe:ce'
 	[autostart]='/*WISPR_LINUX_AUTOSTART*/;(function(){if(process.platform!=="linux")return;})();'
 	[xdgdatadir]='f=u?o().join(process.env.APPDATA||"","Wispr Flow"):("linux"===process.platform/*WISPR_LINUX_XDG_DATA_DIR*/?o().join(process.env.XDG_CONFIG_HOME||o().join(i().homedir(),".config"),"Wispr Flow"):o().join(i().homedir(),"Library","Application Support","Wispr Flow"))'
+	[statuswindowvis]='ke=async()=>{/*WISPR_LINUX_STATUS_VIS_WATCHDOG*/{const w=u.RA.statusWindow;w&&!w.isDestroyed()&&!w.isAlwaysOnTop()&&w.setAlwaysOnTop(!0,"screen-saver");}if("active"!==u.RA.systemState)return;const e=performance.now();if(u.RA.statusWindow&&!u.RA.statusWindow.isDestroyed())try{}}'
 )
 
 # Write a fixture app.asar-like file containing every marker, except the one
