@@ -598,3 +598,26 @@ SRC
 	[[ $status -eq 0 ]]
 	[[ $output == *'[OK]   neg: negative-noop'* ]]
 }
+
+@test "a bats helper the test calls rides along; setup and unused ones do not" {
+	cat >> "$REPO/tests/tool.bats" <<'SRC'
+_sandbox_home() {
+	export HOME="$TEST_TMP/home"
+}
+_unused_helper() {
+	echo nope
+}
+AT_TEST "uses a helper" {
+	_sandbox_home
+	true
+}
+SRC
+	sed -i 's/^AT_TEST/@test/' "$REPO/tests/tool.bats"
+	_commit
+	_review
+	[[ $(_requests) -eq 1 ]]
+	run jq -r .state.helpers "$TEST_TMP/requests/1.json"
+	[[ $output == *'_sandbox_home() {'*'HOME="$TEST_TMP/home"'* ]]
+	[[ $output != *'_unused_helper'* ]]
+	[[ $output != *'source scripts/tool.sh'* ]]
+}

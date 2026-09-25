@@ -236,10 +236,23 @@ _finding() {
 		'$ARGS.named + {exact: true}' >> "$findings"
 }
 
+# The bodies of the functions defined in bats file $1 (setup and teardown
+# aside) that the test body $2 calls, so a helper that sandboxes HOME or
+# wraps a `run` is visible with the test.
+_helpers_for_test() {
+	local bats="$1" body="$2" s e k n out=''
+	while IFS=$'\t' read -r s e k n; do
+		[[ $k == func && $n != setup && $n != teardown ]] || continue
+		grep -qw -- "$n" <<< "$body" || continue
+		out+=$(_slice "$bats" "$s" "$e" 2000)$'\n'
+	done < <(_blocks "$bats")
+	printf '%s' "${out:0:CAP_SETUP}"
+}
+
 # One Jev unit per @test block in $1 given as start/end/name on stdin.
 _test_units() {
 	local bats="$1" code_override="${2:-}" start end kind name body setup code
-	local setup_range
+	local setup_range helpers
 	setup_range=$(_blocks "$bats" | awk -F '\t' '$4 == "setup"' | head -1)
 	setup=''
 	if [[ -n $setup_range ]]; then
@@ -248,6 +261,7 @@ _test_units() {
 	fi
 	while IFS=$'\t' read -r start end kind name; do
 		body=$(_slice "$bats" "$start" "$end" "$CAP_BODY")
+		helpers=$(_helpers_for_test "$bats" "$body")
 		if [[ -n $code_override ]]; then
 			code=$(head -c "$CAP_CODE" "$code_override")
 		else
@@ -255,9 +269,11 @@ _test_units() {
 		fi
 		jq -nc --arg file "$bats" --argjson line "$start" --arg name "$name" \
 			--arg body "$body" --arg setup "$setup" --arg code "$code" \
+			--arg helpers "$helpers" \
 			'{level: "test", file: $file, line: $line, name: $name,
 			  state: {test_file: $file, test_name: $name, test_body: $body,
-			          setup: $setup, code_under_test: $code}}' >> "$units"
+			          setup: $setup, helpers: $helpers,
+			          code_under_test: $code}}' >> "$units"
 	done
 }
 

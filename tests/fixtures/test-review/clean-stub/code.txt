@@ -1,7 +1,7 @@
 _doctor_check_sandbox() {
 	local path="$1" mode
 	mode=$(stat -c '%a' "$path" 2>/dev/null)
-	if [[ ! $mode =~ ^[0-7]+$ ]]; then
+	if [[ -z $mode ]]; then
 		_warn "cannot read the mode of $path"
 		return
 	fi

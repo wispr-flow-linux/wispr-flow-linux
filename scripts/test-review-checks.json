@@ -6,7 +6,7 @@
     "questions": {
       "mutation_via_run": {
         "type": "noul",
-        "instructions": "Does `test_body` expect a shell variable to hold a change made by a function it called through bats `run`?",
+        "instructions": "Does `test_body` expect a shell variable to hold a change made by a function it called through bats `run`? Functions in `helpers` are part of the test.",
         "criteria": {
           "true": "`run _check_audio` then `[[ $_launch_errors -eq 1 ]]`, with no direct call of `_check_audio` in between: `run` executes in a subshell, so the change is lost.",
           "false": "A direct call such as `_check_audio >/dev/null` comes after the last `run _check_audio` and before the assertion; or the test checks only `$output`, `$status`, `$lines` or files, which survive `run`."
@@ -62,10 +62,10 @@
       },
       "reads_real_home": {
         "type": "noul",
-        "instructions": "Does `test_body` read or write the real HOME, XDG_* or _DOCTOR_* locations, because `setup` does not point them at a temporary directory?",
+        "instructions": "Does `test_body` read or write the real HOME, XDG_* or _DOCTOR_* locations, because neither `setup` nor a function in `helpers` points them at a temporary directory?",
         "criteria": {
-          "true": "It asserts on `$HOME/.config/app` and `setup` never sets HOME.",
-          "false": "`setup` exports HOME or XDG_CONFIG_HOME under a temporary directory, or the test never touches them. Needing tools the CI image installs, such as shellcheck, node or rsync, is not this."
+          "true": "It asserts on `$HOME/.config/app` and nothing in `setup` or `helpers` sets HOME.",
+          "false": "`setup` or a helper exports HOME or XDG_CONFIG_HOME under a temporary directory, or the test never touches them. Needing tools the CI image installs, such as shellcheck, node or rsync, is not this."
         }
       },
       "level": {
@@ -183,18 +183,18 @@
       },
       "matches_anchor": {
         "type": "noul",
-        "instructions": "Does `function_body` test or extract its input with a pattern: a grep, a regex, a `case` glob, a `sed` address or substitution, or an exact string or number comparison?",
+        "instructions": "Does `function_body` test or extract its input with a pattern: a grep, a regex, a `case` glob or a `sed` address or substitution?",
         "criteria": {
-          "true": "`grep -q '^Exec='`, `[[ $sum =~ ^[0-9a-f]{40}$ ]]`, `sed -n 's/^Name=//p'`, `[[ $perm != 644 ]]`.",
-          "false": "It only runs a command and passes on its exit status or output."
+          "true": "`grep -q '^Exec='`, `[[ $sum =~ ^[0-9a-f]{40}$ ]]`, `sed -n 's/^Name=//p'`, `case $f in *.desktop)`.",
+          "false": "It compares whole values for equality, such as `[[ $perm == 644 ]]` or `[[ -z $v ]]`, or only runs a command and passes on its exit status or output."
         }
       },
       "near_miss_tested": {
         "type": "noul",
         "instructions": "Does a test in `tests` pass `function` an input one small edit away from what its pattern accepts, and assert that it is rejected?",
         "criteria": {
-          "true": "One changed character or digit, or a missing or extra prefix or suffix: for `^Exec=`, `#Exec=` or `TryExec=`; for a 40-hex sum, a 39-character one; for `!= 644`, mode 640.",
-          "false": "Every input either clearly matches or is unrelated to the pattern, such as an empty file or a correct value."
+          "true": "One changed character, or a missing or extra prefix or suffix: for `^Exec=`, a line `#Exec=` or `TryExec=`; for a 40-hex sum, a 39-character one.",
+          "false": "Every input either clearly matches or has nothing in common with the pattern, such as a line naming a different program, an empty file or a correct value."
         }
       },
       "stubs_tool": {

@@ -379,7 +379,14 @@ calibration rounds:
   wording rather than recall of the fixture.
 - **Questions point at state fields in backticks** (`` `test_body` ``,
   `` `diff` ``), and the state holds only the functions a test names, not
-  the whole branch diff: accuracy falls as unrelated text grows.
+  the whole branch diff: accuracy falls as unrelated text grows. It does
+  hold the bats-file helpers a test calls (`` `helpers` ``): a test that
+  sandboxes HOME through `_as_setup` read as host-dependent until Jev could
+  see `_as_setup`.
+- **An anchor is a pattern** (grep, regex, `case`, `sed`), not an equality
+  test. Asked whether `[[ $mode != 4755 ]]` fed 0755 counts as a near miss,
+  Jev sat at 0.49 to 0.70 across rounds, and the doctrine is about anchors
+  a loosened pattern would silently widen.
 - **Code over Jev wherever the property is exact.** "The function prints
   `[PASS]` with a variable in it", "it has a failure branch", "the diff is
   non-empty" and "the PR changed a bats file" are regexes over the state,
