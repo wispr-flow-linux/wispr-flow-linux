@@ -21,6 +21,14 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   skip the entry once the app is uninstalled, and a moved AppImage repairs
   it on its next start. `--doctor` reports the entry. Builds on
   @crafteraadarsh's shim in #69 and @vascode2's diagnosis in #81.
+- An advisory "Test Review" check on pull requests
+  (`scripts/test-review.sh`, `.github/workflows/test-review.yml`). It asks
+  whether a PR's tests would fail if its change were broken: grep catches a
+  changed script no bats test names and coverage that only runs on tags,
+  and TypeSafe's Jev model judges each changed test and function against the
+  mutation-check items in `docs/learnings/test-methodology.md`. It never
+  blocks a merge, and without a `TYPESAFE_API_KEY` secret only the grep
+  checks run.
 
 ### Fixed
 

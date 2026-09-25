@@ -1,0 +1,12 @@
+_doctor_check_apparmor() {
+	local loaded="$1"
+	if [[ ! -r $loaded ]]; then
+		echo '[WARN] cannot read the loaded AppArmor profiles'
+		return
+	fi
+	if grep -q '^wispr-flow-unofficial ' "$loaded"; then
+		echo '[PASS] AppArmor profile loaded'
+	else
+		echo '[WARN] AppArmor profile not loaded'
+	fi
+}

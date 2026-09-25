@@ -1,0 +1,8 @@
+_doctor_check_config() {
+	local cfg="${XDG_CONFIG_HOME:-$HOME/.config}/Wispr Flow"
+	if [[ -d $cfg ]]; then
+		_pass "config dir: $cfg"
+	else
+		_warn "no config dir at $cfg"
+	fi
+}

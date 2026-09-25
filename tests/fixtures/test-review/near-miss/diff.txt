@@ -1,0 +1,7 @@
+@@ -3,5 +3,7 @@ _doctor_check_apparmor() {
+ 	if grep -q '^wispr-flow-unofficial ' "$loaded"; then
+ 		echo '[PASS] AppArmor profile loaded'
++	else
++		echo '[WARN] AppArmor profile not loaded'
+ 	fi
+ }
