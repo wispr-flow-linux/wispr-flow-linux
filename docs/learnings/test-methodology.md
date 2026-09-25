@@ -410,7 +410,18 @@ The second fixed the two vacuously true wordings above. The third passed all
 and a clean case at 0.71: inside run-to-run drift (up to about 0.05 on one
 case; TypeSafe's own consistency cookbook shows one answer spanning 0.43 to
 0.53 over 15 calls). The rewrite above replaced those per-check thresholds
-with the band, which `--calibrate` now enforces.
+with the band, which `--calibrate` now enforces. Its third round (run
+36094035366) passed all 15 cases with every sample of every check at least
+0.3 from its line, and swept the 302 tests and 45 named functions with no
+FAIL, 14 worth a look (deliberate structure tests, and functions whose
+anchors no test feeds a near miss) and 25 Uncertain. The three samples of a
+question agreed within 0.08 throughout, so the rounds were spent on
+wording, not on drift.
+
+A known gap: a script its tests run whole (this checker is one) is judged
+against the first 10,000 characters of each bats file that names it, so a
+long suite can read as not reaching a change. On this checker's own diff
+that put `reaches_change` at 0.24 to 0.31, Uncertain rather than FAIL.
 
 The key goes in the repository's Actions secrets as `TYPESAFE_API_KEY`.
 Without it (and on every fork or Dependabot PR, which GitHub denies secrets)
