@@ -370,7 +370,10 @@ calibration rounds:
   that P(q) + P(not q) is not 1, so a negated question is a different
   question, not the same one flipped. Compound properties are split and
   combined in code: stub-only is "a test stubs a tool" and "a test takes a
-  failure branch" and not "a failure-branch test uses the real tool".
+  failure branch" and not "a failure-branch test uses the real tool", and
+  host dependence is any of four single facts (a real network call, a real
+  device, root, the real HOME). The single "depends on the host" question
+  put 165 of the suite's tests between 0.2 and 0.8.
 - **`criteria` carries the boundary cases**, with examples that are not the
   calibration fixtures' values, so a passing calibration measures the
   wording rather than recall of the fixture.
@@ -378,15 +381,17 @@ calibration rounds:
   `` `diff` ``), and the state holds only the functions a test names, not
   the whole branch diff: accuracy falls as unrelated text grows.
 - **Code over Jev wherever the property is exact.** "The function prints
-  `[PASS]`", "it has a failure branch", "the diff is non-empty" and "the PR
-  changed a bats file" are regexes over the state, not questions.
+  `[PASS]` with a variable in it", "it has a failure branch", "the diff is
+  non-empty" and "the PR changed a bats file" are regexes over the state,
+  not questions.
 
 Each unit is asked three times and the answers averaged. A check's margin
 is how far its answers clear its conditions (0.5 lines throughout); it must
 clear the checks file's band of 0.3 to report its verdict, so a FAIL needs
-both of its answers at 0.8 or more. Inside the band on either side it is
-listed as Uncertain and never fails the run: act, confirm, ignore, the three
-bands TypeSafe recommends for thresholds.
+its answer at 0.8 or more. A check that fires with a smaller margin is
+listed as Uncertain and never fails the run, and one below its line is not
+listed: act, confirm, ignore, the three bands TypeSafe recommends for
+thresholds. Calibration holds both sides to the band.
 
 The first calibration against jev-1.13.0 moved the suite-level checks to
 the function level. Asked per test, "has a near-miss fixture", "runs the

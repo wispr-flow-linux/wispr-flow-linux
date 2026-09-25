@@ -233,7 +233,7 @@ _finding() {
 	jq -nc --arg verdict "$1" --arg id "$2" --arg title "$3" \
 		--arg file "$4" --argjson line "$5" --arg name "$6" \
 		--arg fix "$7" --arg doc "$8" --arg detail "$9" \
-		'$ARGS.named' >> "$findings"
+		'$ARGS.named + {exact: true}' >> "$findings"
 }
 
 # One Jev unit per @test block in $1 given as start/end/name on stdin.
@@ -468,15 +468,17 @@ _mean() {
 # Each check's margin on one set of normalized answers: the smallest amount
 # by which its conditions hold (negative when one fails). It fires above 0.
 # A noul condition holds by p - min or max - p, a choice condition by the
-# summed probability of its labels - min, and a field condition (an exact
-# regex over the unit's state) by 1 or -1.
+# summed probability of its labels - min, an `any` condition by its best
+# member, and a field condition (an exact regex over the unit's state) by 1
+# or -1.
 readonly MARGIN_JQ='
 	def r: . * 10000 | round / 10000;
 	def two: . * 100 | round / 100;
 	def labels_p($a): [.labels[] as $l | $a[.q][$l] // 0] | add;
 	def held($a; $st):
 		. as $c
-		| if .field then
+		| if .any then [.any[] | held($a; $st)] | max
+		elif .field then
 			((($st[$c.field] // "") | test($c.regex)) as $m
 			 | if ($c.absent // false) then ($m | not) else $m end)
 			| if . then 1 else -1 end
@@ -484,7 +486,8 @@ readonly MARGIN_JQ='
 		elif .min != null then $a[.q] - .min
 		else .max - $a[.q] end;
 	def shown($a):
-		if .field then empty
+		if .any then .any[] | shown($a)
+		elif .field then empty
 		elif .labels then "\(.q)=\(.labels | join("|")) \(labels_p($a) | two)"
 		else "\(.q) \($a[.q] | two)" end;
 	. as $a
@@ -494,8 +497,9 @@ readonly MARGIN_JQ='
 	   detail: ([.when[] | shown($a)] | join(", "))}'
 
 # Findings for one unit from its mean answers ($2) and the checks of its
-# level. A check fires above margin 0; under the band either way it is
-# Uncertain. Fails when a margin cannot be computed.
+# level. A check fires above margin 0, and reports its verdict only at the
+# band or above; between the two it is Uncertain. Fails when a margin cannot
+# be computed.
 _evaluate() {
 	local unit="$1" mean="$2" level="$3" checks margins
 	checks=$(jq -c ".$level.checks" "$checks_file")
@@ -507,7 +511,7 @@ _evaluate() {
 		. as $m
 		| ($checks[] | select(.id == $m.id)) as $c
 		| if $m.margin >= $band then $c.verdict
-		  elif $m.margin > -$band then "UNSURE"
+		  elif $m.margin > 0 then "UNSURE"
 		  else empty end
 		| {verdict: ., id: $c.id, title: $c.title, fix: $c.fix,
 		   doc: $c.doc, detail: "\($m.detail); margin \($m.margin)"}
@@ -710,13 +714,17 @@ _calibrate() {
 					"$MARGIN_JQ" <<< "$s"
 			done
 		done < "$work/case.jsonl" >> "$work/margins.jsonl"
-		status=$(jq -rs --arg want "$want" --argjson band "$band" '
+		# The exact checks (shellcheck) fire or not with no margin.
+		exact=$(jq -sc --arg f "$file" \
+			'map(select(.file == $f and .exact) | .id)' "$findings")
+		status=$(jq -rs --arg want "$want" --argjson band "$band" \
+			--argjson exact "$exact" '
 			($want | split(" ") | map(select(. != ""))) as $w
 			| group_by(.id)
 			| map({id: .[0].id, lo: (map(.margin) | min),
 			       hi: (map(.margin) | max),
 			       fired: (map(.margin) | max > 0)})
-			| (map(select(.fired)) | map(.id) | sort) as $got
+			| (map(select(.fired)) | map(.id) + $exact | unique) as $got
 			| {got: $got,
 			   miss: ($got != ($w | sort)),
 			   thin: [.[] | select(if (.id | IN($w[])) then .lo < $band

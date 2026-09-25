@@ -182,8 +182,7 @@ _requests() {
 @test "each check reports at its own verdict: FAIL and worth a look" {
 	sed -i 's/^\ttrue$/\ttrue # x/' "$REPO/tests/tool.bats"
 	_commit
-	FAKE_JEV_ANSWERS='{"asserts_mutated_var":{"type":"noul","noul":0.9},
-		"mutation_via_run":{"type":"noul","noul":0.85},
+	FAKE_JEV_ANSWERS='{"mutation_via_run":{"type":"noul","noul":0.85},
 		"reads_source":{"type":"noul","noul":0.81}}' _review
 	[[ $status -eq 1 ]]
 	[[ $output == *'### FAIL'*'Side effect asserted through `run`'*'### Worth a look'*'Test greps the source instead of running it'* ]]
@@ -194,8 +193,7 @@ _requests() {
 	_commit
 	# run-subshell holds by 0.29 (0.79 - 0.5), inside the 0.3 band: it
 	# would be a FAIL at 0.8. The choice sums syntax and marker to 0.6.
-	FAKE_JEV_ANSWERS='{"asserts_mutated_var":{"type":"noul","noul":0.9},
-		"mutation_via_run":{"type":"noul","noul":0.79},
+	FAKE_JEV_ANSWERS='{"mutation_via_run":{"type":"noul","noul":0.79},
 		"level":{"type":"choice","choice":"marker",
 			"probabilities":{"syntax":0.2,"marker":0.4,"behaviour":0.4,
 				"other":0}}}' _review
@@ -203,15 +201,16 @@ _requests() {
 	[[ $output != *'### FAIL'* ]]
 	[[ $output != *'### Worth a look'* ]]
 	[[ $output == *'### Uncertain (Jev within 0.3 of the line; never a FAIL)'* ]]
-	[[ $output == *'Side effect asserted through `run`** (asserts_mutated_var 0.9, mutation_via_run 0.79; margin 0.29)'* ]]
+	[[ $output == *'Side effect asserted through `run`** (mutation_via_run 0.79; margin 0.29)'* ]]
 	[[ $output == *'Syntax or marker check offered as behaviour** (level=syntax|marker 0.6; margin 0.1)'* ]]
 }
 
-@test "a clear answer on the clean side is not reported at all" {
+@test "an answer on the clean side of the line is not reported, however near" {
 	sed -i 's/^\ttrue$/\ttrue # x/' "$REPO/tests/tool.bats"
 	_commit
-	FAKE_JEV_ANSWERS='{"asserts_mutated_var":{"type":"noul","noul":0.9},
-		"mutation_via_run":{"type":"noul","noul":0.2}}' _review
+	# Margin 0: at the line, not over it. Calibration holds the clean
+	# side to the band; the review only lists what fires.
+	FAKE_JEV_ANSWERS='{"mutation_via_run":{"type":"noul","noul":0.5}}' _review
 	[[ $status -eq 0 ]]
 	[[ $output != *'Side effect asserted'* ]]
 }
@@ -219,10 +218,10 @@ _requests() {
 @test "a check fires only when all its conditions hold" {
 	sed -i 's/^\ttrue$/\ttrue # x/' "$REPO/tests/tool.bats"
 	_commit
-	FAKE_JEV_ANSWERS='{"asserts_mutated_var":{"type":"noul","noul":0.1},
-		"mutation_via_run":{"type":"noul","noul":1.0}}' _review
+	FAKE_JEV_ANSWERS='{"compares_literal":{"type":"noul","noul":1.0},
+		"feeds_wrong_value":{"type":"noul","noul":0.9}}' _review
 	[[ $status -eq 0 ]]
-	[[ $output != *'Side effect asserted'* ]]
+	[[ $output != *'restates a pinned constant'* ]]
 }
 
 @test "a max condition and the choice check fire on the defect side" {
@@ -243,9 +242,10 @@ _requests() {
 @test "a host-dependent test lands under Environment, not FAIL" {
 	sed -i 's/^\ttrue$/\ttrue # x/' "$REPO/tests/tool.bats"
 	_commit
-	FAKE_JEV_ANSWERS='{"host_dependent":{"type":"noul","noul":0.95}}' _review
+	# Any one of the four host questions is enough.
+	FAKE_JEV_ANSWERS='{"needs_root":{"type":"noul","noul":0.95}}' _review
 	[[ $status -eq 0 ]]
-	[[ $output == *'### Environment (not a test failure)'*'Depends on the host'* ]]
+	[[ $output == *'### Environment (not a test failure)'*'Depends on the host** (needs_network 0, needs_device 0, needs_root 0.95, reads_real_home 0; margin 0.45)'* ]]
 	[[ $output != *'### FAIL'* ]]
 }
 
@@ -586,4 +586,15 @@ SRC
 	_review
 	[[ $status -eq 2 ]]
 	[[ $output == *'untouched test: checks could not be evaluated'* ]]
+}
+
+@test "calibrate: an exact check counts toward the case with no margin" {
+	local c="$TEST_TMP/calib"
+	mkdir -p "$c/neg"
+	printf 'AT_TEST "t" {\n\t! grep -q x /dev/null\n\ttrue\n}\n' \
+		| sed 's/^AT_TEST/@test/' > "$c/neg/test.bats"
+	echo negative-noop > "$c/neg/expect"
+	run "$REPO/scripts/test-review.sh" --calibrate "$c"
+	[[ $status -eq 0 ]]
+	[[ $output == *'[OK]   neg: negative-noop'* ]]
 }

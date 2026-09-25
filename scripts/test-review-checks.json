@@ -1,31 +1,23 @@
 {
-  "_comment": "Questions and checks for scripts/test-review.sh. Each level's `questions` object is sent to Jev verbatim. Every question is one positive judgement a reviewer makes in a second: yes means the thing named is present, never a negation, and each points at a state field in backticks. Criteria examples are deliberately not the calibration fixtures' values, so calibration measures the wording and not recall. A check fires when all its `when` conditions hold: {q, min} holds when the answer is above min, {q, max} when below max, {q, labels, min} when those choice labels' summed probability is above min, and {field, regex[, absent]} is an exact regex over the unit's state (code over Jev wherever the property is checkable). The check's margin is the smallest amount by which its conditions hold; it must clear `band` to report its verdict, and inside the band either way it is reported as Uncertain, never FAIL. `--calibrate` fails any case whose margins sit inside the band in any sample. `model` is the Jev version the conditions were calibrated on; the review asks that version, not an alias.",
+  "_comment": "Questions and checks for scripts/test-review.sh. Each level's `questions` object is sent to Jev verbatim. Every question is one positive judgement a reviewer makes in a second: yes means the thing named is present, never a negation, and each points at a state field in backticks. Criteria examples are deliberately not the calibration fixtures' values, so calibration measures the wording and not recall. A check fires when all its `when` conditions hold: {q, min} holds when the answer is above min, {q, max} when below max, {q, labels, min} when those choice labels' summed probability is above min, and {any: [conditions]} holds when one of them does, and {field, regex[, absent]} is an exact regex over the unit's state (code over Jev wherever the property is checkable). The check's margin is the smallest amount by which its conditions hold; it must clear `band` to report its verdict, and a check that fires inside the band is reported as Uncertain, never FAIL. `--calibrate` fails any case whose margins sit inside the band in any sample. `model` is the Jev version the conditions were calibrated on; the review asks that version, not an alias.",
   "model": "jev-1.13.0",
   "band": 0.3,
   "test": {
     "questions": {
-      "asserts_mutated_var": {
-        "type": "noul",
-        "instructions": "Does `test_body` assert on the value of a shell variable, such as a counter or a flag, that a function in `code_under_test` changes?",
-        "criteria": {
-          "true": "`[[ $_launch_errors -eq 2 ]]` where `_note_error` in `code_under_test` increments `_launch_errors`.",
-          "false": "The assertions read only `$output`, `$status`, `$lines` or files, or a variable the test set itself that nothing in `code_under_test` changes."
-        }
-      },
       "mutation_via_run": {
         "type": "noul",
-        "instructions": "Is the most recent call before `test_body` asserts on a variable that `code_under_test` changes a bats `run` call of the function that changes it?",
+        "instructions": "Does `test_body` expect a shell variable to hold a change made by a function it called through bats `run`?",
         "criteria": {
-          "true": "`run _check_audio` directly followed by `[[ $_launch_errors -eq 1 ]]`: `run` executes in a subshell, so the change never reaches the test.",
-          "false": "`_check_audio >/dev/null` directly before the assertion, even when an earlier line ran `run _check_audio` for its output; or `run` wraps only a function that reads the variable; or the test asserts on no such variable."
+          "true": "`run _check_audio` then `[[ $_launch_errors -eq 1 ]]`, with no direct call of `_check_audio` in between: `run` executes in a subshell, so the change is lost.",
+          "false": "A direct call such as `_check_audio >/dev/null` comes after the last `run _check_audio` and before the assertion; or the test checks only `$output`, `$status`, `$lines` or files, which survive `run`."
         }
       },
       "compares_literal": {
         "type": "noul",
-        "instructions": "Does `test_body` read a value out of a repository file and assert that it equals a fixed literal, such as a count, a sha256, a version or a regex?",
+        "instructions": "Does `test_body` assert that a value in a repository file is exactly a literal copied from that file, such as a pinned count, sha256, version or regex?",
         "criteria": {
-          "true": "`awk` pulls the expected size from `sizes.tsv` and the test asserts `[[ $output == 3 ]]`; or it greps a pin file and asserts the version is `2.1.0`.",
-          "false": "The test runs code on an input and asserts on what the code produces, or compares two values the code computed."
+          "true": "`awk` pulls the expected size from `sizes.tsv` and the test asserts `[[ $output == 3 ]]`, the same 3 the file holds.",
+          "false": "A presence check such as a count of at least 1; or an assertion on output the code produced from an input."
         }
       },
       "feeds_wrong_value": {
@@ -44,6 +36,38 @@
           "false": "The test runs the script or patch, on a fixture or a copied bundle, and asserts on its output, exit status or the files it writes; grepping those results counts as running it."
         }
       },
+      "needs_network": {
+        "type": "noul",
+        "instructions": "Does `test_body` or `setup` make a real network request, such as a `curl`, `wget` or `gh` call that no shim replaces?",
+        "criteria": {
+          "true": "`run fetch_installer` with the real `curl` on PATH and a real URL.",
+          "false": "Network tools are replaced by a PATH shim or a function, or the test makes no request."
+        }
+      },
+      "needs_device": {
+        "type": "noul",
+        "instructions": "Does `test_body` need a real device or display, such as /dev/input, /dev/uinput, a sound card, DISPLAY or WAYLAND_DISPLAY?",
+        "criteria": {
+          "true": "It opens /dev/uinput, or asserts on a window the running X server shows.",
+          "false": "It sets or unsets DISPLAY and WAYLAND_DISPLAY itself, or points device paths at files it created."
+        }
+      },
+      "needs_root": {
+        "type": "noul",
+        "instructions": "Does `test_body` or `setup` need root or sudo?",
+        "criteria": {
+          "true": "It runs `sudo`, `chown root`, or writes under /etc or /usr.",
+          "false": "Everything it writes is under a temporary directory it owns."
+        }
+      },
+      "reads_real_home": {
+        "type": "noul",
+        "instructions": "Does `test_body` read or write the real HOME, XDG_* or _DOCTOR_* locations, because `setup` does not point them at a temporary directory?",
+        "criteria": {
+          "true": "It asserts on `$HOME/.config/app` and `setup` never sets HOME.",
+          "false": "`setup` exports HOME or XDG_CONFIG_HOME under a temporary directory, or the test never touches them. Needing tools the CI image installs, such as shellcheck, node or rsync, is not this."
+        }
+      },
       "level": {
         "type": "choice",
         "instructions": "What is the strongest thing `test_body` verifies?",
@@ -53,14 +77,6 @@
           "behaviour": "It runs the code and asserts on its output, exit status or the files it leaves.",
           "other": "Something else."
         }
-      },
-      "host_dependent": {
-        "type": "noul",
-        "instructions": "Does `test_body` or `setup` depend on the machine it runs on?",
-        "criteria": {
-          "true": "It needs network access, a real `gh` or `curl` download, sudo, /dev/input or /dev/uinput, DISPLAY or WAYLAND_DISPLAY, or reads HOME, XDG_* or _DOCTOR_* without `setup` pointing them at a temporary directory.",
-          "false": "Everything it reads is created under a temporary directory, and missing commands are simulated with a shim or a helper such as `_hide_commands`."
-        }
       }
     },
     "checks": [
@@ -68,8 +84,10 @@
         "id": "run-subshell",
         "title": "Side effect asserted through `run`",
         "when": [
-          {"q": "asserts_mutated_var", "min": 0.5},
-          {"q": "mutation_via_run", "min": 0.5}
+          {
+            "q": "mutation_via_run",
+            "min": 0.5
+          }
         ],
         "verdict": "FAIL",
         "fix": "Call the helper directly (not via `run`) before asserting the counter, as doctor.bats does.",
@@ -79,8 +97,14 @@
         "id": "restates-constant",
         "title": "Test restates a pinned constant",
         "when": [
-          {"q": "compares_literal", "min": 0.5},
-          {"q": "feeds_wrong_value", "max": 0.5}
+          {
+            "q": "compares_literal",
+            "min": 0.5
+          },
+          {
+            "q": "feeds_wrong_value",
+            "max": 0.5
+          }
         ],
         "verdict": "CHECK",
         "fix": "If it guards behaviour, feed the check a wrong value (a moved count, a 63-char sha) and assert it is rejected, as installer-pin.bats does.",
@@ -90,7 +114,10 @@
         "id": "reads-source",
         "title": "Test greps the source instead of running it",
         "when": [
-          {"q": "reads_source", "min": 0.5}
+          {
+            "q": "reads_source",
+            "min": 0.5
+          }
         ],
         "verdict": "CHECK",
         "fix": "Unless it pins deliberate structure, run the script or patch on a fixture and assert its output, exit status and resulting files.",
@@ -100,7 +127,14 @@
         "id": "syntax-floor",
         "title": "Syntax or marker check offered as behaviour",
         "when": [
-          {"q": "level", "labels": ["syntax", "marker"], "min": 0.5}
+          {
+            "q": "level",
+            "labels": [
+              "syntax",
+              "marker"
+            ],
+            "min": 0.5
+          }
         ],
         "verdict": "CHECK",
         "fix": "bash -n, shellcheck, node --check and patch markers are the floor. If the change is behavioural, add a test that runs it on a fixture.",
@@ -110,7 +144,26 @@
         "id": "host-dependent",
         "title": "Depends on the host",
         "when": [
-          {"q": "host_dependent", "min": 0.5}
+          {
+            "any": [
+              {
+                "q": "needs_network",
+                "min": 0.5
+              },
+              {
+                "q": "needs_device",
+                "min": 0.5
+              },
+              {
+                "q": "needs_root",
+                "min": 0.5
+              },
+              {
+                "q": "reads_real_home",
+                "min": 0.5
+              }
+            ]
+          }
         ],
         "verdict": "ENV",
         "fix": "Sandbox HOME and XDG_* in setup(), unset ambient variables, and shim network tools on PATH.",
@@ -130,18 +183,18 @@
       },
       "matches_anchor": {
         "type": "noul",
-        "instructions": "Does `function_body` decide whether its input matches using a grep, a regex, a `case` pattern, a `sed` address or an exact string or number comparison?",
+        "instructions": "Does `function_body` test or extract its input with a pattern: a grep, a regex, a `case` glob, a `sed` address or substitution, or an exact string or number comparison?",
         "criteria": {
-          "true": "`grep -q '^Exec='`, `[[ $sum =~ ^[0-9a-f]{40}$ ]]`, `sed -n 's/^Name=//p'`, `[[ $perm == 644 ]]`.",
+          "true": "`grep -q '^Exec='`, `[[ $sum =~ ^[0-9a-f]{40}$ ]]`, `sed -n 's/^Name=//p'`, `[[ $perm != 644 ]]`.",
           "false": "It only runs a command and passes on its exit status or output."
         }
       },
       "near_miss_tested": {
         "type": "noul",
-        "instructions": "Does a test in `tests` pass `function` an input that almost matches its anchor and assert that it is rejected?",
+        "instructions": "Does a test in `tests` pass `function` an input one small edit away from what its pattern accepts, and assert that it is rejected?",
         "criteria": {
-          "true": "For `^Exec=`, a line `#Exec=` or `TryExec=`; for a 40-hex sum, a 39-character one; for `== 644`, a file with mode 640.",
-          "false": "Every input either clearly matches or is unrelated to the anchor, such as an empty file or a correct value."
+          "true": "One changed character or digit, or a missing or extra prefix or suffix: for `^Exec=`, `#Exec=` or `TryExec=`; for a 40-hex sum, a 39-character one; for `!= 644`, mode 640.",
+          "false": "Every input either clearly matches or is unrelated to the pattern, such as an empty file or a correct value."
         }
       },
       "stubs_tool": {
@@ -164,7 +217,7 @@
         "type": "noul",
         "instructions": "Does a test in `tests` make `function` take a failure branch while every command `function` runs is the real one, reading input the test created?",
         "criteria": {
-          "true": "The test writes a malformed JSON file and the real `jq` rejects it, driving the [FAIL] branch.",
+          "true": "The test writes a malformed JSON file and the real `jq` rejects it, driving the [FAIL] branch, even when another test in the suite replaces a command for a different branch.",
           "false": "Each failure-branch test gets its failure from a replaced command, or no test takes a failure branch."
         }
       },
@@ -182,8 +235,14 @@
         "id": "change-undriven",
         "title": "Changed branch not driven by any test",
         "when": [
-          {"field": "diff", "regex": "\\S"},
-          {"q": "reaches_change", "max": 0.5}
+          {
+            "field": "diff",
+            "regex": "\\S"
+          },
+          {
+            "q": "reaches_change",
+            "max": 0.5
+          }
         ],
         "verdict": "FAIL",
         "fix": "Add a test that takes the changed branch and asserts what it produces.",
@@ -193,8 +252,14 @@
         "id": "near-miss",
         "title": "Anchor without a near-miss fixture",
         "when": [
-          {"q": "matches_anchor", "min": 0.5},
-          {"q": "near_miss_tested", "max": 0.5}
+          {
+            "q": "matches_anchor",
+            "min": 0.5
+          },
+          {
+            "q": "near_miss_tested",
+            "max": 0.5
+          }
         ],
         "verdict": "CHECK",
         "fix": "Add a fixture one character or one call shape from the anchor that must not match, and confirm loosening the anchor turns a test red.",
@@ -204,9 +269,18 @@
         "id": "stub-only",
         "title": "Stub mirrors the production call",
         "when": [
-          {"q": "stubs_tool", "min": 0.5},
-          {"q": "failure_tested", "min": 0.5},
-          {"q": "real_failure_tested", "max": 0.5}
+          {
+            "q": "stubs_tool",
+            "min": 0.5
+          },
+          {
+            "q": "failure_tested",
+            "min": 0.5
+          },
+          {
+            "q": "real_failure_tested",
+            "max": 0.5
+          }
         ],
         "verdict": "CHECK",
         "fix": "Run one FAIL-branch test against the real tool on a real fixture; keep the stub only for the un-fakeable case.",
@@ -216,9 +290,18 @@
         "id": "stub-subject",
         "title": "Tests never drive the guard to fire",
         "when": [
-          {"field": "function_body", "regex": "_fail|_warn|\\[FAIL\\]|\\[WARN\\]|return 1|exit 1"},
-          {"q": "stubs_tool", "min": 0.5},
-          {"q": "failure_tested", "max": 0.5}
+          {
+            "field": "function_body",
+            "regex": "_fail|_warn|\\[FAIL\\]|\\[WARN\\]|return 1|exit 1"
+          },
+          {
+            "q": "stubs_tool",
+            "min": 0.5
+          },
+          {
+            "q": "failure_tested",
+            "max": 0.5
+          }
         ],
         "verdict": "CHECK",
         "fix": "Add a test that drives the guard to fire (the [FAIL], the restore, the mismatch, the rejection), with a stub that returns a failure shape where the real tool cannot.",
@@ -228,8 +311,14 @@
         "id": "pass-unparsed",
         "title": "[PASS] on data never read",
         "when": [
-          {"field": "function_body", "regex": "\\[PASS\\]|\\b_pass\\b"},
-          {"q": "pass_on_unchecked", "min": 0.5}
+          {
+            "field": "function_body",
+            "regex": "(\\[PASS\\]|\\b_pass\\b)[^\\n]*\\$"
+          },
+          {
+            "q": "pass_on_unchecked",
+            "min": 0.5
+          }
         ],
         "verdict": "CHECK",
         "fix": "Guard empty and non-numeric values and every file type before the PASS branch, and add a test feeding each bad shape.",
@@ -253,8 +342,15 @@
         "id": "claim-uncommitted",
         "title": "Claimed verification not committed as a test",
         "when": [
-          {"field": "changed_files", "regex": "(^|\\n)tests/[^\\n]*\\.bats(\\n|$)", "absent": true},
-          {"q": "claims_verification", "min": 0.5}
+          {
+            "field": "changed_files",
+            "regex": "(^|\\n)tests/[^\\n]*\\.bats(\\n|$)",
+            "absent": true
+          },
+          {
+            "q": "claims_verification",
+            "min": 0.5
+          }
         ],
         "verdict": "CHECK",
         "fix": "Codify the verification the description cites as a committed test.",
