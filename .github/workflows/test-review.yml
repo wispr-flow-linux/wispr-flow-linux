@@ -19,7 +19,13 @@ run-name: |
 on:
   pull_request:
     branches: [main]
-  workflow_dispatch: # Reviews every test in tests/ (--all).
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Review every test (all) or run the calibration cases
+        type: choice
+        options: [all, calibrate]
+        default: all
 
 permissions:
   contents: read
@@ -43,15 +49,47 @@ jobs:
           fetch-depth: 0
 
       - name: Review tests
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
         env:
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
           # Through env, never interpolated into the script: the body is
           # PR-author text.
           TEST_REVIEW_PR_BODY: ${{ github.event.pull_request.body }}
           BASE_REF: ${{ github.base_ref }}
+        run: scripts/test-review.sh --base "origin/$BASE_REF"
+
+      # A PR that changes the checker's script, questions or calibration
+      # cases re-proves them: the cases must fire exactly their expected
+      # checks, and the current suite is reported whole for false positives.
+      - name: Check whether the checker changed
+        id: checker
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          EVENT: ${{ github.event_name }}
+          MODE: ${{ inputs.mode }}
         run: |
-          if [[ $GITHUB_EVENT_NAME == pull_request ]]; then
-            scripts/test-review.sh --base "origin/$BASE_REF"
-          else
-            scripts/test-review.sh --all
+          changed=false
+          if [[ $EVENT == pull_request ]]; then
+            git diff --name-only "origin/$BASE_REF"...HEAD \
+              | grep -qE '^(scripts/test-review|tests/fixtures/test-review/)' \
+              && changed=true
           fi
+          echo "calibrate=$([[ $changed == true || $MODE == calibrate ]] \
+            && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "all=$([[ $changed == true || $MODE == all ]] \
+            && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - name: Calibrate
+        if: steps.checker.outputs.calibrate == 'true'
+        continue-on-error: true
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+        run: scripts/test-review.sh --calibrate tests/fixtures/test-review
+
+      - name: Review every test
+        if: steps.checker.outputs.all == 'true'
+        continue-on-error: true
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+        run: scripts/test-review.sh --all

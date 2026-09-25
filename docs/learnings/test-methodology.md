@@ -366,9 +366,10 @@ executes the PR's own copy of the script.
 known-bad case per check, built from the failures on this page, and two clean
 cases in the repo's honest style. `--calibrate` fails on any case whose fired
 checks differ from its `expect` file and prints Jev's raw answers for tuning.
-Run it and `--all` after adding the key and after every Jev model change (the
-report names the model that answered); keep it advisory until both come back
-clean. The PR code goes to TypeSafe's API, which is fine for this public
+The workflow runs both whenever a PR changes the checker's script, questions
+or cases, and on demand from the Actions tab (`mode: calibrate` or `all`);
+rerun them after every Jev model change (the report names the model that
+answered). Keep it advisory until both come back clean. The PR code goes to TypeSafe's API, which is fine for this public
 repo.
 
 ## Cross-references
