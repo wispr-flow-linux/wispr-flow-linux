@@ -1,5 +1,5 @@
 {
-  "_comment": "Questions and checks for scripts/test-review.sh. Each level's `questions` object is sent to Jev verbatim; `checks` says how answers become findings. A noul check fires when its `applies` question (if any) is at least `applies_min` (default 0.5) and its `ok` answer, read as 1 - p when `invert` is set, is under `below`. A choice check fires when the chosen label is in `bad` at `confidence_min` or more. `verdict` is FAIL, CHECK (worth a look) or ENV (environment, never a failure). Thresholds come from calibration against tests/fixtures/test-review and the full suite with jev-1.13.0: a check keeps FAIL only where the bad case and the clean cases separate cleanly. Suite-level properties (a near-miss fixture exists, one FAIL branch hits the real tool, a stub drives the guard, PASS only on parsed data) are asked per changed function, where Jev sees every test for it, not per test. The negative-assertion trap is shellcheck SC2314/SC2315, checked exactly by the script.",
+  "_comment": "Questions and checks for scripts/test-review.sh. Each level's `questions` object is sent to Jev verbatim; `checks` says how answers become findings. A noul check fires when its `applies` question (if any) is at least `applies_min` (default 0.5) and its `ok` answer, read as 1 - p when `invert` is set, is under `below`. A choice check fires when the chosen label is in `bad` at `confidence_min` or more. `verdict` is FAIL, CHECK (worth a look) or ENV (environment, never a failure). Thresholds come from calibration (runs 36086596178 and 36087422465) against tests/fixtures/test-review and the full suite with jev-1.13.0: a check keeps FAIL only where the bad case and the clean cases separate cleanly. Suite-level properties (a near-miss fixture exists, one FAIL branch hits the real tool, a stub drives the guard, PASS only on parsed data) are asked per changed function, where Jev sees every test for it, not per test. The negative-assertion trap is shellcheck SC2314/SC2315, checked exactly by the script.",
   "test": {
     "questions": {
       "side_effect_applies": {
@@ -42,7 +42,8 @@
         "below": 0.3,
         "verdict": "FAIL",
         "fix": "Call the helper directly (not via `run`) before asserting the counter, as doctor.bats does.",
-        "doc": "run-helper-subshells-away-every-variable-mutation"
+        "doc": "run-helper-subshells-away-every-variable-mutation",
+        "applies_min": 0.7
       },
       {
         "id": "restates-constant",
@@ -69,7 +70,10 @@
         "title": "Syntax or marker check offered as behaviour",
         "kind": "choice",
         "question": "level",
-        "bad": ["syntax", "marker"],
+        "bad": [
+          "syntax",
+          "marker"
+        ],
         "confidence_min": 0.8,
         "verdict": "CHECK",
         "fix": "bash -n, shellcheck, node --check and patch markers are the floor. If the change is behavioural, add a test that runs it on a fixture.",
@@ -107,11 +111,11 @@
       },
       "stub_only": {
         "type": "noul",
-        "instructions": "No failure-branch test runs the real external tool on a real fixture; every failure these tests produce comes from a stub."
+        "instructions": "Every test that takes one of the function's failure branches gets that failure from a stub, and none runs the real tool on a real fixture. False when no test takes a failure branch."
       },
-      "stub_never_fails": {
+      "guard_never_fires": {
         "type": "noul",
-        "instructions": "No test makes a stub return a failure shape that drives the function's guard to fire; every stub returns the happy path."
+        "instructions": "No test drives the function's guard to fire (its [FAIL], warning, restore, mismatch or rejection branch), whether through a stub or a real fixture; every test takes the happy path."
       },
       "pass_applies": {
         "type": "noul",
@@ -156,13 +160,13 @@
       },
       {
         "id": "stub-subject",
-        "title": "Stubs never drive the guard to fire",
+        "title": "Tests never drive the guard to fire",
         "applies": "stub_applies",
-        "ok": "stub_never_fails",
+        "ok": "guard_never_fires",
         "invert": true,
         "below": 0.3,
         "verdict": "CHECK",
-        "fix": "Give the stub a failure shape and assert the guard fires (the [FAIL], the restore, the mismatch, the rejection).",
+        "fix": "Add a test that drives the guard to fire (the [FAIL], the restore, the mismatch, the rejection), with a stub that returns a failure shape where the real tool cannot.",
         "doc": "the-mutation-check"
       },
       {

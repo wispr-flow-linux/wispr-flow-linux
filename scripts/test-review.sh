@@ -153,7 +153,8 @@ _touched_blocks() {
 
 # Lines $2..$3 of file $1, cut to $4 characters.
 _slice() {
-	sed -n "${2},${3}p" "$1" | head -c "$4"
+	# head closing early is expected; keep sed's broken-pipe note quiet.
+	sed -n "${2},${3}p" "$1" 2>/dev/null | head -c "$4"
 }
 
 # name<TAB>file<TAB>start<TAB>end for every function in the shell sources,
@@ -575,10 +576,13 @@ _calibrate() {
 		else
 			printf '[MISS] %s: want %s got %s\n' "$(basename "$case_dir")" \
 				"${want:-none}" "${got:-none}"
-			jq -c --arg f "$file" 'select(.file == $f) | .answers' \
-				"$work/calib.jsonl"
 			bad=1
 		fi
+		# Every case's raw answers, so the margins of a passing case are
+		# visible when tuning, not only a failing one's.
+		jq -c --arg f "$file" 'select(.file == $f) | .answers
+			| with_entries(.value |= (.noul // "\(.choice) \(.confidence)"))' \
+			"$work/calib.jsonl" | sed 's/^/       /'
 	done
 	return "$bad"
 }

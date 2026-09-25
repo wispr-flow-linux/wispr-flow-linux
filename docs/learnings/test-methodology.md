@@ -371,7 +371,11 @@ which a one-test unit cannot see. Those moved to the function level. The
 five per-test checks that kept FAIL or CHECK separated cleanly (source
 reading 0.96 on the bad case against 0.11 or less on the clean ones), and
 at their thresholds the full suite drops to a handful of findings, each an
-accurate description of a deliberate structure test.
+accurate description of a deliberate structure test. The second run fixed two
+wordings a clean case exposed: "no stub returns a failure" fired on a suite
+that drives its FAIL branch with the real tool (better, not worse), so the
+check asks whether any test drives the guard at all; and "every failure
+comes from a stub" was vacuously true for a suite with no failure tests.
 
 The key goes in the repository's Actions secrets as `TYPESAFE_API_KEY`.
 Without it (and on every fork or Dependabot PR, which GitHub denies secrets)

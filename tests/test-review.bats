@@ -191,7 +191,7 @@ _requests() {
 @test "a check that does not apply never fires, however low it complies" {
 	sed -i 's/^\ttrue$/\ttrue # x/' "$REPO/tests/tool.bats"
 	_commit
-	FAKE_JEV_ANSWERS='{"side_effect_applies":{"type":"noul","noul":0.49},
+	FAKE_JEV_ANSWERS='{"side_effect_applies":{"type":"noul","noul":0.69},
 		"side_effect_direct":{"type":"noul","noul":0.0}}' _review
 	[[ $status -eq 0 ]]
 	[[ $output != *'Side effect asserted'* ]]
@@ -415,6 +415,8 @@ SRC
 		run "$REPO/scripts/test-review.sh" --calibrate "$c"
 	[[ $status -eq 0 ]]
 	[[ $output == *'[OK]   suite: near-miss'* ]]
+	# The raw answers print for a passing case too.
+	[[ $output == *'"near_miss_missing":0.9'* ]]
 	[[ $(_requests) -eq 1 ]]
 	run jq -r '.state.function_body, .state.tests, (.questions | keys[])' \
 		"$TEST_TMP/requests/1.json"
