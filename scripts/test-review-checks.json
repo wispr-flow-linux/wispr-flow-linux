@@ -142,7 +142,7 @@
         "applies": "anchor_applies",
         "ok": "near_miss_missing",
         "invert": true,
-        "below": 0.3,
+        "below": 0.27,
         "verdict": "CHECK",
         "fix": "Add a fixture one character or one call shape from the anchor that must not match, and confirm loosening the anchor turns a test red.",
         "doc": "anchor-tests-need-a-near-miss-fixture"

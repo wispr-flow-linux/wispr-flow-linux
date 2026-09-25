@@ -375,7 +375,12 @@ accurate description of a deliberate structure test. The second run fixed two
 wordings a clean case exposed: "no stub returns a failure" fired on a suite
 that drives its FAIL branch with the real tool (better, not worse), so the
 check asks whether any test drives the guard at all; and "every failure
-comes from a stub" was vacuously true for a suite with no failure tests.
+comes from a stub" was vacuously true for a suite with no failure tests. The
+third run passed all 14 cases and the full suite with no FAIL. Answers for
+the same case drift by up to about 0.05 between runs, so thresholds sit in
+the middle of each gap; near-miss has the thinnest one (bad cases 0.76 to
+0.87, the clean stat-mode suite 0.70), which is one reason it stays "worth a
+look".
 
 The key goes in the repository's Actions secrets as `TYPESAFE_API_KEY`.
 Without it (and on every fork or Dependabot PR, which GitHub denies secrets)
