@@ -32,6 +32,12 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   on the first start after the update, and skips the move while an instance
   holds the lock or when any file would be overwritten. `--doctor` warns
   while a legacy dir remains.
+- The nightly bump no longer stalls when upstream's `latest.json` is
+  unreachable or unparsable (#83). `resolve-installer-url.sh` falls back to
+  the Squirrel `RELEASES` file beside the installer, downloads the Setup
+  `.exe` it names to compute the SHA-256 the pin requires, and checks the
+  SHA-1 of the `*-full.nupkg` inside against the `RELEASES` line. A
+  manifest that parses but is refused stays fatal.
 
 ### Changed
 
