@@ -14,6 +14,9 @@
 #   * linux-main-shortcut-defaults.sh   -> Linux seeds the Windows chord map in main
 #   * linux-xdg-data-dir.sh             -> app data and logs dirs under XDG_CONFIG_HOME
 #   * linux-autostart.sh                -> login items backed by an XDG autostart entry
+#   * linux-status-picker-anchor.sh     -> status pill pickers anchored at the
+#                                           pill on native Wayland (main adds the
+#                                           status window's bounds)
 #   * helper-resolver.sh                 -> prepends a Linux case to the helper-path
 #                                           ternary (inline and exported shapes)
 #
@@ -511,6 +514,155 @@ JS
 	run bash "$PATCH_DIR/linux-disable-pill-drag.sh" "$FIX"
 	[[ "$status" -ne 0 ]]
 	! grep -q 'WISPR_LINUX_DISABLE_PILL_DRAG' "$FIX"
+}
+
+# =============================================================================
+# linux-status-picker-anchor.sh
+# =============================================================================
+
+# The shipped 1.6.957 main bytes for the four forwarding handlers the status
+# renderer anchors with window.screenX/Y, the context-menu hide that sends
+# DidHide back, and the extension bubble listener; only the stubs on the first
+# line, the trimmed body of k() and the class wrapper are ours.
+write_picker_fixture() {
+	cat > "$FIX" <<'JS'
+var g={Z4:(c,f,h)=>{H[c]=h},Bn:(w,c,p)=>{S.push({w,c,p})}},Wr=g,v={f:()=>!1,e:()=>{}},b={QW:()=>!1,Wi:async()=>!1},Xi={sd:()=>{},L2:()=>{}},C=()=>{},rr=o;
+const k=()=>{o().info("Context menu window is destroyed, skipping hide context menu"),(0,g.Bn)(A.RA.statusWindow,d.qM.DidHide,{cursorScreenPoint:i.screen.getCursorScreenPoint()}),o().info("Finished hiding context menu window")};
+(0,g.Z4)(d.qM.ShowAutoPolishPicker,!1,e=>{o().info("Showing auto polish picker"),C(),(0,g.Bn)(A.RA.contextMenuWindow,d.qM.ShowAutoPolishPicker,e)}),(0,g.Z4)(d.qM.HideAutoPolishPicker,!1,()=>{k(),(0,g.Bn)(A.RA.statusWindow,d.qM.HideAutoPolishPicker)}),(0,g.Z4)(d.qM.ShowFetchLinkPicker,!1,e=>{C(),A.RA.contextMenuWindow&&!A.RA.contextMenuWindow.isDestroyed()&&(A.RA.contextMenuWindow.setFocusable(!0),A.RA.contextMenuWindow.focus()),(0,g.Bn)(A.RA.contextMenuWindow,d.qM.ShowFetchLinkPicker,e)}),(0,g.Z4)(d.qM.HideFetchLinkPicker,!1,()=>{k(),(0,g.Bn)(A.RA.statusWindow,d.qM.HideFetchLinkPicker)}),(0,g.Z4)(d.qM.ShowShortcutJoinDrawer,!0,e=>(0,v.f)()?((0,v.e)(e.source),!1):(o().info("Showing shortcut join drawer"),queueMicrotask(()=>{(async e=>{const t=(0,b.QW)();C(!1);const n=t?e.calendarConnected??await(0,b.Wi)(0):"unavailable",r="boolean"==typeof n?n:null;(0,g.Bn)(A.RA.contextMenuWindow,d.qM.ShowShortcutJoinDrawer,{...e,calendarConnected:r,calendarAvailable:t})})(e).catch(e=>{o().error("Failed to show shortcut join drawer",{customAttributes:{error:String(e)}}),(0,g.Bn)(A.RA.statusWindow,d.qM.DidHide,{cursorScreenPoint:i.screen.getCursorScreenPoint()})})}),!0)),(0,g.Z4)(d.qM.HideShortcutJoinDrawer,!1,()=>{k(),(0,g.Bn)(A.RA.statusWindow,d.qM.HideShortcutJoinDrawer)});
+new class{registerContextMenuListeners(){(0,Wr.Z4)(pr.qM.ShowExtensionContextMenu,!1,e=>{rr().info("Showing extension context menu",{customAttributes:{bubbleId:e.bubbleId,extensionName:e.extensionName}}),(0,Xi.sd)(),(0,Wr.Bn)(Gr.RA.contextMenuWindow,pr.qM.ShowExtensionContextMenu,e)}),(0,Wr.Z4)(pr.qM.HideExtensionContextMenu,!1,()=>{(0,Xi.L2)(),(0,Wr.Bn)(Gr.RA.statusWindow,pr.qM.HideExtensionContextMenu)})}}().registerContextMenuListeners();
+JS
+}
+
+# Run the fixture as a function body with a fake electron and window registry,
+# fire every Show/Hide handler once, and print what main forwarded. $1 is the
+# ozone-platform switch value, $2 the WAYLAND_DISPLAY to set ('' = unset).
+run_picker_fixture() {
+	local ozone="$1" wayland="$2"
+	OZONE="$ozone" WL="$wayland" node -e '
+const fs = require("fs");
+if (process.env.WL) process.env.WAYLAND_DISPLAY = process.env.WL;
+else delete process.env.WAYLAND_DISPLAY;
+const H = {}, S = [];
+const ch = new Proxy({}, {get: (_, k) => k});
+const d = {qM: ch}, pr = d;
+const win = (n) => ({n, isDestroyed: () => !1, focus() {},
+	setFocusable() {}, getBounds: () => ({x: 1200, y: 1000})});
+const A = {RA: {statusWindow: win("status"), contextMenuWindow: win("menu")}};
+const Gr = A;
+const i = {screen: {getCursorScreenPoint: () => ({x: 1250, y: 1030})}};
+const o = () => ({info() {}, error() {}});
+const fake = (m) => m === "electron" ? {app: {commandLine:
+	{getSwitchValue: () => process.env.OZONE}}} : require(m);
+new Function("require", "H", "S", "d", "pr", "A", "Gr", "i", "o",
+	fs.readFileSync(process.argv[1], "utf8"))(fake, H, S, d, pr, A, Gr, i, o);
+const pt = {screenX: 30, screenY: 12};
+H.ShowAutoPolishPicker(pt);
+H.ShowFetchLinkPicker({...pt, highlightUrl: "u"});
+H.ShowExtensionContextMenu({...pt, bubbleId: "b", extensionName: "x"});
+H.ShowShortcutJoinDrawer({...pt, source: "s"});
+H.HideAutoPolishPicker();
+setTimeout(() => {
+	for (const s of S) {
+		const p = s.p || {}, q = p.cursorScreenPoint;
+		console.log(s.w.n + " " + s.c + " " + (q ? q.x + "," + q.y
+			: p.screenX !== undefined ? p.screenX + "," + p.screenY : "-"));
+	}
+}, 10);
+' "$FIX"
+}
+
+@test "picker-anchor: wraps the four forwards and both DidHide points, once each" {
+	write_picker_fixture
+	run bash "$PATCH_DIR/linux-status-picker-anchor.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	[[ "$(grep -o 'WISPR_LINUX_PICKER_ANCHOR' "$FIX" | wc -l)" -eq 6 ]]
+	grep -qF '(0,g.Bn)(A.RA.contextMenuWindow,d.qM.ShowAutoPolishPicker,/*WISPR_LINUX_PICKER_ANCHOR*/(((p,b)=>b&&p?{...p,screenX:(p.screenX??0)+b.x,screenY:(p.screenY??0)+b.y}:p)(e,"linux"===process.platform&&!!process.env.WAYLAND_DISPLAY&&"x11"!==require("electron").app.commandLine.getSwitchValue("ozone-platform")&&!A.RA.statusWindow?.isDestroyed?.()&&A.RA.statusWindow?.getBounds())))})' "$FIX"
+	grep -qF 'd.qM.ShowFetchLinkPicker,/*WISPR_LINUX_PICKER_ANCHOR*/' "$FIX"
+	grep -qF '(0,Wr.Bn)(Gr.RA.contextMenuWindow,pr.qM.ShowExtensionContextMenu,/*WISPR_LINUX_PICKER_ANCHOR*/' "$FIX"
+	grep -qF '&&!Gr.RA.statusWindow?.isDestroyed?.()&&Gr.RA.statusWindow?.getBounds())))})' "$FIX"
+	grep -qF 'd.qM.ShowShortcutJoinDrawer,{.../*WISPR_LINUX_PICKER_ANCHOR*/' "$FIX"
+	[[ "$(grep -o 'DidHide,{cursorScreenPoint:/\*WISPR_LINUX_PICKER_ANCHOR\*/(((p,b)=>b&&p?{x:p.x-b.x,y:p.y-b.y}:p)(i.screen.getCursorScreenPoint(),' "$FIX" | wc -l)" -eq 2 ]]
+	# the Hide* forwards to the status window carry no point and stay as shipped
+	grep -qF '(0,g.Bn)(A.RA.statusWindow,d.qM.HideAutoPolishPicker)}' "$FIX"
+	grep -qF '(0,Wr.Bn)(Gr.RA.statusWindow,pr.qM.HideExtensionContextMenu)}' "$FIX"
+	node_check "$FIX"
+}
+
+@test "picker-anchor: on native Wayland the pickers land at the pill" {
+	command -v node >/dev/null || skip 'node not installed'
+	[[ "$(uname -s)" == Linux ]] || skip 'the gate is linux-only'
+	write_picker_fixture
+	bash "$PATCH_DIR/linux-status-picker-anchor.sh" "$FIX"
+	run run_picker_fixture '' 'wayland-0'
+	[[ "$status" -eq 0 ]]
+	[[ "$output" == *'menu ShowAutoPolishPicker 1230,1012'* ]]
+	[[ "$output" == *'menu ShowFetchLinkPicker 1230,1012'* ]]
+	[[ "$output" == *'menu ShowExtensionContextMenu 1230,1012'* ]]
+	[[ "$output" == *'menu ShowShortcutJoinDrawer 1230,1012'* ]]
+	# the cursor goes back in the status window's own frame
+	[[ "$output" == *'status DidHide 50,30'* ]]
+}
+
+@test "picker-anchor: X11, XWayland and the unpatched bundle forward as shipped" {
+	command -v node >/dev/null || skip 'node not installed'
+	write_picker_fixture
+	run run_picker_fixture '' 'wayland-0'
+	[[ "$status" -eq 0 ]]
+	[[ "$output" == *'menu ShowAutoPolishPicker 30,12'* ]]
+	[[ "$output" == *'status DidHide 1250,1030'* ]]
+	bash "$PATCH_DIR/linux-status-picker-anchor.sh" "$FIX"
+	# WISPR_USE_X11=1: a Wayland session, but the app runs on XWayland
+	run run_picker_fixture 'x11' 'wayland-0'
+	[[ "$status" -eq 0 ]]
+	[[ "$output" == *'menu ShowAutoPolishPicker 30,12'* ]]
+	[[ "$output" == *'menu ShowShortcutJoinDrawer 30,12'* ]]
+	[[ "$output" == *'status DidHide 1250,1030'* ]]
+	# a plain X11 session has no WAYLAND_DISPLAY
+	run run_picker_fixture '' ''
+	[[ "$status" -eq 0 ]]
+	[[ "$output" == *'menu ShowFetchLinkPicker 30,12'* ]]
+	[[ "$output" == *'status DidHide 1250,1030'* ]]
+}
+
+@test "picker-anchor: idempotent on second run" {
+	write_picker_fixture
+	bash "$PATCH_DIR/linux-status-picker-anchor.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-status-picker-anchor.sh" "$FIX"
+}
+
+@test "picker-anchor: bails and writes nothing when one site is missing" {
+	write_picker_fixture
+	sed -i 's/"Showing extension context menu"/"Opening extension context menu"/' "$FIX"
+	cp "$FIX" "$TEST_TMP/before.js"
+	run bash "$PATCH_DIR/linux-status-picker-anchor.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *"'C extension bubble menu' site(s), found 0"* ]]
+	cmp -s "$FIX" "$TEST_TMP/before.js"
+}
+
+@test "picker-anchor: bails when a DidHide sender is added or dropped" {
+	write_picker_fixture
+	printf '%s\n' 'const k2=()=>{(0,g.Bn)(A.RA.statusWindow,d.qM.DidHide,{cursorScreenPoint:i.screen.getCursorScreenPoint()})};' >> "$FIX"
+	run bash "$PATCH_DIR/linux-status-picker-anchor.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *"'E DidHide cursor point' site(s), found 3"* ]]
+	write_picker_fixture
+	sed -i 's/,(0,g.Bn)(A.RA.statusWindow,d.qM.DidHide,{cursorScreenPoint:i.screen.getCursorScreenPoint()})})}),!0))/})}),!0))/' "$FIX"
+	run bash "$PATCH_DIR/linux-status-picker-anchor.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *"found 1"* ]]
+	run grep -q 'WISPR_LINUX_PICKER_ANCHOR' "$FIX"
+	[[ "$status" -ne 0 ]]
+}
+
+@test "picker-anchor: a forward whose payload is not the handler's parameter is not a site" {
+	# Near miss: the log line and forward are there, but the handler forwards
+	# a different value, so the point it sends did not come from the renderer.
+	write_picker_fixture
+	sed -i 's/d.qM.ShowAutoPolishPicker,e)}/d.qM.ShowAutoPolishPicker,{})}/' "$FIX"
+	run bash "$PATCH_DIR/linux-status-picker-anchor.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *"'A auto-polish picker' site(s), found 0"* ]]
 }
 
 # =============================================================================

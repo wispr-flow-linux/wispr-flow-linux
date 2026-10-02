@@ -27,6 +27,11 @@ mac-gates	main	F	1	the Applications-folder path regex	/^(\/Applications|
 mac-gates	main	P	1	the early-out guard before getAppPath	\{if\([\w$]+\.[\w$]+\)return!1;const [\w$]+=[\w$]+\.app\.getAppPath\(\)
 linux-deeplink	main	P	1	the cold-start argv deep-link parse	if\([\w$]+(?:\.[\w$]+)?\)\{const [\w$]+=[\w$]+\(process\.argv\.find\(
 linux-disable-pill-drag	main	F	1	the drag-overlay state log line	[Drag Overlay]: Setting drag overlay state to
+linux-status-picker-anchor	main	F	1	the auto-polish picker log line	Showing auto polish picker
+linux-status-picker-anchor	main	F	1	the fetch-link picker forward handler	.ShowFetchLinkPicker,!1,
+linux-status-picker-anchor	main	F	1	the extension bubble menu log line	Showing extension context menu
+linux-status-picker-anchor	main	F	1	the shortcut-join drawer log line	Showing shortcut join drawer
+linux-status-picker-anchor	main	P	2	the DidHide cursor point sent to the status window	\.statusWindow,[\w$]+\.[\w$]+\.DidHide,\{cursorScreenPoint:[\w$]+\.screen\.getCursorScreenPoint\(\)\}
 linux-hub-focusable	main	F	1	the Hub window's preload	"hub","preload.js"
 linux-window-frame	main	P	1	the win32 hidden-title-bar window config	===process\.platform&&Object\.assign\([\w$]+,\{[^{}]*autoHideMenuBar:!0
 linux-early-singleton	main	F	1	upstream's own (late) single-instance lock	requestSingleInstanceLock

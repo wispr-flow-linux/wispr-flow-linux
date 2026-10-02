@@ -24,6 +24,14 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Fixed
 
+- On native Wayland the pickers the status pill opens (auto-polish,
+  fetch link, extension bubble menu, shortcut-join drawer) now open next to
+  the pill instead of the screen's top-left corner, and the pill's hover
+  check after a menu closes lines up again. Wayland reports
+  `window.screenX/Y` as 0, so `linux-status-picker-anchor.sh` has main add
+  the status window's bounds to each forwarded point and take them off the
+  cursor point it sends back. X11 and XWayland are unchanged.
+
 - The database, meetings, backups and extension state now live in
   `~/.config/Wispr Flow` (or `$XDG_CONFIG_HOME/Wispr Flow`) instead of
   `~/Library/Application Support/Wispr Flow`, and the app no longer creates
