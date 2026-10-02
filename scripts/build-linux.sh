@@ -360,6 +360,15 @@ step3_patch_bundle() {
     auto "Running linux-autostart.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-autostart.sh" "$target_bundle" \
       || die "Autostart patch failed -- see linux-autostart.sh output above."
+    # Re-assert always-on-top on the Status window's own 400 ms monitorMove
+    # interval if the compositor ever drops it (observed at dictation
+    # start/stop, sleep/resume, monitor/dock topology changes), including
+    # between dictations while idle -- upstream's own dictation-start
+    # re-assert does not cover that stretch (refs #71; does not close it --
+    # this cannot fix the separate click-through/dead-zone question).
+    auto "Running linux-status-window-visibility.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-status-window-visibility.sh" "$target_bundle" \
+      || die "linux-status-window-visibility.sh failed -- see its output above."
 
     # Renderer + preload patches live alongside the main bundle under .webpack/.
     local webpack_root="${target_bundle%/main/index.js}"
