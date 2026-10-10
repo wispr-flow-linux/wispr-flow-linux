@@ -136,6 +136,7 @@ let
     startupWMClass = "Wispr Flow";
     categories = [ "Utility" "AudioVideo" "Audio" ];
     keywords = [ "voice" "dictation" "speech" "transcription" ];
+    mimeTypes = [ "x-scheme-handler/wispr-flow" ];
   };
 in
 stdenvNoCC.mkDerivation {
@@ -349,6 +350,7 @@ setup_logging || exit 1
 setup_electron_env
 cleanup_stale_lock
 migrate_legacy_data_dir
+repair_html_default
 
 log_message '--- Wispr Flow Launcher Start (NixOS) ---'
 log_message "Timestamp: $(date)"
