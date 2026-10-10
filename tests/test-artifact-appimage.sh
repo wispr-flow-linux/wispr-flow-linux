@@ -70,6 +70,9 @@ if [[ -f "$appdir/${component_id}.desktop" ]]; then
 		"Desktop entry Exec points to AppRun"
 	assert_contains "$appdir/${component_id}.desktop" 'StartupWMClass=Wispr Flow' \
 		"Desktop entry StartupWMClass correct"
+	assert_contains "$appdir/${component_id}.desktop" \
+		'MimeType=x-scheme-handler/wispr-flow;' \
+		"Desktop entry registers the wispr-flow: scheme"
 else
 	fail "No top-level .desktop file"
 fi
