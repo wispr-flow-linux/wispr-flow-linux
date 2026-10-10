@@ -375,6 +375,52 @@ command() {
 }
 
 # =============================================================================
+# _doctor_check_html_default
+# =============================================================================
+
+# The check borrows launcher-common.sh's matcher, as it does under the real
+# launcher. Sourced inside the test only (it sets a readonly).
+_load_launcher_common() {
+	# shellcheck source=scripts/launcher-common.sh
+	source "$SCRIPT_DIR/../scripts/launcher-common.sh"
+}
+
+@test "_doctor_check_html_default: silent without launcher-common.sh" {
+	printf '[Default Applications]\ntext/html=wispr-flow.desktop\n' \
+		> "$XDG_CONFIG_HOME/mimeapps.list"
+	run _doctor_check_html_default
+	[[ $status -eq 0 ]]
+	[[ -z $output ]]
+}
+
+@test "_doctor_check_html_default: silent when the browser holds text/html" {
+	_load_launcher_common
+	run _doctor_check_html_default
+	[[ $status -eq 0 ]]
+	[[ -z $output ]]
+	printf '[Default Applications]\ntext/html=firefox.desktop\n%s\n' \
+		'x-scheme-handler/wispr-flow=wispr-flow.desktop' \
+		> "$XDG_CONFIG_HOME/mimeapps.list"
+	run _doctor_check_html_default
+	[[ $status -eq 0 ]]
+	[[ -z $output ]]
+}
+
+@test "_doctor_check_html_default: warns while the stolen default remains" {
+	_load_launcher_common
+	printf '[Default Applications]\ntext/html=wispr-flow.desktop\n' \
+		> "$XDG_CONFIG_HOME/mimeapps.list"
+	run _doctor_check_html_default
+	[[ $output == *"[WARN]"*".html files open in Wispr Flow"* ]]
+	[[ $output == *"$XDG_CONFIG_HOME/mimeapps.list"* ]]
+	[[ $output == *"$XDG_CACHE_HOME/wispr-flow/launcher.log"* ]]
+	# a warning, not a failure
+	_doctor_failures=0
+	_doctor_check_html_default >/dev/null
+	[[ $_doctor_failures -eq 0 ]]
+}
+
+# =============================================================================
 # _doctor_check_legacy_data_dir
 # =============================================================================
 
