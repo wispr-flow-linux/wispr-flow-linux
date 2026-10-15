@@ -38,6 +38,7 @@ declare -gA MARKER_SAMPLES=(
 	[hubfocusable]='webPreferences:{preload:p("../renderer","hub","preload.js"),devTools:d},focusable:/*WISPR_LINUX_HUB_FOCUSABLE*/"linux"===process.platform};'
 	[treataswindows]='const x=((y?.platform?.isWindows??!1)||"linux"===y?.platform?.os)/*WISPR_LINUX_RENDERER_ISWIN*/;'
 	[deeplink]='if(f.H8||"linux"===process.platform){/*WISPR_LINUX_DEEPLINK*/const e=process.argv.find(x=>x.startsWith("wispr-flow:"));}'
+	[deeplinkwarm]='else{if(y.H8||"linux"===process.platform){/*WISPR_LINUX_WARM_DEEPLINK*/const e=ee(r.find(e=>e.startsWith("wispr-flow:")));if(e)return void re(e)}}'
 	[earlysingleton]='/*WISPR_LINUX_EARLY_SINGLETON_V1*/try{var __wisprApp=require("electron").app;if(__wisprApp&&!__wisprApp.requestSingleInstanceLock()){__wisprApp.quit(),process.exit(0)}}catch(__wisprErr){}'
 	[pilldrag]='re=e=>{e=(/*WISPR_LINUX_DISABLE_PILL_DRAG*/"linux"===process.platform)?!1:e}'
 	[shortcutdefaults]='(r.H8||"linux"===process.platform)/*WISPR_LINUX_MAIN_SHORTCUT_DEFAULTS*/?pe:ce'
@@ -166,6 +167,14 @@ write_fixture() {
 	run "$VERIFY_SH" "$fixture"
 	[[ "$status" -eq 1 ]]
 	[[ "$output" == *'MISSING'* ]]
+}
+
+@test "verify: exits 1 when the warm deeplink marker is missing" {
+	local fixture
+	fixture="$(write_fixture deeplinkwarm)"
+	run "$VERIFY_SH" "$fixture"
+	[[ "$status" -eq 1 ]]
+	[[ "$output" == *'MISSING deeplink-warm:'* ]]
 }
 
 @test "verify: exits 1 when the early-singleton marker is missing" {

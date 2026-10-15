@@ -315,10 +315,15 @@ step3_patch_bundle() {
     bash "$SCRIPT_DIR/patches/linux-hub-focusable.sh" "$target_bundle" \
       || die "Hub-focusable patch failed -- see linux-hub-focusable.sh output above."
     # Parse the wispr-flow: deep-link URL out of argv at cold start on Linux too
-    # (the parse was win32-only; the warm-start second-instance path already works).
+    # (the parse was win32-only).
     auto "Running linux-deeplink.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-deeplink.sh" "$target_bundle" \
       || die "Deep-link patch failed -- see linux-deeplink.sh output above."
+    # Same for a link opened while the app runs: the second-instance handler's
+    # argv scan was win32-only too, so Linux only focused the Hub.
+    auto "Running linux-deeplink-warm.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-deeplink-warm.sh" "$target_bundle" \
+      || die "Warm deep-link patch failed -- see linux-deeplink-warm.sh output above."
     # Take the Electron single-instance lock at the very top of the bundle,
     # before ANY init runs. The vendor only requests the lock at the end of
     # its ~8.3 MB bundle, so a second launch fully initializes (native .node

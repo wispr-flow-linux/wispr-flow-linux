@@ -15,7 +15,8 @@
 #       platform-neutral in practice -- but note its inner argv scan is ALSO
 #       wrapped in `if(<isWin32>){...}` (see below), so on Linux a deep link to
 #       an already-running app falls through to the "focus the window" branch
-#       and the URL payload is dropped too. We do NOT touch that site here.
+#       and the URL payload is dropped too. linux-deeplink-warm.sh widens
+#       that site; this patch does not touch it.
 #   * COLD START (app not yet running) -> on Windows AND Linux the OS launches
 #       the app with the `wispr-flow:` URL appended to process.argv. The bundle
 #       parses it out at startup with:

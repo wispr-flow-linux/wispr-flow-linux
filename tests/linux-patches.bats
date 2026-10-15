@@ -295,6 +295,54 @@ JS
 }
 
 # =============================================================================
+# linux-deeplink-warm.sh
+# =============================================================================
+
+# The second-instance listener as shipped in 1.6.1147, plus the cold-start
+# parse it must never be confused with.
+write_warm_fixture() {
+	cat > "$FIX" <<'JS'
+function re(x){}function ee(x){return x}function B(x){return x}
+if(y.H8){const e=B(process.argv.find(e=>e.startsWith("wispr-flow:")||e.startsWith("wispr-flow/")));e&&re(e)}
+e.app.on("second-instance",(t,r)=>{if(r.includes("--quit-app"))return void e.app.quit();const i=r.find(e=>e.startsWith("--squirrel-"));if(i)n().info(`Ignoring ${i}`);else{if(y.H8){const e=ee(r.find(e=>e.startsWith("wispr-flow:")||e.startsWith("wispr-flow/")));if(e)return void re(e)}n().info("User tried to open the app a second time while it was already running")}});
+JS
+}
+
+@test "deeplink-warm: widens the second-instance win32 argv guard to include linux" {
+	write_warm_fixture
+	run bash "$PATCH_DIR/linux-deeplink-warm.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -q 'WISPR_LINUX_WARM_DEEPLINK' "$FIX"
+	grep -qF 'else{if(y.H8||"linux"===process.platform){/*WISPR_LINUX_WARM_DEEPLINK*/const e=ee(r.find(' "$FIX"
+	node_check "$FIX"
+}
+
+@test "deeplink-warm: leaves the cold-start argv parse untouched" {
+	write_warm_fixture
+	bash "$PATCH_DIR/linux-deeplink-warm.sh" "$FIX"
+	grep -qF 'if(y.H8){const e=B(process.argv.find(' "$FIX"
+	[[ "$(grep -o '"linux"===process.platform' "$FIX" | wc -l)" -eq 1 ]]
+}
+
+@test "deeplink-warm: idempotent on second run" {
+	write_warm_fixture
+	bash "$PATCH_DIR/linux-deeplink-warm.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-deeplink-warm.sh" "$FIX"
+}
+
+@test "deeplink-warm: refuses an argv scan outside a second-instance listener" {
+	# Same guard shape, but in some other listener: the anchor matches and the
+	# ownership check must refuse it.
+	cat > "$FIX" <<'JS'
+function re(x){}function ee(x){return x}
+e.app.on("open-file",(t,r)=>{if(y.H8){const e=ee(r.find(e=>e.startsWith("wispr-flow:")));if(e)return void re(e)}});
+JS
+	run bash "$PATCH_DIR/linux-deeplink-warm.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_WARM_DEEPLINK' "$FIX"
+}
+
+# =============================================================================
 # linux-early-singleton.sh
 # =============================================================================
 
