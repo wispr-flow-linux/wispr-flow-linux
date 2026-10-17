@@ -12,6 +12,8 @@
 #     * linux-window-frame.sh  -> frameless hub/settings window on Linux
 #     * linux-hub-focusable.sh -> hub window focusable/WM-managed on Linux
 #     * linux-deeplink.sh      -> cold-start wispr-flow: argv parse on Linux
+#     * linux-deeplink-warm.sh -> second-instance wispr-flow: argv parse on
+#       Linux (a link opened while the app runs)
 #     * linux-disable-pill-drag.sh -> disable the status-pill drag gesture on linux
 #     * linux-main-shortcut-defaults.sh -> Linux profiles seed the Windows
 #       default shortcut/push-to-talk map instead of the macOS one (whose
@@ -58,6 +60,7 @@ MARKERS=(
   "hub-focusable: linux hub window focusable/WM-managed|F|WISPR_LINUX_HUB_FOCUSABLE"
   "treat-as-windows: linux widens renderer isWindows bind|F|WISPR_LINUX_RENDERER_ISWIN"
   "deeplink: linux cold-start argv parse|F|WISPR_LINUX_DEEPLINK"
+  "deeplink-warm: linux second-instance argv parse|F|WISPR_LINUX_WARM_DEEPLINK"
   "early-singleton: second instance exits before init|F|WISPR_LINUX_EARLY_SINGLETON_V1"
   "disable-pill-drag: linux drag-overlay activation forced false|F|WISPR_LINUX_DISABLE_PILL_DRAG"
   "shortcut-defaults: linux seeds the Windows PTT map|F|WISPR_LINUX_MAIN_SHORTCUT_DEFAULTS"

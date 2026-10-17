@@ -32,6 +32,10 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   on the first start after the update, and skips the move while an instance
   holds the lock or when any file would be overwritten. `--doctor` warns
   while a legacy dir remains.
+- A `wispr-flow:` link opened while the app is running now reaches it. The
+  `second-instance` handler only parsed the URL on Windows, so on Linux the
+  running app just focused the Hub. `linux-deeplink-warm.sh` widens that
+  guard the way `linux-deeplink.sh` does for the cold start.
 
 ### Changed
 
