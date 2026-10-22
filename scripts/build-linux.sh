@@ -319,6 +319,13 @@ step3_patch_bundle() {
     auto "Running linux-deeplink.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-deeplink.sh" "$target_bundle" \
       || die "Deep-link patch failed -- see linux-deeplink.sh output above."
+    # Skip the per-start setAsDefaultProtocolClient on Linux: Electron runs
+    # xdg-settings for it, and xdg-utils 1.1.3 on GNOME also makes the app the
+    # default text/html handler each time (issue #75). The desktop entry's
+    # MimeType= registers the scheme instead.
+    auto "Running linux-protocol-registration.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-protocol-registration.sh" "$target_bundle" \
+      || die "Protocol-registration patch failed -- see linux-protocol-registration.sh output above."
     # Take the Electron single-instance lock at the very top of the bundle,
     # before ANY init runs. The vendor only requests the lock at the end of
     # its ~8.3 MB bundle, so a second launch fully initializes (native .node

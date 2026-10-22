@@ -115,6 +115,9 @@ if dpkg-deb -x "$deb_file" "$dx_tmp" 2>/dev/null; then
 	assert_contains "$desktop_file" 'Exec=wispr-flow' "Desktop entry Exec correct"
 	assert_contains "$desktop_file" 'StartupWMClass=Wispr Flow' \
 		"Desktop entry StartupWMClass correct"
+	assert_contains "$desktop_file" \
+		'MimeType=x-scheme-handler/wispr-flow;' \
+		"Desktop entry registers the wispr-flow: scheme"
 	if command -v desktop-file-validate &>/dev/null; then
 		assert_command_succeeds "desktop-file-validate passes" \
 			desktop-file-validate "$desktop_file"

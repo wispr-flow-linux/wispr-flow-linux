@@ -433,6 +433,28 @@ _doctor_check_legacy_data_dir() {
 }
 
 #------------------------------------------------------------------------------
+# text/html default — builds before the fix for issue #75 made
+# wispr-flow.desktop the default text/html handler at every start (an
+# xdg-utils 1.1.3 side effect of the protocol registration). The launcher
+# removes that line on start; say so while it lingers. Silent otherwise, and
+# when launcher-common.sh (which owns the matcher) is not loaded.
+#------------------------------------------------------------------------------
+_doctor_check_html_default() {
+	local list launcher_log
+	declare -F wispr_strip_html_default &>/dev/null || return 0
+	list="$(wispr_mimeapps_list)"
+	launcher_log="${XDG_CACHE_HOME:-$HOME/.cache}/wispr-flow/launcher.log"
+	[[ -f $list ]] || return 0
+	wispr_strip_html_default "$list" &>/dev/null || return 0
+
+	_warn 'Default apps: .html files open in Wispr Flow'
+	_info "$list has text/html=wispr-flow.desktop,"
+	_info 'left by an older build. The launcher removes it on the next start.'
+	_info 'If it stays, the launcher log says why:'
+	_info "grep 'text/html default' '$launcher_log'"
+}
+
+#------------------------------------------------------------------------------
 # Open at login — the XDG autostart entry linux-autostart.sh writes when the
 # setting is turned on. Silent when there is none. The entry's TryExec= names
 # the launcher (or the AppImage's path); desktops skip it once that is gone,
@@ -629,6 +651,7 @@ run_doctor() {
 	_doctor_check_disk_space
 	_doctor_check_singleton_lock
 	_doctor_check_legacy_data_dir
+	_doctor_check_html_default
 	_doctor_check_autostart
 	_doctor_check_recent_crashes
 	echo

@@ -12,6 +12,8 @@
 #     * linux-window-frame.sh  -> frameless hub/settings window on Linux
 #     * linux-hub-focusable.sh -> hub window focusable/WM-managed on Linux
 #     * linux-deeplink.sh      -> cold-start wispr-flow: argv parse on Linux
+#     * linux-protocol-registration.sh -> no per-start xdg-settings protocol
+#       registration on Linux (it took over text/html on xdg-utils 1.1.3)
 #     * linux-disable-pill-drag.sh -> disable the status-pill drag gesture on linux
 #     * linux-main-shortcut-defaults.sh -> Linux profiles seed the Windows
 #       default shortcut/push-to-talk map instead of the macOS one (whose
@@ -58,6 +60,7 @@ MARKERS=(
   "hub-focusable: linux hub window focusable/WM-managed|F|WISPR_LINUX_HUB_FOCUSABLE"
   "treat-as-windows: linux widens renderer isWindows bind|F|WISPR_LINUX_RENDERER_ISWIN"
   "deeplink: linux cold-start argv parse|F|WISPR_LINUX_DEEPLINK"
+  "protocol-registration: linux skips the xdg-settings registration|F|WISPR_LINUX_PROTOCOL_REGISTRATION"
   "early-singleton: second instance exits before init|F|WISPR_LINUX_EARLY_SINGLETON_V1"
   "disable-pill-drag: linux drag-overlay activation forced false|F|WISPR_LINUX_DISABLE_PILL_DRAG"
   "shortcut-defaults: linux seeds the Windows PTT map|F|WISPR_LINUX_MAIN_SHORTCUT_DEFAULTS"

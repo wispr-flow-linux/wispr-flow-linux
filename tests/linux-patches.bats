@@ -8,6 +8,7 @@
 #   * linux-renderer-treat-as-windows.sh -> widens each renderer's isWindows bind
 #                                           (bridge stays honest; no preload touched)
 #   * linux-deeplink.sh                  -> cold-start wispr-flow: argv parse on Linux
+#   * linux-protocol-registration.sh     -> no xdg-settings protocol registration on Linux
 #   * linux-early-singleton.sh           -> take the single-instance lock before init
 #   * helper-env.sh                      -> spreads process.env into the helper env
 #   * linux-disable-pill-drag.sh         -> force the drag-overlay flag false on Linux
@@ -292,6 +293,75 @@ JS
 	run bash "$PATCH_DIR/linux-deeplink.sh" "$FIX"
 	[[ "$status" -ne 0 ]]
 	! grep -q 'WISPR_LINUX_DEEPLINK' "$FIX"
+}
+
+# =============================================================================
+# linux-protocol-registration.sh
+# =============================================================================
+
+# The registration as 1.6.1102 ships it: an assignment inside a comma
+# expression, followed by upstream's own log line. The stub's method name is
+# computed so the bundle-wide reference count stays at upstream's one.
+protocol_fixture() {
+	cat > "$FIX" <<'JS'
+const e={app:{["setAsDefault"+"ProtocolClient"]:s=>(globalThis.calls=(globalThis.calls||0)+1,!1),on(){}}};const n=()=>({info(...a){globalThis.logged=a}});
+(()=>{let t;if(t=e.app.setAsDefaultProtocolClient("wispr-flow"),n().info("Protocol registration success:",t),e.app.on("open-url",(e,t)=>{}),!1)return})();
+JS
+}
+
+@test "protocol-registration: short-circuits the call on linux, keeps it elsewhere" {
+	protocol_fixture
+	run bash "$PATCH_DIR/linux-protocol-registration.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF '("linux"===process.platform/*WISPR_LINUX_PROTOCOL_REGISTRATION*/||e.app.setAsDefaultProtocolClient("wispr-flow"))' "$FIX"
+	# the log line that reads the result is still fed by it
+	grep -qF '),n().info("Protocol registration success:",t)' "$FIX"
+	node_check "$FIX"
+	command -v node >/dev/null || skip 'node not installed'
+	# Run the patched fixture as each platform: linux must not reach the
+	# Electron call (which is what spawns xdg-settings) and still reports
+	# success; darwin and win32 make the call exactly once.
+	local platform
+	for platform in linux darwin win32; do
+		run node -e '
+			Object.defineProperty(process, "platform", {value: process.argv[2]});
+			require(process.argv[1]);
+			console.log((globalThis.calls || 0) + " " + globalThis.logged[1]);
+		' "$FIX" "$platform"
+		[[ "$status" -eq 0 ]]
+		if [[ $platform == linux ]]; then
+			[[ "$output" == '0 true' ]]
+		else
+			[[ "$output" == '1 false' ]]
+		fi
+	done
+}
+
+@test "protocol-registration: idempotent on second run" {
+	protocol_fixture
+	bash "$PATCH_DIR/linux-protocol-registration.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-protocol-registration.sh" "$FIX"
+}
+
+@test "protocol-registration: bails when the scheme literal is not wispr-flow" {
+	# Near miss: same API, another scheme. The anchor must not match it.
+	cat > "$FIX" <<'JS'
+const e={app:{["setAsDefault"+"ProtocolClient"](){}}};
+e.app.setAsDefaultProtocolClient("wispr-flow-dev");
+JS
+	run bash "$PATCH_DIR/linux-protocol-registration.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *'expected exactly 1 setAsDefaultProtocolClient("wispr-flow") call, found 0'* ]]
+	! grep -q 'WISPR_LINUX_PROTOCOL_REGISTRATION' "$FIX"
+}
+
+@test "protocol-registration: bails when a second registration would be left running" {
+	protocol_fixture
+	echo 'e.app.setAsDefaultProtocolClient(scheme,process.execPath,[]);' >> "$FIX"
+	run bash "$PATCH_DIR/linux-protocol-registration.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *'expected exactly 1 setAsDefaultProtocolClient reference, found 2'* ]]
+	! grep -q 'WISPR_LINUX_PROTOCOL_REGISTRATION' "$FIX"
 }
 
 # =============================================================================
