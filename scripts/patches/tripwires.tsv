@@ -16,7 +16,7 @@
 #   label     what the literal is, for the report
 #   pattern   the literal or regex; no tabs
 #
-# Counts verified on 1.6.897 and 1.6.937.
+# Counts verified on 1.6.897, 1.6.937, 1.6.1209 and 1.6.1264.
 helper-resolver	main	F	1	the Dev-Mac helper log line	Running Dev Mac Helper service
 helper-resolver	main	F	1	the packaged-Windows helper log line	Running packaged Windows Helper service
 helper-resolver	main	F	1	the missing-helper error	Helper service script path not found
@@ -25,7 +25,7 @@ helper-env	main	F	1	the helper env object	sentryDSN:
 helper-env	main	F	1	the 4-pipe helper spawn (fd 3)	stdio:["pipe","pipe","pipe","pipe"]
 mac-gates	main	F	1	the Applications-folder path regex	/^(\/Applications|
 mac-gates	main	P	1	the early-out guard before getAppPath	\{if\([\w$]+\.[\w$]+\)return!1;const [\w$]+=[\w$]+\.app\.getAppPath\(\)
-linux-deeplink	main	P	1	the cold-start argv deep-link parse	if\([\w$]+(?:\.[\w$]+)?\)\{const [\w$]+=[\w$]+\(process\.argv\.find\(
+linux-deeplink	main	P	1	the cold-start argv deep-link parse	[(,][\w$]+(?:\.[\w$]+)?\)\{const [\w$]+=[\w$]+\(process\.argv\.find\(
 linux-disable-pill-drag	main	F	1	the drag-overlay state log line	[Drag Overlay]: Setting drag overlay state to
 linux-hub-focusable	main	F	1	the Hub window's preload	"hub","preload.js"
 linux-window-frame	main	P	1	the win32 hidden-title-bar window config	===process\.platform&&Object\.assign\([\w$]+,\{[^{}]*autoHideMenuBar:!0
@@ -39,4 +39,7 @@ linux-autostart	main	P	1	the Settings open-at-login toggle	setLoginItemSettings\
 linux-autostart	main	F	1	the new-user open-at-login default	setLoginItemSettings({openAtLogin:!0})
 linux-renderer-chrome	renderer/hub	F	2	the platform class added to <html>	classList.add(window.electron.platform.os)
 linux-renderer-treat-as-windows	renderer/*	F	1+	the per-renderer isWindows bind	platform?.isWindows??!1
+# linux-status-compact: the centred-bottom return matches once in 1.6.1209
+# and 1.6.1264 (checked by @Z3roS4n on the shipped bytes, PR #67).
+linux-status-compact	main	P	1	the bottom-centred status-window bounds return	return\{x:[\w$]+\+\([\w$]+-([\w$]+)\)/2,y:[\w$]+\+[\w$]+-([\w$]+),width:\1,height:\2\}
 upstream	main	F	4	upstream's own Linux platform reads (a new one means a re-audit)	"linux"===process.platform

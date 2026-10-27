@@ -7,6 +7,7 @@
 #   * linux-hub-focusable.sh             -> hub window focusable/WM-managed on Linux
 #   * linux-renderer-treat-as-windows.sh -> widens each renderer's isWindows bind
 #                                           (bridge stays honest; no preload touched)
+#   * mac-gates.sh                       -> Applications-folder guard gated to darwin
 #   * linux-deeplink.sh                  -> cold-start wispr-flow: argv parse on Linux
 #   * linux-early-singleton.sh           -> take the single-instance lock before init
 #   * helper-env.sh                      -> spreads process.env into the helper env
@@ -14,6 +15,7 @@
 #   * linux-main-shortcut-defaults.sh   -> Linux seeds the Windows chord map in main
 #   * linux-xdg-data-dir.sh             -> app data and logs dirs under XDG_CONFIG_HOME
 #   * linux-autostart.sh                -> login items backed by an XDG autostart entry
+#   * linux-status-compact.sh           -> status-pill window shrunk to the pill on Linux
 #   * helper-resolver.sh                 -> prepends a Linux case to the helper-path
 #                                           ternary (inline and exported shapes)
 #
@@ -201,6 +203,30 @@ JS
 	node_check "$FIX"
 }
 
+@test "hub-focusable: tolerates keys between preload and devTools (1.6.1264+)" {
+	cat > "$FIX" <<'JS'
+const t={title:"Flow Hub",show:!1,webPreferences:{...A.g,preload:require("path").resolve(__dirname,"../renderer","hub","preload.js"),webviewTag:(0,x.qK)(),devTools:"development"===w.M0||(0,N.Pv)(p.RA.prefs?.user.email||"")},focusable:!1};
+const ov=new r.BrowserWindow({show:!1,transparent:!0,frame:!1,hasShadow:!1,focusable:!1,skipTaskbar:!0});
+JS
+	run bash "$PATCH_DIR/linux-hub-focusable.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'webviewTag:(0,x.qK)(),devTools:' "$FIX"
+	grep -qF 'focusable:/*WISPR_LINUX_HUB_FOCUSABLE*/"linux"===process.platform}' "$FIX"
+	[[ "$(grep -c 'focusable:!1' "$FIX")" -eq 1 ]]
+	node_check "$FIX"
+}
+
+@test "hub-focusable: never spans a nested object after the preload (near-miss)" {
+	# `[^{}]*` is what keeps the match inside webPreferences now that the
+	# anchor no longer names devTools; a brace in between must stop it.
+	cat > "$FIX" <<'JS'
+const t={title:"Flow Hub",webPreferences:{preload:require("path").resolve(__dirname,"../renderer","hub","preload.js"),extra:{x:1},devTools:!1},focusable:!1};
+JS
+	run bash "$PATCH_DIR/linux-hub-focusable.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_HUB_FOCUSABLE' "$FIX"
+}
+
 @test "hub-focusable: idempotent on second run" {
 	cat > "$FIX" <<'JS'
 const t={title:"Flow Hub",center:!0,show:!1,webPreferences:{preload:require("path").resolve(__dirname,"../renderer","hub","preload.js"),devTools:"development"===_.M0},focusable:!1};
@@ -258,6 +284,53 @@ JS
 }
 
 # =============================================================================
+# mac-gates.sh
+# =============================================================================
+
+@test "mac-gates: gates the Applications-folder guard to darwin" {
+	cat > "$FIX" <<'JS'
+const i={app:{getAppPath:()=>""}},c={H8:!1};
+const w=()=>{if(c.H8)return!1;const e=i.app.getAppPath();return e};
+JS
+	run bash "$PATCH_DIR/mac-gates.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'w=()=>{if(c.H8)return!1;if("darwin"!==process.platform)return!1;const e=' "$FIX"
+	node_check "$FIX"
+}
+
+@test "mac-gates: gates the async guard (1.6.1264+)" {
+	cat > "$FIX" <<'JS'
+const i={app:{getAppPath:()=>""}},l={H8:!1};
+const C=async()=>{if(l.H8)return!1;const e=i.app.getAppPath();return e};
+JS
+	run bash "$PATCH_DIR/mac-gates.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'C=async()=>{if(l.H8)return!1;if("darwin"!==process.platform)return!1;const e=' "$FIX"
+	node_check "$FIX"
+}
+
+@test "mac-gates: idempotent on second run" {
+	cat > "$FIX" <<'JS'
+const i={app:{getAppPath:()=>""}},l={H8:!1};
+const C=async()=>{if(l.H8)return!1;const e=i.app.getAppPath();return e};
+JS
+	bash "$PATCH_DIR/mac-gates.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/mac-gates.sh" "$FIX"
+}
+
+@test "mac-gates: leaves a getAppPath() site without the early-out alone" {
+	# Near-miss: the other getAppPath() callers have no `if(<flag>)return!1;`
+	# right before the call, so the anchor must not take them.
+	cat > "$FIX" <<'JS'
+const i={app:{getAppPath:()=>""}};
+const u=async()=>{const e=i.app.getAppPath();return e};
+JS
+	run bash "$PATCH_DIR/mac-gates.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'darwin' "$FIX"
+}
+
+# =============================================================================
 # linux-deeplink.sh
 # =============================================================================
 
@@ -271,6 +344,65 @@ JS
 	grep -q 'WISPR_LINUX_DEEPLINK' "$FIX"
 	grep -qF 'if(f.H8||"linux"===process.platform){' "$FIX"
 	node_check "$FIX"
+}
+
+@test "deeplink: widens the guard when it ends a comma sequence (1.6.1264+)" {
+	cat > "$FIX" <<'JS'
+function L(x){}function B(x){return x}let t;
+if(t=app.setAsDefaultProtocolClient("wispr-flow"),app.on("open-url",(e,t)=>{L(t)}),A.H8){const e=B(process.argv.find(e=>e.startsWith("wispr-flow:")||e.startsWith("wispr-flow/")));e&&L(e)}
+JS
+	run bash "$PATCH_DIR/linux-deeplink.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF ',A.H8||"linux"===process.platform){/*WISPR_LINUX_DEEPLINK*/' "$FIX"
+	node_check "$FIX"
+}
+
+@test "deeplink: refuses a negated guard (near-miss for the anchor)" {
+	# `if(!f.H8)` is a different condition; widening it with `||linux` would
+	# invert the meaning, so the anchor must not take it.
+	cat > "$FIX" <<'JS'
+function L(x){}function B(x){return x}
+if(!f.H8){const e=B(process.argv.find(e=>e.startsWith("wispr-flow:")||e.startsWith("wispr-flow/")));e&&L(e)}
+JS
+	run bash "$PATCH_DIR/linux-deeplink.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_DEEPLINK' "$FIX"
+}
+
+@test "deeplink: refuses a guard that ends an && chain (near-miss for the lead)" {
+	# `if(a&&f.H8)` widened to `a&&f.H8||linux` would skip `a` on Linux:
+	# only `if(` and `,` are safe leads.
+	cat > "$FIX" <<'JS'
+function L(x){}function B(x){return x}var a=!0;
+if(a&&f.H8){const e=B(process.argv.find(e=>e.startsWith("wispr-flow:")||e.startsWith("wispr-flow/")));e&&L(e)}
+JS
+	run bash "$PATCH_DIR/linux-deeplink.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_DEEPLINK' "$FIX"
+}
+
+@test "deeplink: refuses a while( guard (near-miss for the if( lead)" {
+	# A bare `(` lead would widen this into valid but different JS.
+	cat > "$FIX" <<'JS'
+function L(x){}function B(x){return x}
+while(f.H8){const e=B(process.argv.find(e=>e.startsWith("wispr-flow:")||e.startsWith("wispr-flow/")));e&&L(e);break}
+JS
+	run bash "$PATCH_DIR/linux-deeplink.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_DEEPLINK' "$FIX"
+}
+
+@test "deeplink: a parameter list after a comma fails loudly, file restored" {
+	# `,e){` also ends a parameter list; the rewrite there does not parse, so
+	# the syntax check must reject it and restore the original bytes.
+	cat > "$FIX" <<'JS'
+function L(x){}function B(x){return x}
+function q(a,e){const t=B(process.argv.find(e=>e.startsWith("wispr-flow:")||e.startsWith("wispr-flow/")));t&&L(t)}
+JS
+	cp "$FIX" "$FIX.before"
+	run bash "$PATCH_DIR/linux-deeplink.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	cmp -s "$FIX" "$FIX.before"
 }
 
 @test "deeplink: idempotent on second run" {
@@ -1016,4 +1148,81 @@ _as_node() {
 	run node -e 'Object.defineProperty(process,"platform",{value:"darwin"});const app=require(process.env.FIX);app.setLoginItemSettings({openAtLogin:true});console.log(JSON.stringify(app.getLoginItemSettings()))'
 	[[ "$output" == '{"openAtLogin":false,"wasOpenedAtLogin":false,"launchItems":["stock"]}' ]]
 	[[ ! -e $ENTRY ]]
+}
+
+# =============================================================================
+# linux-status-compact.sh
+# =============================================================================
+
+# The status-bounds function as 1.6.1209 and 1.6.1264 ship it: the width and
+# height are default parameters, the bottom branch centres the box. The top
+# branch is a different shape and must be left alone.
+status_bounds_1209() {
+	cat <<'JS'
+const p=(e,t,n,r,s,o=320,a=i,l=440)=>{const{x:u,y:p,width:h,height:m}=e.workArea;if("top"===t)return{x:u+(h-l)/2,y:p+a,width:l,height:o};return{x:u+(h-l)/2,y:p+m-o,width:l,height:o}};const s=614,o=512;p(d,"bottom",0,0,0,s,8,o);
+JS
+}
+
+@test "status-compact: rewrites the bottom branch of the 1.6.1209 bounds, leaves the top branch" {
+	status_bounds_1209 > "$FIX"
+	run bash "$PATCH_DIR/linux-status-compact.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'return(/*WISPR_LINUX_STATUS_COMPACT*/"linux"===process.platform)?{x:u+(h-200)/2,y:p+m-110,width:200,height:110}:{x:u+(h-l)/2,y:p+m-o,width:l,height:o}' "$FIX"
+	# the top branch (y:p+a) is untouched
+	grep -qF 'if("top"===t)return{x:u+(h-l)/2,y:p+a,width:l,height:o}' "$FIX"
+	[[ "$(grep -o 'WISPR_LINUX_STATUS_COMPACT' "$FIX" | wc -l)" -eq 1 ]]
+	node_check "$FIX"
+}
+
+@test "status-compact: the patched branch returns 200x110 on linux, the shipped box elsewhere" {
+	if ! command -v node >/dev/null; then
+		skip 'node not installed'
+	fi
+	status_bounds_1209 | sed 's/;const s=614.*$/;module.exports=p;/' > "$FIX"
+	bash "$PATCH_DIR/linux-status-compact.sh" "$FIX"
+	run node -e '
+		const p = require(process.argv[1]);
+		const d = {workArea: {x: 0, y: 0, width: 1920, height: 1040}};
+		const linux = p(d, "bottom", 0, 0, 0, 614, 8, 512);
+		Object.defineProperty(process, "platform", {value: "win32"});
+		const win = p(d, "bottom", 0, 0, 0, 614, 8, 512);
+		console.log(JSON.stringify([linux, win]));
+	' "$FIX"
+	[[ "$status" -eq 0 ]]
+	[[ "$output" == '[{"x":860,"y":930,"width":200,"height":110},{"x":704,"y":426,"width":512,"height":614}]' ]]
+}
+
+@test "status-compact: matches the literal-width shape of 1.6.957 and earlier" {
+	cat > "$FIX" <<'JS'
+function b(e,t){const{x:o,y:c,width:l,height:d}=e.workArea,s=320;return{x:o+(l-440)/2,y:c+d-s,width:440,height:s}}
+JS
+	run bash "$PATCH_DIR/linux-status-compact.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'return(/*WISPR_LINUX_STATUS_COMPACT*/"linux"===process.platform)?{x:o+(l-200)/2,y:c+d-110,width:200,height:110}:{x:o+(l-440)/2,y:c+d-s,width:440,height:s}' "$FIX"
+	node_check "$FIX"
+}
+
+@test "status-compact: idempotent on second run" {
+	status_bounds_1209 > "$FIX"
+	bash "$PATCH_DIR/linux-status-compact.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-status-compact.sh" "$FIX"
+}
+
+@test "status-compact: a box whose width differs from its centring value is not the anchor (near miss)" {
+	cat > "$FIX" <<'JS'
+const p=(e,o=320,l=440,w=600)=>{const{x:u,y:p,width:h,height:m}=e.workArea;return{x:u+(h-l)/2,y:p+m-o,width:w,height:o}};
+JS
+	cp "$FIX" "$FIX.before"
+	run bash "$PATCH_DIR/linux-status-compact.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *'expected 1 status-bounds anchor, found 0'* ]]
+	cmp -s "$FIX" "$FIX.before"
+}
+
+@test "status-compact: bails when the anchor is not unique" {
+	{ status_bounds_1209; status_bounds_1209; } > "$FIX"
+	run bash "$PATCH_DIR/linux-status-compact.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *'expected 1 status-bounds anchor, found 2'* ]]
+	! grep -q 'WISPR_LINUX_STATUS_COMPACT' "$FIX"
 }

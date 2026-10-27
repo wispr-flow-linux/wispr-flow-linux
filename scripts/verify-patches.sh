@@ -20,6 +20,8 @@
 #       XDG_CONFIG_HOME on Linux instead of ~/Library
 #     * linux-autostart.sh -> login items backed by an XDG autostart entry
 #       with --hidden, so "Open at login" works and starts hidden
+#     * linux-status-compact.sh -> shrink the status-pill window to the
+#       pill's footprint on Linux
 #   renderer bundles:
 #     * linux-renderer-chrome.sh -> remaps the <html> platform class linux->win32
 #     * linux-renderer-treat-as-windows.sh -> widens each renderer's isWindows
@@ -63,6 +65,7 @@ MARKERS=(
   "shortcut-defaults: linux seeds the Windows PTT map|F|WISPR_LINUX_MAIN_SHORTCUT_DEFAULTS"
   "xdg-data-dir: linux app data and logs under XDG_CONFIG_HOME|F|WISPR_LINUX_XDG_DATA_DIR"
   "autostart: linux login items backed by an XDG autostart entry|F|WISPR_LINUX_AUTOSTART"
+  "status-compact: linux status window shrunk to pill size|F|WISPR_LINUX_STATUS_COMPACT"
 )
 
 missing=0

@@ -360,6 +360,11 @@ step3_patch_bundle() {
     auto "Running linux-autostart.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-autostart.sh" "$target_bundle" \
       || die "Autostart patch failed -- see linux-autostart.sh output above."
+    # Shrink the status-pill window to the pill's footprint on Linux. The
+    # invisible transparent canvas swallows clicks on Wayland.
+    auto "Running linux-status-compact.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-status-compact.sh" "$target_bundle" \
+      || die "linux-status-compact.sh failed -- see its output above."
 
     # Renderer + preload patches live alongside the main bundle under .webpack/.
     local webpack_root="${target_bundle%/main/index.js}"

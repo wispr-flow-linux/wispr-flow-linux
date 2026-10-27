@@ -51,6 +51,17 @@ sudo dnf install wispr-flow
 yay -S wispr-flow-appimage   # or: paru -S wispr-flow-appimage
 ```
 
+### Gentoo (community overlay)
+
+```bash
+sudo eselect repository add snakebyte git https://github.com/switch87/snakebyte-overlay.git
+sudo emaint sync -r snakebyte
+sudo emerge --ask app-accessibility/wispr-flow-bin
+```
+
+Maintained outside this project; keyword and license setup are in
+[`docs/installation.md`](docs/installation.md#gentoo-community-overlay).
+
 ### Manual download
 
 Grab a `.deb`, `.rpm`, or `.AppImage` from the

@@ -24,6 +24,13 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Fixed
 
+- Wispr Flow 1.6.1264 builds again, so the nightly bump can move the pin
+  past 1.6.1209 (#135). Upstream reshaped three patch sites while keeping
+  their literals: the cold-start deep-link guard now ends a comma sequence,
+  the Applications-folder guard is an async arrow, and the Hub's
+  webPreferences gained `webviewTag` before `devTools`. `linux-deeplink.sh`,
+  `mac-gates.sh` and `linux-hub-focusable.sh` accept both shapes and leave
+  1.6.1209 byte-identical.
 - The database, meetings, backups and extension state now live in
   `~/.config/Wispr Flow` (or `$XDG_CONFIG_HOME/Wispr Flow`) instead of
   `~/Library/Application Support/Wispr Flow`, and the app no longer creates
@@ -32,6 +39,12 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   on the first start after the update, and skips the move while an instance
   holds the lock or when any file would be overwritten. `--doctor` warns
   while a legacy dir remains.
+- The nightly bump no longer stalls when upstream's `latest.json` is
+  unreachable or unparsable (#83). `resolve-installer-url.sh` falls back to
+  the Squirrel `RELEASES` file beside the installer, downloads the Setup
+  `.exe` it names to compute the SHA-256 the pin requires, and checks the
+  SHA-1 of the `*-full.nupkg` inside against the `RELEASES` line. A
+  manifest that parses but is refused stays fatal.
 
 ### Changed
 
