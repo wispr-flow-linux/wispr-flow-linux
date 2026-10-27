@@ -39,4 +39,7 @@ linux-autostart	main	P	1	the Settings open-at-login toggle	setLoginItemSettings\
 linux-autostart	main	F	1	the new-user open-at-login default	setLoginItemSettings({openAtLogin:!0})
 linux-renderer-chrome	renderer/hub	F	2	the platform class added to <html>	classList.add(window.electron.platform.os)
 linux-renderer-treat-as-windows	renderer/*	F	1+	the per-renderer isWindows bind	platform?.isWindows??!1
+# linux-status-compact: the centred-bottom return matches once in 1.6.1209
+# and 1.6.1264 (checked by @Z3roS4n on the shipped bytes, PR #67).
+linux-status-compact	main	P	1	the bottom-centred status-window bounds return	return\{x:[\w$]+\+\([\w$]+-([\w$]+)\)/2,y:[\w$]+\+[\w$]+-([\w$]+),width:\1,height:\2\}
 upstream	main	F	4	upstream's own Linux platform reads (a new one means a re-audit)	"linux"===process.platform

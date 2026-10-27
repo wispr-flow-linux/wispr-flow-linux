@@ -6,7 +6,7 @@
 # (the .asar stores the JS bundle as concatenated plaintext, so a byte-grep
 # finds the markers without unpacking).
 #
-# verify-patches.sh greps a fixed set of markers (12 fixed strings + 1 Perl
+# verify-patches.sh greps a fixed set of markers (13 fixed strings + 1 Perl
 # regex). We build a tiny fixture carrying those exact marker strings (PASS)
 # and per-marker fixtures that omit one (FAIL).
 #
@@ -43,6 +43,7 @@ declare -gA MARKER_SAMPLES=(
 	[shortcutdefaults]='(r.H8||"linux"===process.platform)/*WISPR_LINUX_MAIN_SHORTCUT_DEFAULTS*/?pe:ce'
 	[autostart]='/*WISPR_LINUX_AUTOSTART*/;(function(){if(process.platform!=="linux")return;})();'
 	[xdgdatadir]='f=u?o().join(process.env.APPDATA||"","Wispr Flow"):("linux"===process.platform/*WISPR_LINUX_XDG_DATA_DIR*/?o().join(process.env.XDG_CONFIG_HOME||o().join(i().homedir(),".config"),"Wispr Flow"):o().join(i().homedir(),"Library","Application Support","Wispr Flow"))'
+	[statuscompact]='return(/*WISPR_LINUX_STATUS_COMPACT*/"linux"===process.platform)?{x:0}:{x:1}'
 )
 
 # Write a fixture app.asar-like file containing every marker, except the one
@@ -187,6 +188,14 @@ write_fixture() {
 @test "verify: exits 1 when the shortcut-defaults marker is missing" {
 	local fixture
 	fixture="$(write_fixture shortcutdefaults)"
+	run "$VERIFY_SH" "$fixture"
+	[[ "$status" -eq 1 ]]
+	[[ "$output" == *'MISSING'* ]]
+}
+
+@test "verify: exits 1 when the statuscompact marker is missing" {
+	local fixture
+	fixture="$(write_fixture statuscompact)"
 	run "$VERIFY_SH" "$fixture"
 	[[ "$status" -eq 1 ]]
 	[[ "$output" == *'MISSING'* ]]

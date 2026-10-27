@@ -15,6 +15,7 @@
 #   * linux-main-shortcut-defaults.sh   -> Linux seeds the Windows chord map in main
 #   * linux-xdg-data-dir.sh             -> app data and logs dirs under XDG_CONFIG_HOME
 #   * linux-autostart.sh                -> login items backed by an XDG autostart entry
+#   * linux-status-compact.sh           -> status-pill window shrunk to the pill on Linux
 #   * helper-resolver.sh                 -> prepends a Linux case to the helper-path
 #                                           ternary (inline and exported shapes)
 #
@@ -1147,4 +1148,81 @@ _as_node() {
 	run node -e 'Object.defineProperty(process,"platform",{value:"darwin"});const app=require(process.env.FIX);app.setLoginItemSettings({openAtLogin:true});console.log(JSON.stringify(app.getLoginItemSettings()))'
 	[[ "$output" == '{"openAtLogin":false,"wasOpenedAtLogin":false,"launchItems":["stock"]}' ]]
 	[[ ! -e $ENTRY ]]
+}
+
+# =============================================================================
+# linux-status-compact.sh
+# =============================================================================
+
+# The status-bounds function as 1.6.1209 and 1.6.1264 ship it: the width and
+# height are default parameters, the bottom branch centres the box. The top
+# branch is a different shape and must be left alone.
+status_bounds_1209() {
+	cat <<'JS'
+const p=(e,t,n,r,s,o=320,a=i,l=440)=>{const{x:u,y:p,width:h,height:m}=e.workArea;if("top"===t)return{x:u+(h-l)/2,y:p+a,width:l,height:o};return{x:u+(h-l)/2,y:p+m-o,width:l,height:o}};const s=614,o=512;p(d,"bottom",0,0,0,s,8,o);
+JS
+}
+
+@test "status-compact: rewrites the bottom branch of the 1.6.1209 bounds, leaves the top branch" {
+	status_bounds_1209 > "$FIX"
+	run bash "$PATCH_DIR/linux-status-compact.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'return(/*WISPR_LINUX_STATUS_COMPACT*/"linux"===process.platform)?{x:u+(h-200)/2,y:p+m-110,width:200,height:110}:{x:u+(h-l)/2,y:p+m-o,width:l,height:o}' "$FIX"
+	# the top branch (y:p+a) is untouched
+	grep -qF 'if("top"===t)return{x:u+(h-l)/2,y:p+a,width:l,height:o}' "$FIX"
+	[[ "$(grep -o 'WISPR_LINUX_STATUS_COMPACT' "$FIX" | wc -l)" -eq 1 ]]
+	node_check "$FIX"
+}
+
+@test "status-compact: the patched branch returns 200x110 on linux, the shipped box elsewhere" {
+	if ! command -v node >/dev/null; then
+		skip 'node not installed'
+	fi
+	status_bounds_1209 | sed 's/;const s=614.*$/;module.exports=p;/' > "$FIX"
+	bash "$PATCH_DIR/linux-status-compact.sh" "$FIX"
+	run node -e '
+		const p = require(process.argv[1]);
+		const d = {workArea: {x: 0, y: 0, width: 1920, height: 1040}};
+		const linux = p(d, "bottom", 0, 0, 0, 614, 8, 512);
+		Object.defineProperty(process, "platform", {value: "win32"});
+		const win = p(d, "bottom", 0, 0, 0, 614, 8, 512);
+		console.log(JSON.stringify([linux, win]));
+	' "$FIX"
+	[[ "$status" -eq 0 ]]
+	[[ "$output" == '[{"x":860,"y":930,"width":200,"height":110},{"x":704,"y":426,"width":512,"height":614}]' ]]
+}
+
+@test "status-compact: matches the literal-width shape of 1.6.957 and earlier" {
+	cat > "$FIX" <<'JS'
+function b(e,t){const{x:o,y:c,width:l,height:d}=e.workArea,s=320;return{x:o+(l-440)/2,y:c+d-s,width:440,height:s}}
+JS
+	run bash "$PATCH_DIR/linux-status-compact.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'return(/*WISPR_LINUX_STATUS_COMPACT*/"linux"===process.platform)?{x:o+(l-200)/2,y:c+d-110,width:200,height:110}:{x:o+(l-440)/2,y:c+d-s,width:440,height:s}' "$FIX"
+	node_check "$FIX"
+}
+
+@test "status-compact: idempotent on second run" {
+	status_bounds_1209 > "$FIX"
+	bash "$PATCH_DIR/linux-status-compact.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-status-compact.sh" "$FIX"
+}
+
+@test "status-compact: a box whose width differs from its centring value is not the anchor (near miss)" {
+	cat > "$FIX" <<'JS'
+const p=(e,o=320,l=440,w=600)=>{const{x:u,y:p,width:h,height:m}=e.workArea;return{x:u+(h-l)/2,y:p+m-o,width:w,height:o}};
+JS
+	cp "$FIX" "$FIX.before"
+	run bash "$PATCH_DIR/linux-status-compact.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *'expected 1 status-bounds anchor, found 0'* ]]
+	cmp -s "$FIX" "$FIX.before"
+}
+
+@test "status-compact: bails when the anchor is not unique" {
+	{ status_bounds_1209; status_bounds_1209; } > "$FIX"
+	run bash "$PATCH_DIR/linux-status-compact.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *'expected 1 status-bounds anchor, found 2'* ]]
+	! grep -q 'WISPR_LINUX_STATUS_COMPACT' "$FIX"
 }
