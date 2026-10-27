@@ -48,9 +48,10 @@
 # Anchor (unique in the bundle), keyed on stable developer string literals --
 # NOT on minified symbols (the config var and platform-flag symbols churn
 # every release):
-#   "hub","preload.js"),devTools:<no-braces>},focusable:!1}
-# The devTools value is captured as `[^{}]*` so the match cannot escape the
-# webPreferences object; if upstream ever puts braces in that expression or
+#   "hub","preload.js"),<no-braces>},focusable:!1}
+# The rest of webPreferences is captured as `[^{}]*` so the match cannot
+# escape that object, whatever keys follow the preload (1.6.1264 added
+# `webviewTag:` before `devTools:`); if upstream ever puts braces in there or
 # moves `focusable` off the tail of the config, the EXPECTED count assertion
 # below fails loudly instead of patching the wrong site.
 #
@@ -71,10 +72,11 @@ with io.open(path, "r", encoding="utf-8", errors="surrogateescape") as f:
 
 # Anchor: the Hub renderer preload path (developer strings, minifier-stable)
 # through the end of webPreferences, then the `focusable:!1` that closes the
-# Hub config object. `[^{}]*` keeps the devTools expression from spanning into
-# another object; every minified identifier inside it is left uncaptured.
+# Hub config object. `[^{}]*` keeps the remaining webPreferences keys from
+# spanning into another object; every minified identifier inside them is left
+# uncaptured.
 site = re.compile(
-    r'("hub","preload\.js"\),devTools:[^{}]*\},)'  # g1: preload anchor ->
+    r'("hub","preload\.js"\),[^{}]*\},)'           # g1: preload anchor ->
     r'focusable:!1\}'                              #     webPreferences close
 )
 matches = list(site.finditer(data))

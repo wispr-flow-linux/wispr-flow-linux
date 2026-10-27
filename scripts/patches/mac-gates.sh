@@ -47,10 +47,12 @@ if re.search(r'return!1;if\("darwin"!==process\.platform\)return!1;const\s+[\w$]
 # `c.H8`, the result var, the `i.app` receiver), so we hardcode NONE of them.
 # The stable token is the developer API name `.app.getAppPath()`; the
 # surrounding `=()=>{if(<ident.ident>)return!1;const ...` shape disambiguates it
-# from the other 11 getAppPath() call sites down to exactly one:
+# from the other getAppPath() call sites down to exactly one:
 #   <id>=()=>{ if(<ident.ident>) return!1; const <id>=<id>.app.getAppPath()
+# From 1.6.1264 the guard is an async arrow (it awaits the move-to-Applications
+# flow), so `async` before the parameter list is optional.
 anchor = re.compile(
-    r'([\w$]+=\(\)=>\{if\([\w$]+\.[\w$]+\)return!1;)'  # group 1: arrow + early-out guard
+    r'([\w$]+=(?:async)?\(\)=>\{if\([\w$]+\.[\w$]+\)return!1;)'  # group 1: arrow + early-out guard
     r'(const\s+[\w$]+=[\w$]+\.app\.getAppPath\(\))'    # group 2: getAppPath() call
 )
 matches = anchor.findall(src)
