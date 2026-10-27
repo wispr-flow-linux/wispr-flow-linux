@@ -337,6 +337,15 @@ step3_patch_bundle() {
     auto "Running linux-disable-pill-drag.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-disable-pill-drag.sh" "$target_bundle" \
       || die "linux-disable-pill-drag.sh failed -- see its output above."
+    # Anchor the status pill's pickers (auto-polish, fetch link, extension
+    # menu, shortcut-join drawer) at the pill on native Wayland, where the
+    # renderer's window.screenX/Y are always 0. Main adds the status window's
+    # bounds to each forwarded point and removes them from the DidHide cursor
+    # point; X11 and XWayland are left alone. See
+    # patches/linux-status-picker-anchor.sh.
+    auto "Running linux-status-picker-anchor.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-status-picker-anchor.sh" "$target_bundle" \
+      || die "linux-status-picker-anchor.sh failed -- see its output above."
     # Seed fresh Linux profiles with the WINDOWS default shortcut/PTT map. The
     # main process picks the defaults with a `"win32"===process.platform` flag,
     # so on Linux it wrote the macOS map -- whose PTT key resolves to keycode -1
