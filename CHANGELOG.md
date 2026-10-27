@@ -24,6 +24,13 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Fixed
 
+- Wispr Flow 1.6.1264 builds again, so the nightly bump can move the pin
+  past 1.6.1209 (#135). Upstream reshaped three patch sites while keeping
+  their literals: the cold-start deep-link guard now ends a comma sequence,
+  the Applications-folder guard is an async arrow, and the Hub's
+  webPreferences gained `webviewTag` before `devTools`. `linux-deeplink.sh`,
+  `mac-gates.sh` and `linux-hub-focusable.sh` accept both shapes and leave
+  1.6.1209 byte-identical.
 - The database, meetings, backups and extension state now live in
   `~/.config/Wispr Flow` (or `$XDG_CONFIG_HOME/Wispr Flow`) instead of
   `~/Library/Application Support/Wispr Flow`, and the app no longer creates

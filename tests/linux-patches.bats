@@ -7,6 +7,7 @@
 #   * linux-hub-focusable.sh             -> hub window focusable/WM-managed on Linux
 #   * linux-renderer-treat-as-windows.sh -> widens each renderer's isWindows bind
 #                                           (bridge stays honest; no preload touched)
+#   * mac-gates.sh                       -> Applications-folder guard gated to darwin
 #   * linux-deeplink.sh                  -> cold-start wispr-flow: argv parse on Linux
 #   * linux-early-singleton.sh           -> take the single-instance lock before init
 #   * helper-env.sh                      -> spreads process.env into the helper env
@@ -201,6 +202,30 @@ JS
 	node_check "$FIX"
 }
 
+@test "hub-focusable: tolerates keys between preload and devTools (1.6.1264+)" {
+	cat > "$FIX" <<'JS'
+const t={title:"Flow Hub",show:!1,webPreferences:{...A.g,preload:require("path").resolve(__dirname,"../renderer","hub","preload.js"),webviewTag:(0,x.qK)(),devTools:"development"===w.M0||(0,N.Pv)(p.RA.prefs?.user.email||"")},focusable:!1};
+const ov=new r.BrowserWindow({show:!1,transparent:!0,frame:!1,hasShadow:!1,focusable:!1,skipTaskbar:!0});
+JS
+	run bash "$PATCH_DIR/linux-hub-focusable.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'webviewTag:(0,x.qK)(),devTools:' "$FIX"
+	grep -qF 'focusable:/*WISPR_LINUX_HUB_FOCUSABLE*/"linux"===process.platform}' "$FIX"
+	[[ "$(grep -c 'focusable:!1' "$FIX")" -eq 1 ]]
+	node_check "$FIX"
+}
+
+@test "hub-focusable: never spans a nested object after the preload (near-miss)" {
+	# `[^{}]*` is what keeps the match inside webPreferences now that the
+	# anchor no longer names devTools; a brace in between must stop it.
+	cat > "$FIX" <<'JS'
+const t={title:"Flow Hub",webPreferences:{preload:require("path").resolve(__dirname,"../renderer","hub","preload.js"),extra:{x:1},devTools:!1},focusable:!1};
+JS
+	run bash "$PATCH_DIR/linux-hub-focusable.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_HUB_FOCUSABLE' "$FIX"
+}
+
 @test "hub-focusable: idempotent on second run" {
 	cat > "$FIX" <<'JS'
 const t={title:"Flow Hub",center:!0,show:!1,webPreferences:{preload:require("path").resolve(__dirname,"../renderer","hub","preload.js"),devTools:"development"===_.M0},focusable:!1};
@@ -258,6 +283,53 @@ JS
 }
 
 # =============================================================================
+# mac-gates.sh
+# =============================================================================
+
+@test "mac-gates: gates the Applications-folder guard to darwin" {
+	cat > "$FIX" <<'JS'
+const i={app:{getAppPath:()=>""}},c={H8:!1};
+const w=()=>{if(c.H8)return!1;const e=i.app.getAppPath();return e};
+JS
+	run bash "$PATCH_DIR/mac-gates.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'w=()=>{if(c.H8)return!1;if("darwin"!==process.platform)return!1;const e=' "$FIX"
+	node_check "$FIX"
+}
+
+@test "mac-gates: gates the async guard (1.6.1264+)" {
+	cat > "$FIX" <<'JS'
+const i={app:{getAppPath:()=>""}},l={H8:!1};
+const C=async()=>{if(l.H8)return!1;const e=i.app.getAppPath();return e};
+JS
+	run bash "$PATCH_DIR/mac-gates.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'C=async()=>{if(l.H8)return!1;if("darwin"!==process.platform)return!1;const e=' "$FIX"
+	node_check "$FIX"
+}
+
+@test "mac-gates: idempotent on second run" {
+	cat > "$FIX" <<'JS'
+const i={app:{getAppPath:()=>""}},l={H8:!1};
+const C=async()=>{if(l.H8)return!1;const e=i.app.getAppPath();return e};
+JS
+	bash "$PATCH_DIR/mac-gates.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/mac-gates.sh" "$FIX"
+}
+
+@test "mac-gates: leaves a getAppPath() site without the early-out alone" {
+	# Near-miss: the other getAppPath() callers have no `if(<flag>)return!1;`
+	# right before the call, so the anchor must not take them.
+	cat > "$FIX" <<'JS'
+const i={app:{getAppPath:()=>""}};
+const u=async()=>{const e=i.app.getAppPath();return e};
+JS
+	run bash "$PATCH_DIR/mac-gates.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'darwin' "$FIX"
+}
+
+# =============================================================================
 # linux-deeplink.sh
 # =============================================================================
 
@@ -271,6 +343,65 @@ JS
 	grep -q 'WISPR_LINUX_DEEPLINK' "$FIX"
 	grep -qF 'if(f.H8||"linux"===process.platform){' "$FIX"
 	node_check "$FIX"
+}
+
+@test "deeplink: widens the guard when it ends a comma sequence (1.6.1264+)" {
+	cat > "$FIX" <<'JS'
+function L(x){}function B(x){return x}let t;
+if(t=app.setAsDefaultProtocolClient("wispr-flow"),app.on("open-url",(e,t)=>{L(t)}),A.H8){const e=B(process.argv.find(e=>e.startsWith("wispr-flow:")||e.startsWith("wispr-flow/")));e&&L(e)}
+JS
+	run bash "$PATCH_DIR/linux-deeplink.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF ',A.H8||"linux"===process.platform){/*WISPR_LINUX_DEEPLINK*/' "$FIX"
+	node_check "$FIX"
+}
+
+@test "deeplink: refuses a negated guard (near-miss for the anchor)" {
+	# `if(!f.H8)` is a different condition; widening it with `||linux` would
+	# invert the meaning, so the anchor must not take it.
+	cat > "$FIX" <<'JS'
+function L(x){}function B(x){return x}
+if(!f.H8){const e=B(process.argv.find(e=>e.startsWith("wispr-flow:")||e.startsWith("wispr-flow/")));e&&L(e)}
+JS
+	run bash "$PATCH_DIR/linux-deeplink.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_DEEPLINK' "$FIX"
+}
+
+@test "deeplink: refuses a guard that ends an && chain (near-miss for the lead)" {
+	# `if(a&&f.H8)` widened to `a&&f.H8||linux` would skip `a` on Linux:
+	# only `if(` and `,` are safe leads.
+	cat > "$FIX" <<'JS'
+function L(x){}function B(x){return x}var a=!0;
+if(a&&f.H8){const e=B(process.argv.find(e=>e.startsWith("wispr-flow:")||e.startsWith("wispr-flow/")));e&&L(e)}
+JS
+	run bash "$PATCH_DIR/linux-deeplink.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_DEEPLINK' "$FIX"
+}
+
+@test "deeplink: refuses a while( guard (near-miss for the if( lead)" {
+	# A bare `(` lead would widen this into valid but different JS.
+	cat > "$FIX" <<'JS'
+function L(x){}function B(x){return x}
+while(f.H8){const e=B(process.argv.find(e=>e.startsWith("wispr-flow:")||e.startsWith("wispr-flow/")));e&&L(e);break}
+JS
+	run bash "$PATCH_DIR/linux-deeplink.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_DEEPLINK' "$FIX"
+}
+
+@test "deeplink: a parameter list after a comma fails loudly, file restored" {
+	# `,e){` also ends a parameter list; the rewrite there does not parse, so
+	# the syntax check must reject it and restore the original bytes.
+	cat > "$FIX" <<'JS'
+function L(x){}function B(x){return x}
+function q(a,e){const t=B(process.argv.find(e=>e.startsWith("wispr-flow:")||e.startsWith("wispr-flow/")));t&&L(t)}
+JS
+	cp "$FIX" "$FIX.before"
+	run bash "$PATCH_DIR/linux-deeplink.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	cmp -s "$FIX" "$FIX.before"
 }
 
 @test "deeplink: idempotent on second run" {
