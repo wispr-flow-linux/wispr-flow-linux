@@ -26,6 +26,9 @@ them, they win. Read them before opening a non-trivial issue or PR.
   shell conventions (forked from YSAP). Tabs, 80 cols, `[[ ]]`, no `set -e`.
 - [`SECURITY.md`](SECURITY.md) — vulnerability reporting; what's in scope vs.
   what belongs to Wispr.
+- [`MAINTAINING.md`](MAINTAINING.md) — how the four org repos fit, triage
+  rules and labels, per-repo release steps, the bump-failure runbook, and what
+  always waits for a maintainer's yes. Read it before triaging or reviewing.
 
 This file is a fast reference for the highest-leverage rules and the project's
 accumulated conventions. New policy goes in the style guides or CONTRIBUTING.md.
@@ -77,7 +80,14 @@ This repo's tree:
   - `patches/` — the app patches: `helper-resolver.sh` (adds the `'linux'`
     helper-path branch), `mac-gates.sh` (gates the macOS Applications-folder
     guard to darwin), and the V8 14.8 `better-sqlite3-multiple-ciphers` compat
-    patch. `verify-patches.sh` static-greps the repacked bundle for the markers.
+    patch. `_lib.sh` is the shell they share (bundle resolution, marker
+    guard, `.orig` backup, post-patch marker/shape/syntax checks with
+    restore); `tripwires.tsv` lists the upstream literals each patch depends
+    on with their pristine counts, and `scripts/check-upstream-tripwires.sh`
+    runs them over an unpatched tree (step 3 before the first patch, the
+    patch-stage test, the nightly bump pre-check) so "upstream changed the
+    thing" fails by name before an anchor can miss. `verify-patches.sh`
+    static-greps the repacked bundle for the markers.
   - `packaging/` — `deb.sh`, `rpm.sh`, `appimage.sh` makers; shared signature
     `<maker>.sh <dist_dir> <version> <arch>`.
   - `launcher-common.sh` — the runtime `/usr/bin/wispr-flow` launcher library.

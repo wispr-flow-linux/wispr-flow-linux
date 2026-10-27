@@ -37,6 +37,8 @@ I've scattered the docs across a few files. Here's the map:
 - [docs/reference/ipc-contract.md](docs/reference/ipc-contract.md): the IPC contract the helper implements.
 - [CHANGELOG.md](CHANGELOG.md): change history ([Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format).
 - [SECURITY.md](SECURITY.md): private vulnerability reporting.
+- [MAINTAINING.md](MAINTAINING.md): how the four org repos fit, triage and
+  labels, per-repo releases.
 - [.github/CODEOWNERS](.github/CODEOWNERS): auto-review routing.
 
 ## What we accept
