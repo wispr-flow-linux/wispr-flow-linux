@@ -25,6 +25,7 @@ sudo apt update && sudo apt install wispr-flow
 | Debian / Ubuntu | [APT repository](#apt-debianubuntu) | yes — `apt upgrade` |
 | Fedora / RHEL | [DNF repository](#dnf-fedorarhel) | yes — `dnf upgrade` |
 | Arch | [AUR `wispr-flow-appimage`](#aur-arch-linux) | yes — AUR helper |
+| Gentoo | [Community overlay `wispr-flow-bin`](#gentoo-community-overlay) | yes — `emerge -u`, once the overlay is bumped |
 | Any | [Manual `.deb` / `.rpm` / `.AppImage`](#manual-download) | no — re-download |
 
 The repository channels are the recommended path: they pin the signing key and
@@ -75,6 +76,34 @@ yay -S wispr-flow-appimage
 paru -S wispr-flow-appimage
 ```
 
+## Gentoo (community overlay)
+
+The [`app-accessibility/wispr-flow-bin`](https://github.com/switch87/snakebyte-overlay/tree/main/app-accessibility/wispr-flow-bin)
+ebuild in the third-party `snakebyte` overlay installs the `.deb` from these
+releases and builds the helper from source (amd64 only). It is maintained
+outside this project and can lag behind new releases.
+
+Add the overlay with `app-eselect/eselect-repository`:
+
+```bash
+sudo eselect repository add snakebyte git https://github.com/switch87/snakebyte-overlay.git
+sudo emaint sync -r snakebyte
+```
+
+Accept the keyword and the proprietary Wispr Flow license, then install:
+
+```text
+# /etc/portage/package.accept_keywords/wispr-flow
+app-accessibility/wispr-flow-bin ~amd64
+
+# /etc/portage/package.license/wispr-flow
+app-accessibility/wispr-flow-bin all-rights-reserved
+```
+
+```bash
+sudo emerge --ask app-accessibility/wispr-flow-bin
+```
+
 ## Manual download
 
 Grab a `.deb`, `.rpm`, or `.AppImage` for your architecture from the
@@ -123,6 +152,7 @@ udev rule, clipboard dependencies, the GNOME Shell extension, and AT-SPI is in
 - **APT / DNF:** new releases install with your normal `sudo apt upgrade` /
   `sudo dnf upgrade`.
 - **AUR:** re-run your AUR helper (`yay -Syu`).
+- **Gentoo:** `sudo emaint sync -r snakebyte && sudo emerge -uDN @world`.
 - **Manual:** download the new asset and reinstall it.
 
 ## Uninstalling
@@ -131,10 +161,12 @@ udev rule, clipboard dependencies, the GNOME Shell extension, and AT-SPI is in
 sudo apt remove wispr-flow      # Debian/Ubuntu
 sudo dnf remove wispr-flow      # Fedora/RHEL
 yay -R wispr-flow-appimage      # Arch
+sudo emerge --depclean app-accessibility/wispr-flow-bin   # Gentoo
 
 # Also remove the repository channel if you added one:
 sudo rm /etc/apt/sources.list.d/wispr-flow.list /usr/share/keyrings/wispr-flow.gpg   # APT
 sudo rm /etc/yum.repos.d/wispr-flow.repo                                             # DNF
+sudo eselect repository remove snakebyte                                             # Gentoo
 ```
 
 User state (config, logs) lives under the paths documented in
