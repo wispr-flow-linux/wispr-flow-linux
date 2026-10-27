@@ -1,0 +1,36 @@
+# Label set shared by all four wispr-flow-linux repos.
+# Applied by scripts/maint/sync-labels.sh (create/update only, never delete).
+# Format: one label per line, "name|color|description". See MAINTAINING.md.
+bug|d73a4a|Something isn't working
+enhancement|a2eeef|New feature or request
+documentation|0075ca|Improvements or additions to documentation
+question|d876e3|Further information is requested
+needs-info|fbca04|Waiting on the reporter for doctor output or details
+needs-repro|fbca04|Needs a reproduction on a named setup
+confirmed|0e8a16|Reproduced or clearly diagnosed
+upstream|c5def5|Belongs to Wispr Flow itself, not the Linux port
+duplicate|cfd3d7|This issue or pull request already exists
+wontfix|ffffff|This will not be worked on
+stale|eeeeee|No reply for 30 days; reopen any time
+area:status-pill|1d76db|Flow Bar / status pill window, input shape, overlay
+area:injection|1d76db|Text injection, paste, clipboard, modifiers
+area:shortcuts|1d76db|Push-to-talk and shortcut capture
+area:packaging|1d76db|deb, rpm, AppImage, AUR, Nix, launcher, doctor
+area:patches|1d76db|Patches against the app bundle
+area:ci-release|1d76db|CI, the nightly bump, release and publish chain
+area:audio|1d76db|Audio playback, mute, sinks
+area:onboarding|1d76db|First-run setup assistant
+area:gnome|5319e7|GNOME Shell and the window-bridge extension
+area:kde|5319e7|KDE Plasma / KWin
+area:wlroots|5319e7|Hyprland, Sway and other wlroots compositors
+area:x11|5319e7|X11 sessions
+area:wayland|5319e7|Wayland sessions in general
+area:docs|1d76db|Documentation
+ready-for-review|0e8a16|PR is complete and waiting on a maintainer
+changes-requested|d93f0b|PR is waiting on its author
+superseded|cfd3d7|Another PR covers this one
+blocked|b60205|Waiting on another PR, release or decision
+bump-failure|b60205|Nightly upstream version bump failed
+priority:high|b60205|Fix before other work
+good first issue|7057ff|Good for newcomers
+help wanted|008672|Extra attention is needed

@@ -35,6 +35,8 @@ protocol — the contract everything else hangs off — is in
 
 - [**Releasing**](../RELEASING.md) — the tag scheme, the one-time prerequisites
   (vars, secrets, `gh-pages`, AUR, Worker), and what CI does on a tag push
+- [**Maintaining**](../MAINTAINING.md) — how the four org repos fit, triage
+  rules and labels, per-repo release steps, the bump-failure runbook
 - [**APT/DNF + redirect Worker**](learnings/apt-worker-architecture.md) — how
   binaries reach users without hitting GitHub's 100 MB push cap
 
