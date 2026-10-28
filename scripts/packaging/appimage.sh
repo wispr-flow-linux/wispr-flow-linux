@@ -80,6 +80,13 @@ rm -f "$APP_LIBDIR/resources/Release/Wispr Flow Helper.exe" 2>/dev/null || true
 # directories are forced world-traversable.
 find "$APP_LIBDIR" -type d -exec chmod 0755 {} +
 chmod 0755 "$APP_LIBDIR/$NAME" "$APP_LIBDIR/resources/Release/wispr-flow-linux-helper"
+# Fail here, not after packing, if staging left resources/ closed: the
+# artifact test checks the same dirs after --appimage-extract, so a pass
+# here and a fail there points at appimagetool or the runtime instead.
+for d in "$APP_LIBDIR/resources" "$APP_LIBDIR/resources/Release"; do
+  mode="$(stat -c '%a' "$d")"
+  [[ $mode == 755 ]] || die "staged $d is $mode, expected 755"
+done
 
 say "Shared launcher library + doctor"
 cp "$SCRIPTS_DIR/launcher-common.sh" "$APP_LIBDIR/launcher-common.sh"

@@ -62,12 +62,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y file libfuse2 nodejs npm \
-            xvfb dbus-x11 procps wl-clipboard
+            xvfb dbus-x11 procps wl-clipboard squashfs-tools
 
       - name: Verify smoke-test tools are present (Ubuntu)
         if: matrix.format != 'rpm'
         run: |
-          for t in xvfb-run dbus-run-session setsid; do
+          for t in xvfb-run dbus-run-session setsid unsquashfs; do
             command -v "$t" >/dev/null || { echo "::error::missing $t"; exit 1; }
           done
 

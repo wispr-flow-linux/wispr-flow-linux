@@ -24,6 +24,19 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Fixed
 
+- The status pill's window on Linux is sized to the pill, 200x110 instead
+  of upstream's 512x614, so its transparent margin no longer swallows clicks
+  meant for the windows around it (#67, refs #44). The new
+  `linux-status-compact.sh` patch does it; verified on the shipped 1.6.1209
+  and 1.6.1264 bundles by @Z3roS4n. If new pill UI ever looks clipped, this
+  box is the first place to look.
+- `--doctor` no longer aborts with `target: unbound variable` when the
+  autostart entry's `Exec=` line is not the quoted `--hidden` form (#119).
+- The bundled helper is now v0.1.3. Held Ctrl, Alt and Shift are no longer
+  left stuck after a paste (#53, #123), injected text follows the active
+  keyboard layout such as Dvorak (#122), focus changes reach the app
+  without a setting (#121), keyboards plugged in after start are picked up,
+  and Mouse 4 and 5 can be used as shortcuts.
 - Wispr Flow 1.6.1264 builds again, so the nightly bump can move the pin
   past 1.6.1209 (#135). Upstream reshaped three patch sites while keeping
   their literals: the cold-start deep-link guard now ends a comma sequence,
