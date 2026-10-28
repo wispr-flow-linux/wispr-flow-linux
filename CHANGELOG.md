@@ -8,6 +8,8 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+## [v1.0.5] - 2026-10-28
+
 ### Added
 
 - "Open at login" works on Linux (#81). `linux-autostart.sh` backs
@@ -378,7 +380,8 @@ Initial release — unofficial Linux repackaging of Wispr Flow (1.5.695) as
 (text injection, clipboard, global key capture), the Linux platform-gate
 patches, Nix flake, docs tree, and the tag-driven release/publish pipeline.
 
-[Unreleased]: https://github.com/wispr-flow-linux/wispr-flow-linux/compare/v1.0.4+wispr1.6.937...HEAD
+[Unreleased]: https://github.com/wispr-flow-linux/wispr-flow-linux/compare/v1.0.5+wispr1.6.1209...HEAD
+[v1.0.5]: https://github.com/wispr-flow-linux/wispr-flow-linux/compare/v1.0.4+wispr1.6.957...v1.0.5+wispr1.6.1209
 [v1.0.4]: https://github.com/wispr-flow-linux/wispr-flow-linux/compare/v1.0.3+wispr1.6.897...v1.0.4+wispr1.6.937
 [v1.0.3]: https://github.com/wispr-flow-linux/wispr-flow-linux/compare/v1.0.2+wispr1.5.751...v1.0.3+wispr1.5.751
 [v1.0.2]: https://github.com/wispr-flow-linux/wispr-flow-linux/compare/v1.0.1+wispr1.5.695...v1.0.2+wispr1.5.695
