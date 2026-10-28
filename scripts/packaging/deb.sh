@@ -206,7 +206,7 @@ Priority: optional
 Architecture: $ARCH
 Maintainer: $MAINTAINER
 Installed-Size: $installed_size
-Depends: wl-clipboard
+Depends: wl-clipboard, pulseaudio-utils, playerctl
 Recommends: xclip, xsel
 Description: $DESCRIPTION
  Unofficial repackaging of the Wispr Flow voice-dictation app for Linux, with

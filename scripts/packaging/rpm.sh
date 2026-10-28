@@ -226,6 +226,8 @@ BuildArch:      $ARCH
 # deps (they would reference unbundled .so names and may not resolve cleanly).
 AutoReqProv:    no
 Requires:       wl-clipboard
+Requires:       pulseaudio-utils
+Requires:       playerctl
 Recommends:     xclip
 Recommends:     xsel
 

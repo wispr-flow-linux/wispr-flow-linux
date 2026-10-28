@@ -369,6 +369,9 @@ step3_patch_bundle() {
     auto "Running linux-autostart.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-autostart.sh" "$target_bundle" \
       || die "Autostart patch failed -- see linux-autostart.sh output above."
+    auto "Running linux-dictation-audio.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-dictation-audio.sh" "$target_bundle" \
+      || die "Dictation audio patch failed."
     # Shrink the status-pill window to the pill's footprint on Linux. The
     # invisible transparent canvas swallows clicks on Wayland.
     auto "Running linux-status-compact.sh on $target_bundle"

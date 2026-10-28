@@ -8,6 +8,12 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+### Fixed
+
+- The mute and pause settings now work during Linux dictation (#120).
+  Audio returns after stop, cancellation, microphone testing, or app exit.
+  Outputs and players already muted or paused keep their state.
+
 ## [v1.0.5] - 2026-10-28
 
 ### Added
