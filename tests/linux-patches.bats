@@ -16,6 +16,8 @@
 #   * linux-xdg-data-dir.sh             -> app data and logs dirs under XDG_CONFIG_HOME
 #   * linux-autostart.sh                -> login items backed by an XDG autostart entry
 #   * linux-status-compact.sh           -> status-pill window shrunk to the pill on Linux
+#   * linux-status-x11-shape.sh         -> status window shaped to the pill and
+#                                           clickable on X11 and XWayland
 #   * linux-status-picker-anchor.sh     -> status pill pickers anchored at the
 #                                           pill on native Wayland (main adds the
 #                                           status window's bounds)
@@ -1409,4 +1411,207 @@ JS
 	[[ "$status" -ne 0 ]]
 	[[ "$output" == *'expected 1 status-bounds anchor, found 2'* ]]
 	! grep -q 'WISPR_LINUX_STATUS_COMPACT' "$FIX"
+}
+
+# =============================================================================
+# linux-status-x11-shape.sh
+# =============================================================================
+
+# The status window's StatusInputShape wiring as 1.6.1209 ships it, cut down
+# to the anchored sites and made runnable: M.H8 is the main-process isWindows
+# flag, j the shape manager, ne the alpha-poll starter (g.Bi), de the
+# Windows-only 1px bounds pulse.
+status_shape_1209() {
+	cat <<'JS'
+/*! For license information please see index.js.LICENSE.txt */
+const s=[{x:-2,y:-2,width:1,height:1}],p=({x:e,y:t,width:n,height:r})=>`${e},${t},${n},${r}`;
+class m{window=null;enabled=!1;everEnabled=!1;latestRects=[];lastShapeKey=null;replaceWindow(e){this.window=e,this.enabled=!1,this.everEnabled=!1,this.latestRects=[],this.lastShapeKey=null,this.applyShape([]),e.setIgnoreMouseEvents(!0,{forward:!0})}setEnabled(e){this.enabled=e,e&&(this.everEnabled=!0),this.applyCurrentShape()}invalidateBounds(){this.latestRects=[],this.applyCurrentShape()}applyReport(e,{rects:t}){return this.latestRects=t,this.applyCurrentShape(),!0}destroy(e){this.window=null}applyCurrentShape(){this.enabled?this.applyShape(this.latestRects):this.applyShape(this.everEnabled?s:[])}applyShape(e){const t=this.window;if(!t||t.isDestroyed())return;const n=(e=>e.map(p).join(";"))(e);n!==this.lastShapeKey&&(t.setShape(e),this.lastShapeKey=n)}}
+const M={H8:!1},j=new m,g={Bi:e=>(e.calls.push("poll"),{stop(){}}),cr(){},cM(){},cA(){},rS(){},PK(){}},d={RA:{statusWindow:null}};let V=null,tq=!1;
+const de=e=>{e.calls.push("pulse")},re=()=>{V?.stop(),V=null},ne=e=>{tq||(re(),e&&!e.isDestroyed()&&(V=(0,g.Bi)(e)))};
+const H=r=>{r.setAlwaysOnTop(!0,"screen-saver"),M.H8?j.replaceWindow(r):r.setIgnoreMouseEvents(!0,{forward:!0}),r.on("render-process-gone",()=>{const e=d.RA.statusWindow===r;M.H8&&e&&(j.setEnabled(!1),j.invalidateBounds()),r.isDestroyed()||r.setIgnoreMouseEvents(!0,{forward:!0})}),r.on("did-start-loading",()=>{(0,g.rS)(r),(0,g.PK)(r),M.H8&&j.invalidateBounds(),(0,g.cA)(r)}),r.on("did-finish-load",()=>{M.H8&&!r.isDestroyed()&&r.isVisible()&&!tq&&(j.setEnabled(!0),ne(r),de(r))});return r};
+const J=e=>{M.H8||ne(e),M.H8&&!tq&&j.setEnabled(!0),e.showInactive()},ee=()=>{re(),d.RA.statusWindow&&(M.H8&&j.destroy(d.RA.statusWindow),d.RA.statusWindow=null)};
+const Tq=(Z,s)=>{const t=Z.width!==s.width||Z.height!==s.height;M.H8&&t&&(j.invalidateBounds(),(0,g.rS)(d.RA.statusWindow),(0,g.PK)(d.RA.statusWindow))};
+const bv=()=>{M.H8&&j.setEnabled(!0),ne(d.RA.statusWindow),(0,g.cA)(d.RA.statusWindow)},rep=(e,t)=>{const n=d.RA.statusWindow;if(M.H8){if(!j.applyReport(e,t))return;(0,g.cr)(n,t.shapeRects)}(0,g.cM)(n,t.rects)};
+const ie=()=>{tq||(tq=!0,re(),M.H8?X()?.setIgnoreMouseEvents(!0,{forward:!0}):d.RA.statusWindow&&!d.RA.statusWindow.isDestroyed()&&d.RA.statusWindow.setIgnoreMouseEvents(!0,{forward:!0}))},se=()=>{if(tq){if(tq=!1,M.H8){j.setEnabled(!0);const e=X();ne(e),e?.isVisible()&&de(e)}else d.RA.statusWindow&&!d.RA.statusWindow.isDestroyed()?ne(d.RA.statusWindow):re()}};
+const X=()=>d.RA.statusWindow,em=e=>{tq||(e?ne(d.RA.statusWindow):X()?.setIgnoreMouseEvents(!0,{forward:!0}),(0,g.cA)(d.RA.statusWindow))};
+module.exports={H,J,bv,rep,ee,Tq,em,ie,se};
+JS
+}
+
+# A fake `electron` whose ozone-platform switch is $FAKE_OZONE, for the gate.
+fake_electron() {
+	mkdir -p "$TEST_TMP/node_modules/electron"
+	cat > "$TEST_TMP/node_modules/electron/index.js" <<'JS'
+module.exports={app:{commandLine:{getSwitchValue:n=>n==="ozone-platform"?process.env.FAKE_OZONE||"":""}}};
+JS
+}
+
+@test "status-x11-shape: widens every StatusInputShape site of 1.6.1209 and gates the poll" {
+	status_shape_1209 > "$FIX"
+	run bash "$PATCH_DIR/linux-status-x11-shape.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	[[ "$output" == *'(12 sites)'* ]]
+	local g='globalThis.__wisprLinuxX11StatusShape'
+	[[ "$(grep -oF "$g" "$FIX" | wc -l)" -eq 13 ]]
+	# the gate sits on line 2, right after the license banner
+	sed -n 2p "$FIX" | grep -qF "/*WISPR_LINUX_X11_STATUS_SHAPE*/$g=(()=>"
+	grep -qF "(M.H8||$g)?j.replaceWindow(r):r.setIgnoreMouseEvents(!0,{forward:!0})" "$FIX"
+	grep -qF "if(M.H8||$g){if(!j.applyReport(" "$FIX"
+	grep -qF "M.H8||ne(e),(M.H8||$g)&&!tq&&j.setEnabled(!0)" "$FIX"
+	grep -qF "(M.H8||$g)&&j.setEnabled(!0),ne(d.RA.statusWindow)" "$FIX"
+	grep -qF "e&&!e.isDestroyed()&&($g?e.setIgnoreMouseEvents(!1):V=(0,g.Bi)(e))" "$FIX"
+	grep -qF "applyShape(e){$g&&!e.length&&(e=s);" "$FIX"
+	grep -qF "tq||(e||$g?ne(d.RA.statusWindow):X()?.setIgnoreMouseEvents(!0,{forward:!0})" "$FIX"
+	# did-finish-load re-enables on X11 without the Windows-only pulse
+	grep -qF "(j.setEnabled(!0),ne(r),de(r)),$g&&!r.isDestroyed()&&r.isVisible()&&!tq&&(j.setEnabled(!0),ne(r))" "$FIX"
+	node_check "$FIX"
+}
+
+@test "status-x11-shape: the gate follows the Ozone backend, explicit wayland wins" {
+	if ! command -v node >/dev/null; then
+		skip 'node not installed'
+	fi
+	status_shape_1209 > "$FIX"
+	bash "$PATCH_DIR/linux-status-x11-shape.sh" "$FIX"
+	fake_electron
+	local gate
+	gate() {
+		env -u DISPLAY -u WAYLAND_DISPLAY "$@" NODE_PATH="$TEST_TMP/node_modules" \
+			node -e 'require(process.argv[1]);console.log(globalThis.__wisprLinuxX11StatusShape)' "$FIX"
+	}
+	[[ "$(gate DISPLAY=:0)" == true ]]
+	[[ "$(gate DISPLAY=:0 WAYLAND_DISPLAY=wayland-0)" == false ]]
+	[[ "$(gate DISPLAY=:0 WAYLAND_DISPLAY=wayland-0 FAKE_OZONE=x11)" == true ]]
+	[[ "$(gate DISPLAY=:0 FAKE_OZONE=wayland)" == false ]]
+	[[ "$(gate)" == false ]]
+	# no electron module (require throws) fails closed
+	rm -rf "$TEST_TMP/node_modules"
+	[[ "$(env -u WAYLAND_DISPLAY DISPLAY=:0 node -e 'require(process.argv[1]);console.log(globalThis.__wisprLinuxX11StatusShape)' "$FIX")" == false ]]
+}
+
+@test "status-x11-shape: on X11 the window is shaped and unignored, never polled" {
+	if ! command -v node >/dev/null; then
+		skip 'node not installed'
+	fi
+	status_shape_1209 > "$FIX"
+	bash "$PATCH_DIR/linux-status-x11-shape.sh" "$FIX"
+	fake_electron
+	run env -u WAYLAND_DISPLAY DISPLAY=:0 NODE_PATH="$TEST_TMP/node_modules" node -e '
+		const w = {calls: [], isDestroyed: () => false, isVisible: () => true,
+			setShape(r) { this.calls.push("shape:" + JSON.stringify(r)); },
+			setIgnoreMouseEvents(i) { this.calls.push("ignore:" + i); },
+			setAlwaysOnTop() {}, on() {}, showInactive() { this.calls.push("show"); }};
+		const b = require(process.argv[1]);
+		b.H(w);
+		b.J(w);
+		console.log(w.calls.join(" "));
+	' "$FIX"
+	[[ "$status" -eq 0 ]]
+	# creation clips to the off-surface sentinel, never to []; show unignores
+	[[ "$output" == 'shape:[{"x":-2,"y":-2,"width":1,"height":1}] ignore:true ignore:false show' ]]
+}
+
+@test "status-x11-shape: a rect report reshapes the window; off X11 the poll still runs" {
+	if ! command -v node >/dev/null; then
+		skip 'node not installed'
+	fi
+	status_shape_1209 | sed 's/d={RA:{statusWindow:null}}/d={RA:{statusWindow:globalThis.W}}/' > "$FIX"
+	bash "$PATCH_DIR/linux-status-x11-shape.sh" "$FIX"
+	fake_electron
+	local script='
+		const w = globalThis.W = {calls: [], isDestroyed: () => false,
+			isVisible: () => true,
+			setShape(r) { this.calls.push("shape:" + JSON.stringify(r)); },
+			setIgnoreMouseEvents(i) { this.calls.push("ignore:" + i); },
+			setAlwaysOnTop() {}, on() {}, showInactive() { this.calls.push("show"); }};
+		const b = require(process.argv[1]);
+		b.H(w); b.J(w);
+		b.rep(w, {rects: [{x: 60, y: 70, width: 80, height: 30}], shapeRects: []});
+		w.setIgnoreMouseEvents(true); b.bv();
+		w.calls.push("|"); b.em(false);
+		console.log(w.calls.join(" "));'
+	run env -u WAYLAND_DISPLAY DISPLAY=:0 NODE_PATH="$TEST_TMP/node_modules" node -e "$script" "$FIX"
+	[[ "$status" -eq 0 ]]
+	[[ "$output" == *'shape:[{"x":60,"y":70,"width":80,"height":30}] ignore:true ignore:false'* ]]
+	[[ "$output" != *poll* ]]
+	# a toast clearing (EnableMouseEvents false) keeps the input on
+	[[ "$output" == *'| ignore:false' ]]
+	run env -u DISPLAY WAYLAND_DISPLAY=wayland-0 NODE_PATH="$TEST_TMP/node_modules" node -e "$script" "$FIX"
+	[[ "$status" -eq 0 ]]
+	[[ "$output" == 'ignore:true poll show ignore:true poll | ignore:true' ]]
+}
+
+@test "status-x11-shape: input comes back after a renderer crash, the feature tour and a resize" {
+	if ! command -v node >/dev/null; then
+		skip 'node not installed'
+	fi
+	status_shape_1209 | sed 's/d={RA:{statusWindow:null}}/d={RA:{statusWindow:globalThis.W}}/' > "$FIX"
+	bash "$PATCH_DIR/linux-status-x11-shape.sh" "$FIX"
+	fake_electron
+	# The fake window keeps its event handlers so the lifecycle actually runs.
+	cat > "$TEST_TMP/drive.js" <<'JS'
+const h = {};
+const w = globalThis.W = {calls: [], isDestroyed: () => false,
+	isVisible: () => true,
+	setShape(r) {
+		this.calls.push("shape:" + r.map((x) => [x.x, x.y, x.width, x.height].join(",")).join(";"));
+	},
+	setIgnoreMouseEvents(i) { this.calls.push("ignore:" + i); },
+	setAlwaysOnTop() {}, on(n, f) { h[n] = f; },
+	showInactive() { this.calls.push("show"); }};
+const b = require(process.argv[2]);
+const rep = () => b.rep(w, {rects: [{x: 60, y: 70, width: 80, height: 30}], shapeRects: []});
+const step = (n, f) => { w.calls.push("|" + n); f(); };
+b.H(w); b.J(w); rep();
+step("crash", () => h["render-process-gone"]());
+step("reload", () => h["did-start-loading"]());
+step("loaded", () => h["did-finish-load"]());
+rep();
+step("tour", () => b.ie());
+step("resume", () => b.se());
+step("resize", () => b.Tq({width: 512, height: 614}, {width: 440, height: 320}));
+rep();
+console.log(w.calls.join(" "));
+JS
+	run env -u WAYLAND_DISPLAY DISPLAY=:0 NODE_PATH="$TEST_TMP/node_modules" node "$TEST_TMP/drive.js" "$FIX"
+	[[ "$status" -eq 0 ]]
+	# crash: hidden and ignored; reload: re-enabled and unignored, the next
+	# report reshapes; tour: ignored then back; resize: hidden until the next
+	# report. No poll anywhere.
+	[[ "$output" == 'shape:-2,-2,1,1 ignore:true ignore:false show shape:60,70,80,30 |crash shape:-2,-2,1,1 ignore:true |reload |loaded ignore:false shape:60,70,80,30 |tour ignore:true |resume ignore:false |resize shape:-2,-2,1,1 shape:60,70,80,30' ]]
+}
+
+@test "status-x11-shape: after status-compact, X11 keeps the shipped box and Wayland the compact one" {
+	{ status_shape_1209; echo "{"; status_bounds_1209; echo "}"; } > "$FIX"
+	bash "$PATCH_DIR/linux-status-compact.sh" "$FIX"
+	rm -f "$FIX.orig"
+	run bash "$PATCH_DIR/linux-status-x11-shape.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	[[ "$output" == *'(13 sites)'* ]]
+	grep -qF 'return(/*WISPR_LINUX_STATUS_COMPACT*/"linux"===process.platform&&!globalThis.__wisprLinuxX11StatusShape)?{x:u+(h-200)/2' "$FIX"
+	[[ "$(grep -oF 'globalThis.__wisprLinuxX11StatusShape' "$FIX" | wc -l)" -eq 14 ]]
+	node_check "$FIX"
+}
+
+@test "status-x11-shape: idempotent on second run" {
+	status_shape_1209 > "$FIX"
+	bash "$PATCH_DIR/linux-status-x11-shape.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-status-x11-shape.sh" "$FIX"
+}
+
+@test "status-x11-shape: a poll starter without the isDestroyed guard is not the anchor (near miss)" {
+	status_shape_1209 | sed 's/e&&!e.isDestroyed()&&(V=(0,g.Bi)(e))/e\&\&(V=(0,g.Bi)(e))/' > "$FIX"
+	cp "$FIX" "$FIX.before"
+	run bash "$PATCH_DIR/linux-status-x11-shape.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *'expected 1 poll-starter anchor, found 0'* ]]
+	cmp -s "$FIX" "$FIX.before"
+}
+
+@test "status-x11-shape: bails when the creation site is not unique" {
+	{ status_shape_1209; status_shape_1209 | sed 1d; } > "$FIX"
+	run bash "$PATCH_DIR/linux-status-x11-shape.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *'expected 1 status-creation anchor, found 2'* ]]
+	! grep -q 'WISPR_LINUX_X11_STATUS_SHAPE' "$FIX"
 }

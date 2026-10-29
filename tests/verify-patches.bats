@@ -45,6 +45,7 @@ declare -gA MARKER_SAMPLES=(
 	[xdgdatadir]='f=u?o().join(process.env.APPDATA||"","Wispr Flow"):("linux"===process.platform/*WISPR_LINUX_XDG_DATA_DIR*/?o().join(process.env.XDG_CONFIG_HOME||o().join(i().homedir(),".config"),"Wispr Flow"):o().join(i().homedir(),"Library","Application Support","Wispr Flow"))'
 	[statuscompact]='return(/*WISPR_LINUX_STATUS_COMPACT*/"linux"===process.platform)?{x:0}:{x:1}'
 	[pickeranchor]='(0,g.Bn)(A.RA.contextMenuWindow,d.qM.ShowAutoPolishPicker,/*WISPR_LINUX_PICKER_ANCHOR*/((p,b)=>b&&p?{...p}:p)(e,b))'
+	[x11statusshape]='/*WISPR_LINUX_X11_STATUS_SHAPE*/globalThis.__wisprLinuxX11StatusShape=(()=>{try{return!1}catch(e){return!1}})();'
 )
 
 # Write a fixture app.asar-like file containing every marker, except the one
@@ -205,6 +206,14 @@ write_fixture() {
 @test "verify: exits 1 when the picker-anchor marker is missing" {
 	local fixture
 	fixture="$(write_fixture pickeranchor)"
+	run "$VERIFY_SH" "$fixture"
+	[[ "$status" -eq 1 ]]
+	[[ "$output" == *'MISSING'* ]]
+}
+
+@test "verify: exits 1 when the X11 status-shape marker is missing" {
+	local fixture
+	fixture="$(write_fixture x11statusshape)"
 	run "$VERIFY_SH" "$fixture"
 	[[ "$status" -eq 1 ]]
 	[[ "$output" == *'MISSING'* ]]
