@@ -5,7 +5,7 @@
 #   patch_begin <marker> <bundle-arg> [default-bundle]
 #       Resolve the bundle (the argument, else <default-bundle> relative to
 #       the repo root, else usage), exit 0 "Already patched" when <marker> is
-#       in it, write the pristine <bundle>.orig backup when absent. Sets
+#       in it, keep the pristine backup and refresh per-patch rollback. Sets
 #       MARKER, BUNDLE, BACKUP.
 #   patch_verify_marker
 #       After the Python body: the marker must be in the bundle, else restore
@@ -55,9 +55,12 @@ patch_begin() {
 	fi
 	BACKUP="$BUNDLE.orig"
 	if [[ ! -f "$BACKUP" ]]; then
-		cp -p "$BUNDLE" "$BACKUP"
+		cp -p "$BUNDLE" "$BACKUP" || exit 1
 		echo "Backup written: $BACKUP"
 	fi
+	# Rollback must preserve patches that ran earlier in this pipeline.
+	BACKUP="$BUNDLE.$MARKER.orig"
+	cp -p "$BUNDLE" "$BACKUP" || exit 1
 }
 
 patch_restore() {
