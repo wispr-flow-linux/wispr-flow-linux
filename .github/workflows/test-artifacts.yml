@@ -81,4 +81,9 @@ jobs:
       - name: Run artifact tests
         run: |
           chmod +x tests/test-artifact-${{ matrix.format }}.sh
-          tests/test-artifact-${{ matrix.format }}.sh artifacts/
+          if [[ '${{ matrix.format }}' == 'deb' ]]; then
+            sudo env WISPR_ARTIFACT_INSTALL=1 WISPR_LAUNCH_REQUIRED=1 \
+              tests/test-artifact-deb.sh artifacts/
+          else
+            tests/test-artifact-${{ matrix.format }}.sh artifacts/
+          fi

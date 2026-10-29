@@ -30,6 +30,7 @@ setup() {
 	# the marker and a real backend line where the harness will look, exit.
 	cat > "$TEST_TMP/bin/setsid" <<'SHIM'
 #!/usr/bin/env bash
+printf '%s\n' "$@" > "$TEST_TMP/runner-args"
 cache=''
 for arg in "$@"; do
 	[[ $arg == XDG_CACHE_HOME=* ]] && cache="${arg#XDG_CACHE_HOME=}"
@@ -204,4 +205,21 @@ _assert_reached_sweep() {
 	[[ $_pass_count -eq 0 ]]
 	run assert_asar_no_patch_backups "$TEST_TMP/no-such.asar"
 	[[ $output == *'[FAIL] Cannot read'* ]]
+}
+
+@test "smoke profile redirects HOME and every XDG directory" {
+	run_launch_smoke_test 'shim' '' '' true
+	_assert_reached_sweep
+	local key value
+	for key in HOME XDG_CONFIG_HOME XDG_CACHE_HOME XDG_RUNTIME_DIR; do
+		value=$(sed -n "s/^$key=//p" "$TEST_TMP/runner-args")
+		[[ -n $value && $value != "${!key:-}" ]]
+		[[ $value == "$_smoke_cache_root/"* ]]
+	done
+}
+
+@test "required smoke reports missing tools as failure" {
+	export WISPR_LAUNCH_REQUIRED=1
+	PATH="$TEST_TMP/empty" run_launch_smoke_test 'shim' '' '' true
+	[[ $_fail_count -eq 1 && $_pass_count -eq 0 ]]
 }
