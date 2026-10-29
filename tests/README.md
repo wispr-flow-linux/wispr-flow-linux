@@ -25,8 +25,15 @@ bats tests/*.bats
 | `build-workdir.bats` | What survives between builds under `build-linux/`: `scripts/build-linux.sh` step 2 keeps `downloads/` and clears every other output; `build.sh`'s `sync_stage_to_dist` mirrors the staged tree into the Electron dist exactly (stale files go, Electron's `default_app.asar` stays), with rsync and with the `cp` fallback. Step 3 opens with the tripwire pass (a junk bundle fails there by name, before any patch), skips it on a tree the first patch already marked, fails naming the patch when one misses its anchor (the real mac-gates assertion), and errors when there is no bundle to patch. |
 | `hooks.bats` | `.claude/hooks/pre-pr-lint.sh`, the Claude Code pre-push hook, against small git repos built per test: non-push tool calls are ignored; a clean tree passes naming the gates run; a warning-level shellcheck finding, a codespell hit in a tracked file, and a red bats test on a shell change each block the push (exit 2); an untracked typo is not scanned; a docs-only change skips bats. |
 | `linux-patches.bats` | `scripts/patches/linux-{renderer-chrome,window-frame,renderer-treat-as-windows,deeplink}.sh` and `helper-resolver.sh`: each patch applied to a hermetic minified-JS fixture carrying its anchor — asserts the transformation + marker, leaves unrelated sites alone, `node --check`s the result, is idempotent (second run is byte-identical), and bails non-zero when the anchor is absent. The helper-resolver fixtures carry both shipped shapes (the inline ternary through 1.6.897, the exported arrow resolver from 1.6.937), evaluate the patched resolver under node per platform, and pin the shape bound (a call-form isMac test fails closed). |
+| `status-idle-unmap.bats` | Idle Status patch refusal/idempotence and semantic visibility transitions; covers platform and renderer contract boundaries. |
 
 Don't have bats yet? Grab it: `sudo dnf install bats` / `sudo apt install bats`.
+
+The real Electron/XWayland visibility scenario is separate from Bats:
+`bash tests/status-visibility.sh /path/to/electron-or-wispr-flow-executable`.
+It uses an isolated resources/app and temporary profile, real renderer IPC,
+and native map-state checks. It does not synthesize dictation or establish
+physical click-through; test microphone use and monitor transitions manually.
 
 ## 2. Artifact tests (inspect built packages; install is CI-only)
 

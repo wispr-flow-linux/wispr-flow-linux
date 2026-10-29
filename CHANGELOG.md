@@ -53,6 +53,11 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   `window.screenX/Y` as 0, so `linux-status-picker-anchor.sh` has main add
   the status window's bounds to each forwarded point and take them off the
   cursor point it sends back. X11 and XWayland are unchanged.
+- Linux Status windows unmap when the renderer reports no visible surfaces,
+  instead of leaving an invisible native window over other apps (refs #71,
+  #76). Recording/processing indicators and notifications restore the window
+  without focus or a polling timer. This addresses idle overlays, not every
+  compositor/input failure while the indicator is visible.
 - The database, meetings, backups and extension state now live in
   `~/.config/Wispr Flow` (or `$XDG_CONFIG_HOME/Wispr Flow`) instead of
   `~/Library/Application Support/Wispr Flow`, and the app no longer creates

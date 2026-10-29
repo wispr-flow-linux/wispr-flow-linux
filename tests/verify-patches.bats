@@ -45,6 +45,8 @@ declare -gA MARKER_SAMPLES=(
 	[xdgdatadir]='f=u?o().join(process.env.APPDATA||"","Wispr Flow"):("linux"===process.platform/*WISPR_LINUX_XDG_DATA_DIR*/?o().join(process.env.XDG_CONFIG_HOME||o().join(i().homedir(),".config"),"Wispr Flow"):o().join(i().homedir(),"Library","Application Support","Wispr Flow"))'
 	[statuscompact]='return(/*WISPR_LINUX_STATUS_COMPACT*/"linux"===process.platform)?{x:0}:{x:1}'
 	[pickeranchor]='(0,g.Bn)(A.RA.contextMenuWindow,d.qM.ShowAutoPolishPicker,/*WISPR_LINUX_PICKER_ANCHOR*/((p,b)=>b&&p?{...p}:p)(e,b))'
+	[statusidle]='/*WISPR_LINUX_STATUS_IDLE_UNMAP*/'
+	[statussurface]='/*WISPR_LINUX_STATUS_SURFACE_REPORT*/'
 )
 
 # Write a fixture app.asar-like file containing every marker, except the one
