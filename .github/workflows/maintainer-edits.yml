@@ -33,7 +33,8 @@ jobs:
     # Only fork PRs can have maintainer edits disabled; same-repo branches are
     # always editable, and maintainer_can_modify is reported false for them.
     if: >-
-      github.event.pull_request.head.repo.fork &&
+      github.event.pull_request.head.repo.id !=
+      github.event.pull_request.base.repo.id &&
       github.event.pull_request.maintainer_can_modify == false
 
     steps:
