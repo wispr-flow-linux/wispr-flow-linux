@@ -8,6 +8,19 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+### Fixed
+
+- The Flow Bar takes the mouse again on X11 and XWayland (#41). Hover,
+  right-click and the cancel and finish buttons were dead because the status
+  window's input hung on Wispr's alpha hit-test poll, which misses on Linux.
+  `linux-status-x11-shape.sh` runs Wispr's own Windows shape manager there
+  instead: the window is clipped to the rectangles the pill reports, and
+  that shape decides where clicks land, so the transparent rest still passes
+  them through. Because the shape now does that job, X11 drops the 200x110
+  compact box again and toasts such as "Undo" after a cancel show in full.
+  Native Wayland is unchanged (#44). Builds on @srivasv's shape-manager port
+  in their fork.
+
 ## [v1.0.5] - 2026-10-28
 
 ### Added

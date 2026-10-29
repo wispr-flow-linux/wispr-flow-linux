@@ -47,4 +47,11 @@ linux-renderer-treat-as-windows	renderer/*	F	1+	the per-renderer isWindows bind	
 # linux-status-compact: the centred-bottom return matches once in 1.6.1209
 # and 1.6.1264 (checked by @Z3roS4n on the shipped bytes, PR #67).
 linux-status-compact	main	P	1	the bottom-centred status-window bounds return	return\{x:[\w$]+\+\([\w$]+-([\w$]+)\)/2,y:[\w$]+\+[\w$]+-([\w$]+),width:\1,height:\2\}
+# linux-status-x11-shape: counted on the shipped 1.6.1209 bytes only; 1.6.1264
+# is not re-counted yet.
+linux-status-x11-shape	main	F	1	the StatusInputShape malformed-report warning	[StatusInputShape] Rejected malformed renderer rectangle report
+linux-status-x11-shape	main	F	1	the status alpha-poll feature-tour suspend log line	Alpha hit-test poll suspended for feature tour
+linux-status-x11-shape	main	P	1	the status window's Windows-gated shape manager hand-off	\?[\w$]+\.replaceWindow\([\w$]+\):[\w$]+\.setIgnoreMouseEvents\(!0,\{forward:!0\}\)
+linux-status-x11-shape	main	F	1	the shape manager's empty-shape fallback	applyShape(this.everEnabled?
+linux-status-x11-shape	main	F	1	the notification EnableMouseEvents channel a clearing toast sends	notification:enableMouseEvents
 upstream	main	F	4	upstream's own Linux platform reads (a new one means a re-audit)	"linux"===process.platform

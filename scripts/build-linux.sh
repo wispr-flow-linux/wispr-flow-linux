@@ -374,6 +374,12 @@ step3_patch_bundle() {
     auto "Running linux-status-compact.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-status-compact.sh" "$target_bundle" \
       || die "linux-status-compact.sh failed -- see its output above."
+    # Clip the status window to the pill's reported rectangles on X11 and
+    # XWayland and let that shape decide input, instead of the alpha
+    # hit-test poll that leaves the pill click-through (issue #41).
+    auto "Running linux-status-x11-shape.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-status-x11-shape.sh" "$target_bundle" \
+      || die "linux-status-x11-shape.sh failed -- see its output above."
 
     # Renderer + preload patches live alongside the main bundle under .webpack/.
     local webpack_root="${target_bundle%/main/index.js}"

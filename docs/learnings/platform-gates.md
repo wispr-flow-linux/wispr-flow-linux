@@ -156,6 +156,27 @@ backup, `node --check`s the result, and is idempotent (re-run = byte-identical).
 | Fresh Linux profiles were **seeded** with macOS chords, so push-to-talk landed on keycode `-1` (no Linux key) — blank PTT in Settings, no way past the onboarding shortcuts step (#33, #46) → widen the win32 flag *inside the main bundle's shortcuts module only* | [`linux-main-shortcut-defaults.sh`](../../scripts/patches/linux-main-shortcut-defaults.sh) | `WISPR_LINUX_MAIN_SHORTCUT_DEFAULTS` |
 | The app data dir (database, meetings, backups, extension state) and the logs dir took the macOS arm, so Linux wrote `~/Library/Application Support/Wispr Flow` (#100) → a Linux arm under `$XDG_CONFIG_HOME/Wispr Flow`, the dir Windows also shares with Electron's `userData`; the launcher moves an existing legacy dir over | [`linux-xdg-data-dir.sh`](../../scripts/patches/linux-xdg-data-dir.sh) | `WISPR_LINUX_XDG_DATA_DIR` |
 | "Open at login" wrote nothing and `wasOpenedAtLogin` was always false, because Electron's login-item API is macOS/Windows only, so the Hub opened on every launch (#81) → replace `app.set/getLoginItemSettings` on Linux with an XDG autostart entry whose `Exec=` carries `--hidden` (no call-site anchors; the three callers are tripwires) | [`linux-autostart.sh`](../../scripts/patches/linux-autostart.sh) + [`linux-autostart.js`](../../scripts/patches/linux-autostart.js) | `WISPR_LINUX_AUTOSTART` |
+| The Flow Bar rendered but never took the mouse on X11 and XWayland: off Windows the status window's input is a whole-window `setIgnoreMouseEvents` toggle driven by an alpha hit-test poll, and that poll misses (`capturePage` throws `UnknownVizError`, the XWayland cursor point goes stale) (#41) → run the shipped Windows-only StatusInputShape manager under an Ozone-X11 gate and unignore instead of polling | [`linux-status-x11-shape.sh`](../../scripts/patches/linux-status-x11-shape.sh) | `WISPR_LINUX_X11_STATUS_SHAPE` |
+
+`linux-status-x11-shape.sh` leans on how Electron 42 maps both calls on X11.
+`setShape(rects)` sets the window's ShapeBounding region (Chromium
+`X11Window::UpdateWindowRegion`); `setIgnoreMouseEvents(true)` sets ShapeInput
+to a 1x1 rectangle and `false` resets it (`native_window_views.cc`). The SHAPE
+extension intersects input with bounding, so a window clipped to the pill and
+left unignored takes clicks on the pill only. A probe on kwin_x11 confirmed it:
+with a 100x100 bounding rect and input reset, pointer motion arrived inside
+the rect and fell through outside; with ignore on, nothing arrived even inside
+the shape. Two traps: `setShape([])` on X11 yields an empty bounding region
+(invisible, unhittable), not the "back to rectangular" the Electron docs
+promise, so the patch maps an empty list to the manager's off-surface
+sentinel; and the gate must follow the Ozone backend, not the environment
+alone, because the launcher's `WISPR_USE_X11=1` runs X11 with
+`WAYLAND_DISPLAY` set. A third one showed up on the desktop, not in the
+bundle reading: a toast that clears sends `EnableMouseEvents(false)` without
+stopping the poll, because upstream counts on the next poll tick to restore
+input. With the poll gone that left the pill dead after the first "Undo"
+toast, so on X11 that message keeps the input on. Native Wayland is
+untouched (#44).
 
 `linux-renderer-treat-as-windows.sh` is the high-leverage one: per renderer it
 widens the *one* place `isWindows` is bound into a module-local
