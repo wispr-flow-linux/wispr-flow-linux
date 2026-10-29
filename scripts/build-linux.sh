@@ -374,6 +374,11 @@ step3_patch_bundle() {
     auto "Running linux-status-compact.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-status-compact.sh" "$target_bundle" \
       || die "linux-status-compact.sh failed -- see its output above."
+    # Let the Status window accept clicks on its own controls (the pill stop
+    # and notification card buttons) while they are visible.
+    auto "Running linux-status-input.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-status-input.sh" "$target_bundle" \
+      || die "Status input patch failed -- see output above."
 
     # Renderer + preload patches live alongside the main bundle under .webpack/.
     local webpack_root="${target_bundle%/main/index.js}"

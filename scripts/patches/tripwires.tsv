@@ -48,3 +48,7 @@ linux-renderer-treat-as-windows	renderer/*	F	1+	the per-renderer isWindows bind	
 # and 1.6.1264 (checked by @Z3roS4n on the shipped bytes, PR #67).
 linux-status-compact	main	P	1	the bottom-centred status-window bounds return	return\{x:[\w$]+\+\([\w$]+-([\w$]+)\)/2,y:[\w$]+\+[\w$]+-([\w$]+),width:\1,height:\2\}
 upstream	main	F	4	upstream's own Linux platform reads (a new one means a re-audit)	"linux"===process.platform
+linux-status-input	main	F	1	the Status surface report channel	status:reportAlphaCatchRects
+linux-status-input	main	P	1	the status notification show channel	[`"']notification:show[`"']
+linux-status-input	main	P	1	the status notification clear channel	[`"']notification:clear[`"']
+linux-status-input	main	P	1	the native Status constructor title	title:[`"']Flow Status Indicator[`"']

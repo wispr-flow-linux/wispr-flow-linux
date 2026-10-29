@@ -8,6 +8,14 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+### Fixed
+
+- The Status window's own controls accept clicks on Linux: the pill's stop
+  button during Notetaker and the notification card's buttons. The window is
+  click-through by default; `linux-status-input.sh` forces input while the
+  renderer reports a visible surface or a notification is shown, and restores
+  click-through when both are gone (fixes #144).
+
 ## [v1.0.5] - 2026-10-28
 
 ### Added
