@@ -1,0 +1,3 @@
+# scripts/patches/tripwires.tsv (excerpt)
+# patch	file	kind	expected	label	pattern
+# helper-resolver	main	F	1	the dev-mac line	Running Dev Mac Helper service

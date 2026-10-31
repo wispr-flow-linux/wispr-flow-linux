@@ -1,0 +1,7 @@
+@@ -1,4 +1,4 @@
+ _doctor_check_password_store() {
+ 	local conf="$1" store
+-	store=$(grep '^password-store=' "$conf" | cut -d= -f2)
++	store=$(sed -n 's/^password-store=//p' "$conf" 2>/dev/null)
+ 	_pass "Password store: $store"
+ }
