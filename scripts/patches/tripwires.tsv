@@ -47,4 +47,7 @@ linux-renderer-treat-as-windows	renderer/*	F	1+	the per-renderer isWindows bind	
 # linux-status-compact: the centred-bottom return matches once in 1.6.1209
 # and 1.6.1264 (checked by @Z3roS4n on the shipped bytes, PR #67).
 linux-status-compact	main	P	1	the bottom-centred status-window bounds return	return\{x:[\w$]+\+\([\w$]+-([\w$]+)\)/2,y:[\w$]+\+[\w$]+-([\w$]+),width:\1,height:\2\}
+# linux-status-shape: the status page titles itself once, at startup;
+# checked on the shipped 1.6.1209 and 1.6.1264 bundles.
+linux-status-shape	renderer/status	F	1	the status page's own title, which Status|x,y,w,h extends	document.title="Status"
 upstream	main	F	4	upstream's own Linux platform reads (a new one means a re-audit)	"linux"===process.platform

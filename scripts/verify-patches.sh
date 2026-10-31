@@ -25,6 +25,8 @@
 #     * linux-status-picker-anchor.sh -> status pill pickers anchored at
 #       the pill on native Wayland (status window bounds added in main)
 #   renderer bundles:
+#     * linux-status-shape.sh -> pill's painted box published in the title, so
+#       the compositor-side extension can shape the window's input area
 #     * linux-renderer-chrome.sh -> remaps the <html> platform class linux->win32
 #     * linux-renderer-treat-as-windows.sh -> widens each renderer's isWindows
 #       bind so its consumers take the Windows branch on Linux (the bridge's
@@ -69,6 +71,7 @@ MARKERS=(
   "autostart: linux login items backed by an XDG autostart entry|F|WISPR_LINUX_AUTOSTART"
   "status-compact: linux status window shrunk to pill size|F|WISPR_LINUX_STATUS_COMPACT"
   "status-picker-anchor: pickers offset by the status window on Wayland|F|WISPR_LINUX_PICKER_ANCHOR"
+  "status-shape: linux status renderer publishes the pill's painted box|F|WISPR_LINUX_STATUS_SHAPE"
 )
 
 missing=0
