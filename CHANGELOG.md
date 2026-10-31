@@ -8,6 +8,14 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+### Fixed
+
+- The Linux Status pill re-asserts always-on-top on its own 400 ms
+  monitorMove tick, including between dictations while idle, so a
+  compositor that drops the level no longer leaves the pill behind other
+  windows (refs #71). It does not change click-through; that half of #71
+  stays open.
+
 ## [v1.0.5] - 2026-10-28
 
 ### Added

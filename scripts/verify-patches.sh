@@ -24,6 +24,9 @@
 #       pill's footprint on Linux
 #     * linux-status-picker-anchor.sh -> status pill pickers anchored at
 #       the pill on native Wayland (status window bounds added in main)
+#     * linux-status-window-visibility.sh -> re-asserts the Status window's
+#       always-on-top on its own monitorMove interval if the compositor
+#       drops it, including while idle between dictations
 #   renderer bundles:
 #     * linux-renderer-chrome.sh -> remaps the <html> platform class linux->win32
 #     * linux-renderer-treat-as-windows.sh -> widens each renderer's isWindows
@@ -69,6 +72,7 @@ MARKERS=(
   "autostart: linux login items backed by an XDG autostart entry|F|WISPR_LINUX_AUTOSTART"
   "status-compact: linux status window shrunk to pill size|F|WISPR_LINUX_STATUS_COMPACT"
   "status-picker-anchor: pickers offset by the status window on Wayland|F|WISPR_LINUX_PICKER_ANCHOR"
+  "status-window-visibility: linux always-on-top watchdog|F|WISPR_LINUX_STATUS_VIS_WATCHDOG"
 )
 
 missing=0
