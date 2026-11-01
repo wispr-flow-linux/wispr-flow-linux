@@ -8,6 +8,13 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+### Changed
+
+- Wispr Flow 1.6.1337. Upstream's credential store for extension
+  connections now refuses to run on Linux without a Secret Service keyring;
+  see the "Secure credential storage is unavailable" entry in
+  `docs/troubleshooting.md`.
+
 ## [v1.0.5] - 2026-10-28
 
 ### Added

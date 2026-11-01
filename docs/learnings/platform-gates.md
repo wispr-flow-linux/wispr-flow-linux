@@ -244,6 +244,27 @@ processes, set from `app.getPath()` after startup. They override nothing, and
 every database path went through the `~/Library` constant until
 `linux-xdg-data-dir.sh` (#100).
 
+## Upstream's own Linux reads
+
+Upstream reads `"linux"===process.platform` itself in a handful of places,
+and the `upstream` line in `scripts/patches/tripwires.tsv` counts them so a
+new one stops the nightly bump. In 1.6.1337 there are five, and none needs a
+patch:
+
+- a `ps` failure falls back to `/proc/<pid>/stat`
+- the home-dir resolver's Linux arm (`/root` or `/home/<user>`)
+- a longer action-completion timeout (60s instead of 30s)
+- MeetingDisplayMedia skips its loopback capture handler
+- the extension-connections credential store throws "Secure credential
+  storage is unavailable on this device." when Electron's safeStorage fell
+  back to `basic_text`, i.e. no Secret Service keyring is running
+
+The last one arrived between 1.6.1264 and 1.6.1297. It is upstream
+declining to encrypt connector tokens under a fixed key, so the port leaves
+it alone and documents the keyring fix in `docs/troubleshooting.md`.
+When the count moves again, run the audit below, add the new read here, and
+bump the count.
+
 ## How to re-run this audit on a new Wispr version
 
 ```bash
