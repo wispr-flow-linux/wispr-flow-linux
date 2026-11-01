@@ -53,8 +53,16 @@ jobs:
             echo '--- beautified (8 lines each side)'
             grep -nE -B8 -A8 '"linux" === process\.platform' "$out/main.pretty.js"
           }
-          dump pinned
-          scripts/setup/resolve-installer-url.sh > resolved.txt
-          cat resolved.txt
-          scripts/setup/write-installer-pin.sh < resolved.txt
           dump latest
+          f="$RUNNER_TEMP/latest/main.pretty.js"
+          echo '=== the credential-store function and its callers'
+          hit=$(grep -n 'Secure credential storage is unavailable' "$f" | head -1 | cut -d: -f1)
+          sed -n "$((hit - 8)),$((hit + 30))p" "$f"
+          name=$(sed -n "$((hit - 3)),$((hit))p" "$f" | grep -oP '[\w$]+(?= = \(\) => \{)' | tail -1)
+          echo "--- function: $name"
+          grep -nP "(?<![\w$.])\Q$name\E\(" "$f" | head -20
+          echo '--- safeStorage uses'
+          grep -nE 'safeStorage\.[a-zA-Z]+' "$f" | head -30
+          echo '=== the full patch stage on the new pin'
+          sudo apt-get install -y bats shellcheck codespell
+          tests/test-patch-stage.sh
