@@ -14,6 +14,11 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   connections now refuses to run on Linux without a Secret Service keyring;
   see the "Secure credential storage is unavailable" entry in
   `docs/troubleshooting.md`.
+- The bundled helper is now v0.1.4. On GNOME 45 and later the status pill
+  sits bottom-centre above the dock instead of mid-screen, and lets clicks
+  through when it is over a fullscreen app. Log out and back in after
+  upgrading so GNOME Shell loads the updated extension. Thanks to
+  @crafteraadarsh (helper #16 to #19, #34).
 
 ## [v1.0.5] - 2026-10-28
 
