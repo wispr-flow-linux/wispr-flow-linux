@@ -1,0 +1,60 @@
+name: Diag platform reads (temporary)
+
+# TEMPORARY, removed before this draft leaves draft. Prints every
+# "linux"===process.platform read in main/index.js for the pinned Wispr
+# Flow and for upstream's latest, so the new one the nightly tripwire
+# counts (4 -> 5) can be found without a local download. Prints short
+# contexts only; nothing is uploaded.
+
+on:
+  push:
+    branches: [claude/project-thread-tnt3o7]
+    paths: [.github/workflows/diag-platform-reads.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Install 7z
+        run: sudo apt-get update && sudo apt-get install -y p7zip-full
+
+      - name: Dump the platform reads (pinned, then latest)
+        run: |
+          dump() {
+            local label="$1" out="$RUNNER_TEMP/$1"
+            mkdir -p "$out"
+            (
+              project_root="$PWD"
+              source scripts/_common.sh
+              source scripts/setup/installer-pin.sh
+              source scripts/setup/download.sh
+              work_dir="$PWD/build-linux"
+              local_exe_path=''
+              fetch_installer || exit 1
+              project_root="$out" extract_installer || exit 1
+              source scripts/build-linux.sh
+              WORK_DIR="$out/work"
+              STAGE="$WORK_DIR/stage"
+              RESOURCES_SRC="$out/extract/nupkg/lib/net45/resources"
+              step2_stage_resources
+            ) > "$out/stage.log" 2>&1 || { tail -40 "$out/stage.log"; return 1; }
+            local js="$out/work/app.asar.contents/.webpack/main/index.js"
+            echo "=== $label: $(grep '^WISPR_VERSION=' scripts/setup/installer-pin.sh)"
+            echo "--- count: $(grep -oF '"linux"===process.platform' "$js" | wc -l)"
+            echo '--- raw (byte offset, 120 chars each side)'
+            grep -obE '.{0,120}"linux"===process\.platform.{0,120}' "$js"
+            npx --yes prettier@3.3.3 --ignore-path /dev/null --parser babel \
+              "$js" > "$out/main.pretty.js" || return 1
+            echo '--- beautified (8 lines each side)'
+            grep -nE -B8 -A8 '"linux" === process\.platform' "$out/main.pretty.js"
+          }
+          dump pinned
+          scripts/setup/resolve-installer-url.sh > resolved.txt
+          cat resolved.txt
+          scripts/setup/write-installer-pin.sh < resolved.txt
+          dump latest
