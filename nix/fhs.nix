@@ -5,6 +5,8 @@
   wl-clipboard,
   xclip,
   xsel,
+  pulseaudio,
+  playerctl,
 }:
 #==============================================================================
 # Glibc FHS wrapper around the Wispr Flow derivation.
@@ -30,6 +32,8 @@ buildFHSEnv {
     wl-clipboard
     xclip
     xsel
+    pulseaudio
+    playerctl
   ];
 
   runScript = "${wispr-flow}/bin/wispr-flow";

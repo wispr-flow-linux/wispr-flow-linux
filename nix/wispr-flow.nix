@@ -208,6 +208,7 @@ stdenvNoCC.mkDerivation {
     # Add the 'linux' helper-path branch + gate the macOS Applications guard.
     bash ${sourceRoot}/scripts/patches/helper-resolver.sh "$main_bundle"
     bash ${sourceRoot}/scripts/patches/mac-gates.sh "$main_bundle"
+    bash ${sourceRoot}/scripts/patches/linux-dictation-audio.sh "$main_bundle"
 
     # Stage the unpacked native-module tree (Windows *.node kept as-is — see the
     # NATIVE-MODULE NOTE above) and drop the win-ca crypt32 Windows bindings.
