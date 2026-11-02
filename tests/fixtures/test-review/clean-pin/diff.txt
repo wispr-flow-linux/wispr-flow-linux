@@ -1,0 +1,10 @@
+@@ -1,5 +1,9 @@
+ write_pin() {
+ 	local version="$1" sha="$2" pin="$3"
++	if [[ ! $sha =~ ^[0-9a-f]{64}$ ]]; then
++		echo "ERROR: not a sha256: $sha" >&2
++		return 1
++	fi
+ 	printf 'VERSION=%s\nSHA256=%s\n' "$version" "$sha" > "$pin.tmp" \
+ 		&& mv "$pin.tmp" "$pin"
+ }
