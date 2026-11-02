@@ -451,6 +451,27 @@ to the `[WARN]` lines from Step 0 for which one.
 
 See the helper section of [building.md](building.md#the-clean-room-helper-prebuilt-with-a-helper_bin-override).
 
+## "Secure credential storage is unavailable on this device."
+
+Connecting an app through Wispr Flow's extension connections fails with
+this error. Dictation is unaffected.
+
+### Fix
+
+Wispr Flow keeps connector tokens in Electron's safeStorage, and on Linux it
+refuses to when no Secret Service keyring is running, because Electron would
+then fall back to a fixed key. GNOME and KDE start one for you. On other
+desktops, install and start one, then restart Wispr Flow:
+
+```bash
+sudo apt install gnome-keyring    # or: sudo dnf install gnome-keyring
+```
+
+`gnome-keyring-daemon` must be running in your session (most display
+managers start it through PAM; under a bare window manager, start it from
+your session startup). KDE users with KWallet disabled should enable it in
+System Settings.
+
 ## More
 
 Curious which setups are actually validated, and which are only wired through?
