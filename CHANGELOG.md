@@ -28,7 +28,9 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   (#138), and `cp -a` kept those modes, leaving `/usr/bin/wispr-flow` a
   dangling symlink for anyone but root. `package()` now resets directory
   modes to 0755 after the copy, as the deb, rpm and AppImage makers do
-  since #10.
+  since #10. pacman keeps the mode of a directory that already exists, so
+  a new `wispr-flow-appimage.install` repairs an affected install in
+  `post_upgrade()`.
 
 ## [v1.0.5] - 2026-10-28
 

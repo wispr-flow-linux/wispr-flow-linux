@@ -22,6 +22,7 @@ optdepends=('wl-clipboard: clipboard paste-injection on Wayland')
 provides=('wispr-flow')
 conflicts=('wispr-flow')
 options=(!strip)
+install=wispr-flow-appimage.install
 
 _appimage=%%APPIMAGE_NAME%%
 source=("${_appimage}::https://github.com/wispr-flow-linux/wispr-flow-linux/releases/download/v${pkgver}/${_appimage}")
