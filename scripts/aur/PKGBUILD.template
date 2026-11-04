@@ -36,6 +36,7 @@ package() {
 
 	install -dm755 "${pkgdir}/opt/${pkgname}"
 	cp -a squashfs-root/. "${pkgdir}/opt/${pkgname}/"
+	find "${pkgdir}/opt/${pkgname}" -type d -exec chmod 0755 {} +
 
 	install -dm755 "${pkgdir}/usr/bin"
 	ln -s "/opt/${pkgname}/AppRun" "${pkgdir}/usr/bin/wispr-flow"
