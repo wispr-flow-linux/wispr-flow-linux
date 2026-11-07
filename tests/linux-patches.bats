@@ -258,25 +258,34 @@ JS
 HUB_VIDEO_HOOK='!function(e,t=!0){const n=(0,f.useRef)(!1);(0,f.useEffect)(()=>{if(!t)return;const a=()=>{const t=e.current;t&&!t.paused&&(n.current=!0,t.pause())},r=()=>{const t=e.current;t&&n.current&&(t.play().catch(()=>{}),n.current=!1)};return window.addEventListener("blur",a),window.addEventListener("focus",r),()=>{window.removeEventListener("blur",a),window.removeEventListener("focus",r)}},[t,e])}(l);'
 
 # A runnable fixture: fake React hooks, window, document focus and a <video>
-# whose play() fires "play" as the real element does, around the hook.
+# around the hook. As in a browser, play() flips `paused` at once and queues
+# the "play" event as a task, and effects run after the ref is attached
+# (commit() below), so the checks flush the task queue before asserting.
 write_hub_video_fixture() {
 	cat > "$FIX" <<'JS'
-const f={useRef:v=>({current:v}),useEffect:fn=>{globalThis.cleanup=fn()}};
+const effects=[];let cleanup=null;
+const f={useRef:v=>({current:v}),useEffect:fn=>{effects.push(fn)}};
+const commit=()=>{for(const fn of effects)cleanup=fn()};
+const unmount=()=>{cleanup&&cleanup(),cleanup=null};
 globalThis.window=new EventTarget();
 let focused=!1;globalThis.document={hasFocus:()=>focused};
 const video=new EventTarget();video.paused=!0;
 video.pause=()=>{video.paused=!0};
-video.play=()=>{video.paused=!1;video.dispatchEvent(new Event("play"));return Promise.resolve()};
-const l={current:video};
+video.play=()=>{video.paused=!1;setTimeout(()=>video.dispatchEvent(new Event("play")),0);return Promise.resolve()};
+const l={current:null};
 JS
 	printf '%s\n' "$HUB_VIDEO_HOOK" >> "$FIX"
 	cat >> "$FIX" <<'JS'
 const check=(ok,msg)=>{if(!ok){console.error(msg);process.exit(1)}};
-globalThis.run=()=>{
-video.play();check(video.paused,"autoplay in an unfocused Hub kept playing");
-focused=!0;window.dispatchEvent(new Event("focus"));check(!video.paused,"focusing the Hub did not play the video");
-focused=!1;window.dispatchEvent(new Event("blur"));check(video.paused,"blur did not pause the video");
-cleanup();video.play();check(!video.paused,"the play listener outlived the hook");
+const flush=()=>new Promise(r=>setTimeout(r,5));
+const run=async()=>{
+l.current=video;commit();
+video.play();await flush();check(video.paused,"autoplay in an unfocused Hub kept playing");
+video.play();await flush();check(video.paused,"a second source start in an unfocused Hub kept playing");
+focused=!0;window.dispatchEvent(new Event("focus"));await flush();check(!video.paused,"focusing the Hub did not play the video");
+focused=!1;window.dispatchEvent(new Event("blur"));await flush();check(video.paused,"blur did not pause the video");
+unmount();commit();video.play();await flush();check(video.paused,"a re-run effect did not re-register the listener");
+unmount();video.play();await flush();check(!video.paused,"the play listener outlived the hook");
 console.log("behaviour ok")};
 if(process.argv[2]==="run")run();
 JS
@@ -304,6 +313,16 @@ JS
 	run node "$FIX" run
 	[[ "$status" -eq 0 ]]
 	[[ "$output" == *"behaviour ok"* ]]
+}
+
+@test "hub-video: matches other string delimiters and declarations" {
+	# a bundler swap may re-emit "blur" as 'blur' and const as let
+	printf '%s\n' "$HUB_VIDEO_HOOK" | sed -e "s/\"blur\"/'blur'/g" \
+		-e 's/"focus"/`focus`/g' -e 's/const a=/let a=/' > "$FIX"
+	run bash "$PATCH_DIR/linux-hub-video-focus-pause.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'wflVideo&&wflVideo.addEventListener("play",wflPlay);return window.addEventListener('"'"'blur'"'"',a)' "$FIX"
+	node_check "$FIX"
 }
 
 @test "hub-video: idempotent on second run" {

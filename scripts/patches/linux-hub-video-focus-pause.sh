@@ -78,19 +78,24 @@ with io.open(path, "r", encoding="utf-8", errors="surrogateescape") as f:
     data = f.read()
 
 I = r'[\w$]+'
+Q = r'[`"\']'                       # any JS string delimiter
+D = r'(?:const|let|var) '
+BLUR = Q + r'blur' + Q
+FOCUS = Q + r'focus' + Q
 site = re.compile(
     # g1: the blur handler. g2 its name, g3 its local, g4 the video ref,
     # g5 the hook's paused-by-me flag.
-    r'(const (' + I + r')=\(\)=>\{const (' + I + r')=(' + I + r')\.current;'
+    r'(' + D + r'(' + I + r')=\(\)=>\{' + D + r'(' + I + r')=(' + I + r')'
+    r'\.current;'
     r'\3&&!\3\.paused&&\((' + I + r')\.current=!0,\3\.pause\(\)\)\},'
     # the focus handler (g6), same ref and flag.
-    r'(' + I + r')=\(\)=>\{const (' + I + r')=\4\.current;'
+    r'(' + I + r')=\(\)=>\{' + D + r'(' + I + r')=\4\.current;'
     r'\7&&\5\.current&&\(\7\.play\(\)\.catch\(\(\)=>\{\}\),\5\.current=!1\)\};)'
     # g8: the registration that follows, up to the cleanup's last removal.
-    r'(return window\.addEventListener\("blur",\2\),'
-    r'window\.addEventListener\("focus",\6\),\(\)=>\{'
-    r'window\.removeEventListener\("blur",\2\),'
-    r'window\.removeEventListener\("focus",\6\))\}'
+    r'(return window\.addEventListener\(' + BLUR + r',\2\),'
+    r'window\.addEventListener\(' + FOCUS + r',\6\),\(\)=>\{'
+    r'window\.removeEventListener\(' + BLUR + r',\2\),'
+    r'window\.removeEventListener\(' + FOCUS + r',\6\))\}'
 )
 matches = list(site.finditer(data))
 
@@ -131,7 +136,7 @@ patch_verify_marker
 listener='/\*'"$MARKER"'\*/const wflVideo=[\w$]+\.current,'
 listener+='wflPlay=\(\)=>\{document\.hasFocus\(\)\|\|[\w$]+\(\)\};'
 listener+='wflVideo&&wflVideo\.addEventListener\("play",wflPlay\);'
-listener+='return window\.addEventListener\("blur",'
+listener+='return window\.addEventListener\([`"'"'"']blur[`"'"'"'],'
 patch_expect_shape -qP "$listener" \
 	-- 'injected play listener not in expected form.'
 patch_expect_shape -qF \
