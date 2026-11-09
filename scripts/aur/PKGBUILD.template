@@ -22,6 +22,7 @@ optdepends=('wl-clipboard: clipboard paste-injection on Wayland')
 provides=('wispr-flow')
 conflicts=('wispr-flow')
 options=(!strip)
+install=wispr-flow-appimage.install
 
 _appimage=%%APPIMAGE_NAME%%
 source=("${_appimage}::https://github.com/wispr-flow-linux/wispr-flow-linux/releases/download/v${pkgver}/${_appimage}")
@@ -36,6 +37,7 @@ package() {
 
 	install -dm755 "${pkgdir}/opt/${pkgname}"
 	cp -a squashfs-root/. "${pkgdir}/opt/${pkgname}/"
+	find "${pkgdir}/opt/${pkgname}" -type d -exec chmod 0755 {} +
 
 	install -dm755 "${pkgdir}/usr/bin"
 	ln -s "/opt/${pkgname}/AppRun" "${pkgdir}/usr/bin/wispr-flow"
