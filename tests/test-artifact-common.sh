@@ -149,14 +149,8 @@ validate_app_contents() {
 	# resources/ and resources/Release/ must be traversable by non-root users:
 	# Electron runs as the user and reads app.asar / the helper from here. A
 	# 0700 dir here crashes launch even though the files inside are readable.
-	# artifact_dir_modes=lossy means the caller unpacked with a tool that
-	# resets directory modes, so these two would test the tool, not the package.
-	if [[ ${artifact_dir_modes:-} == 'lossy' ]]; then
-		pass "Skipping resources/ traversal checks (unpacker resets dir modes)"
-	else
-		assert_dir_traversable "$resources_dir"
-		assert_dir_traversable "$resources_dir/Release"
-	fi
+	assert_dir_traversable "$resources_dir"
+	assert_dir_traversable "$resources_dir/Release"
 
 	# Unpacked native modules: better-sqlite3 + sqlite3 (rebuilt for Electron
 	# 42's V8 14.8) live under the unpacked .webpack tree and must ship as real
@@ -201,8 +195,7 @@ validate_app_contents() {
 # Usage:
 #   run_launch_smoke_test <label> <pkill_match> <run_as> <cmd> [args...]
 #     label        human name for pass/fail messages
-#     pkill_match  pattern for the pkill -f child sweep (may be empty).
-#                  Honoured only when CI is set; see the note below.
+#     pkill_match  pattern for the pkill -f child sweep (may be empty)
 #     run_as       unprivileged user to drop to, or '' to run as-is. The
 #                  deb/rpm install chrome-sandbox setuid-root and the launcher
 #                  does NOT pass --no-sandbox, so Electron refuses to run as
@@ -210,39 +203,14 @@ validate_app_contents() {
 #                  real setuid sandbox path.
 #     cmd [args]   the launch command
 #
-# Missing tools (xvfb-run/dbus-run-session/setsid, or runuser when run_as is
-# set) -> skip, not failure: loud failure on tool absence belongs at the CI
-# workflow layer.
-#
-# The readiness marker alone is blind to one known failure: when the app
-# spawns the helper without the session env (helper-env.sh no-oping on a new
-# bundle), the helper still answers IsReady but picks the no-op `stub`
-# injection backend, so recording works and nothing is ever typed. The
-# helper logs its backend choice on stderr before it answers, and the app
-# relays that into launcher.log; _smoke_check_backend reads that line after
-# the marker and fails on `stub`. See docs/learnings/helper-spawn-env.md.
-#
-# The pkill -f sweep runs only under CI. Every caller's pattern (the
-# /usr/lib/wispr-flow install root, the AppImage path) also matches a
-# developer's live Wispr Flow, so a local run that reaped by pattern would
-# take the real app down with the test's; the sibling project shipped
-# exactly that regression. Locally the process-group kill is the only
-# reaper, which is enough because the install tier (the one path where PAM
-# re-setsid()s the child out of the group) is itself CI-only.
+# Missing tools or a blocked Chromium sandbox normally skip. Set
+# WISPR_LAUNCH_REQUIRED=1 when launch readiness is a mandatory release gate.
 
 _smoke_launch_pid=''
 _smoke_cache_root=''
 _smoke_xvfb_log=''
 _smoke_pkill_match=''
 
-# Assert the helper picked a real injection backend. The helper's startup
-# stderr is relayed into launcher.log as
-#   [... INFO  wispr_flow_linux_helper::backend] injection: X11 (...)
-#   [... WARN  wispr_flow_linux_helper::backend] injection: stub (no-op) ...
-# The line normally precedes the readiness marker (the helper logs it before
-# it answers IsReady), but the app relays stderr in chunks, so allow a short
-# grace period. No line at all is a failure too: a PASS must be read from
-# the log, never inferred from its absence.
 _smoke_check_backend() {
 	local label="$1" launcher_log="$2"
 	local needle='::backend] injection: '
@@ -299,26 +267,39 @@ run_launch_smoke_test() {
 	local label="$1" pkill_match="$2" run_as="$3"
 	shift 3
 
-	# CI-only sweep (see the header). Cleared here so both the end-of-run
-	# sweep and the cleanup trap read the same decision.
 	[[ -n ${CI:-} ]] || pkill_match=''
 
 	local skip="Skipping launch smoke test for $label"
 	if ! { command -v xvfb-run && command -v dbus-run-session \
 		&& command -v setsid; } &>/dev/null; then
-		pass "$skip (xvfb-run/dbus-run-session/setsid missing)"
+		if [[ ${WISPR_LAUNCH_REQUIRED:-0} == 1 ]]; then
+			fail "$label launch tools missing"
+		else
+			pass "$skip (xvfb-run/dbus-run-session/setsid missing)"
+		fi
 		return
 	fi
 	if [[ -n $run_as ]] && ! command -v runuser &>/dev/null; then
-		pass "$skip (runuser missing)"
+		if [[ ${WISPR_LAUNCH_REQUIRED:-0} == 1 ]]; then
+			fail "$label runuser missing"
+		else
+			pass "$skip (runuser missing)"
+		fi
 		return
 	fi
 
-	local cache_root xvfb_log launcher_log
+	local cache_root cache_dir config_dir home_dir runtime_dir
+	local xvfb_log launcher_log
 	cache_root=$(mktemp -d)
+	cache_dir="$cache_root/cache"
+	config_dir="$cache_root/config"
+	home_dir="$cache_root/home"
+	runtime_dir="$cache_root/runtime"
+	mkdir -p "$cache_dir" "$config_dir" "$home_dir" "$runtime_dir"
+	chmod 0700 "$cache_dir" "$config_dir" "$home_dir" "$runtime_dir"
 	xvfb_log=$(mktemp)
 	# Must match setup_logging in launcher-common.sh: $XDG_CACHE_HOME/wispr-flow.
-	launcher_log="$cache_root/wispr-flow/launcher.log"
+	launcher_log="$cache_dir/wispr-flow/launcher.log"
 	_smoke_cache_root="$cache_root"
 	_smoke_xvfb_log="$xvfb_log"
 	_smoke_pkill_match="$pkill_match"
@@ -328,10 +309,13 @@ run_launch_smoke_test() {
 	# redirected so the test owns the launcher.log the marker lands in.
 	local -a runner=(setsid)
 	if [[ -n $run_as ]]; then
-		chmod 0777 "$cache_root"
+		chmod 0711 "$cache_root"
+		chown "$run_as" "$cache_dir" "$config_dir" "$home_dir" \
+			"$runtime_dir"
 		runner+=(runuser -u "$run_as" --)
 	fi
-	runner+=(env "XDG_CACHE_HOME=$cache_root"
+	runner+=(env "HOME=$home_dir" "XDG_CACHE_HOME=$cache_dir"
+		"XDG_CONFIG_HOME=$config_dir" "XDG_RUNTIME_DIR=$runtime_dir"
 		xvfb-run -a -s '-screen 0 1280x720x24'
 		dbus-run-session -- "$@")
 
@@ -375,7 +359,12 @@ run_launch_smoke_test() {
 		fi
 		# Namespace-sandbox denial is an environment limit, not a defect.
 		if _smoke_sandbox_denied "$launcher_log" "$xvfb_log"; then
-			pass "$label: SKIP - Chromium sandbox cannot initialize in this container (namespace creation denied by seccomp/userns policy); launch not exercised here."
+			if [[ ${WISPR_LAUNCH_REQUIRED:-0} == 1 ]]; then
+				fail "$label Chromium sandbox could not initialize"
+			else
+				pass "$label: SKIP - Chromium sandbox cannot initialize" \
+					'in this container; launch not exercised here.'
+			fi
 		else
 			fail "$detail"
 		fi
@@ -387,8 +376,7 @@ run_launch_smoke_test() {
 	wait "$_smoke_launch_pid" 2>/dev/null || true
 	# Sweep any electron/helper child that escaped the group (PAM re-setsid
 	# under runuser puts the child in its own session, so the group kill
-	# above misses it — this sweep is the actual reaper there). Empty
-	# outside CI, so a local run never reaps by pattern.
+	# above misses it — this sweep is the actual reaper there).
 	if [[ -n $pkill_match ]]; then
 		pkill -KILL -f "$pkill_match" 2>/dev/null || true
 	fi

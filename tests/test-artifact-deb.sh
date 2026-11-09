@@ -17,6 +17,7 @@ source "$script_dir/test-artifact-common.sh"
 # shellcheck disable=SC2329  # invoked indirectly via the EXIT/INT/TERM trap
 _deb_cleanup() {
 	_launch_smoke_cleanup
+	[[ -n ${smoke_user:-} ]] && userdel -r "$smoke_user" 2>/dev/null
 	[[ -n ${dx_tmp:-} ]] && rm -rf "$dx_tmp"
 }
 trap _deb_cleanup EXIT INT TERM
@@ -41,10 +42,14 @@ if [[ $pkg_info == *'Package: wispr-flow'* ]]; then
 else
 	fail "Package name is not wispr-flow"
 fi
-if [[ $pkg_info == *'Version:'* ]]; then
-	pass "Version field present"
+expected_version="${deb_file##*/}"
+expected_version="${expected_version#wispr-flow_}"
+expected_version="${expected_version%_*}"
+actual_version=$(dpkg-deb -f "$deb_file" Version 2>/dev/null)
+if [[ $actual_version == "$expected_version" ]]; then
+	pass "Package version matches artifact: $actual_version"
 else
-	fail "Version field missing"
+	fail "Package version mismatch: $actual_version != $expected_version"
 fi
 if [[ $pkg_info == *'Architecture:'* ]]; then
 	pass "Architecture field present"
@@ -154,6 +159,7 @@ electron_bin='/usr/lib/wispr-flow/wispr-flow'
 assert_file_exists "$electron_bin"
 assert_executable "$electron_bin"
 assert_file_exists '/usr/lib/wispr-flow/chrome-sandbox'
+assert_setuid '/usr/lib/wispr-flow/chrome-sandbox'
 
 doctor_exit=0
 /usr/bin/wispr-flow --doctor >/dev/null 2>&1 || doctor_exit=$?
@@ -169,6 +175,10 @@ smoke_user=''
 if command -v useradd &>/dev/null && command -v runuser &>/dev/null; then
 	smoke_user='wispr-smoke'
 	useradd -m "$smoke_user" 2>/dev/null || smoke_user=''
+fi
+if [[ ${WISPR_LAUNCH_REQUIRED:-0} == 1 && -z $smoke_user ]]; then
+	fail 'deb package could not create an unprivileged smoke-test user'
+	print_summary
 fi
 run_launch_smoke_test 'deb package' '/usr/lib/wispr-flow' "$smoke_user" \
 	/usr/bin/wispr-flow
