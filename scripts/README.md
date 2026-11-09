@@ -12,6 +12,8 @@ our clean-room Rust helper attached. I built it the same way I build
 |---|---|
 | `patches/helper-resolver.sh` | The one mandatory app patch: adds a `'linux'` branch to the helper-path resolver in `.webpack/main/index.js`. Surgical, idempotent, keeps a `.orig` backup, verifies with a unique anchor. |
 | `patches/mac-gates.sh` | Gates the macOS "/Applications" startup guard to `darwin` so it no-ops on Linux (otherwise a blocking dialog + `app.quit()` kills launch). |
+| `patches/linux-status-idle-unmap.sh` | Injects Linux-only native Status visibility driven by the renderer's semantic surface reports; idle unmaps, recording/content restores without focus. |
+| `patches/linux-status-surface-report.sh` | Enables visual-only Status surface reports on Linux and sends the initial empty report; paired with idle-unmap. |
 | `build-linux.sh` | The full Phase-0 pipeline. Each step prints `[AUTO]` (runs here) or `[MANUAL]` (network/toolchain needed, documented + stubbed). |
 | `verify-patches.sh` | Post-repack safety net: static-greps the shipped `app.asar` for the Linux patch markers and fails the build if any are missing. |
 | `packaging/rpm.sh` | Packages the validated Linux tree as an installable `.rpm` (Fedora/RHEL). |
@@ -134,6 +136,29 @@ electron extract/app   # add --no-sandbox if your environment needs it
 One gotcha: `process.resourcesPath` differs between `electron <dir>` (dev) and a
 packaged build. For a dev launch, put the helper under the dev
 `resourcesPath`/`Release`, or just use a packaged layout instead.
+
+## Idle Status visibility
+
+The two Status patches ship together. The main shim accepts only the Status
+renderer main-frame report, validates rectangles/viewport/zoom, and preserves
+upstream explicit hide intent. The renderer patch widens only its semantic
+visual-surface collector, not the global platform flag. An empty report hides
+the native window; recording, processing, notifications and other reported
+content show it without taking focus. There is no new polling timer or pixel
+capture. This is separate from always-on-top behavior in PR #73.
+
+The user's older local bundle passed physical idle scrolling and recording
+indicator tests after an unmap/remap isolation test implicated Status. The
+current 1.6.1147 pin passes the real patch-stage checks; physical dictation and
+dock/KVM tests on that new artifact remain required. Do not equate native
+input-region assertions with physical click-through: the earlier ShapeInput
+workaround passed those assertions but failed on the user's compositor.
+
+For the isolated native lifecycle regression (no microphone input), run:
+
+```bash
+bash tests/status-visibility.sh /path/to/electron-or-wispr-flow-executable
+```
 
 ## License
 
