@@ -44,6 +44,7 @@ linux-autostart	main	F	1	the Hub launch decision's opened-at-login read	getLogin
 linux-autostart	main	P	1	the Settings open-at-login toggle	setLoginItemSettings\(\{openAtLogin:[\w$]+\}\)
 linux-autostart	main	F	1	the new-user open-at-login default	setLoginItemSettings({openAtLogin:!0})
 linux-renderer-chrome	renderer/hub	F	2	the platform class added to <html>	classList.add(window.electron.platform.os)
+linux-hub-video-focus-pause	renderer/hub	P	1	the onboarding video's blur-pause/focus-resume hook	\.paused&&\([\w$]+\.current=!0,[\w$]+\.pause\(\)\)\},[\w$]+=\(\)=>\{const [\w$]+=[\w$]+\.current;[\w$]+&&[\w$]+\.current&&\([\w$]+\.play\(\)
 linux-renderer-treat-as-windows	renderer/*	F	1+	the per-renderer isWindows bind	platform?.isWindows??!1
 # linux-status-compact: the centred-bottom return matches once in 1.6.1209
 # and 1.6.1264 (checked by @Z3roS4n on the shipped bytes, PR #67).

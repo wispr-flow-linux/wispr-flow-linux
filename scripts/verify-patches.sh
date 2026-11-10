@@ -11,6 +11,7 @@
 #     * mac-gates.sh           -> gates the macOS Applications-folder guard
 #     * linux-window-frame.sh  -> frameless hub/settings window on Linux
 #     * linux-hub-focusable.sh -> hub window focusable/WM-managed on Linux
+#     * linux-hub-video-focus-pause.sh -> unfocused Hub plays no video
 #     * linux-deeplink.sh      -> cold-start wispr-flow: argv parse on Linux
 #     * linux-disable-pill-drag.sh -> disable the status-pill drag gesture on linux
 #     * linux-main-shortcut-defaults.sh -> Linux profiles seed the Windows
@@ -60,6 +61,7 @@ MARKERS=(
   "renderer-chrome: linux->win32 platform-class remap|F|WISPR_LINUX_WIN32_CHROME"
   "window-frame: linux frameless window branch|F|WISPR_LINUX_FRAMELESS"
   "hub-focusable: linux hub window focusable/WM-managed|F|WISPR_LINUX_HUB_FOCUSABLE"
+  "hub-video-focus-pause: unfocused Hub video paused as it starts|F|WISPR_LINUX_HUB_VIDEO_FOCUS_PAUSE"
   "treat-as-windows: linux widens renderer isWindows bind|F|WISPR_LINUX_RENDERER_ISWIN"
   "deeplink: linux cold-start argv parse|F|WISPR_LINUX_DEEPLINK"
   "early-singleton: second instance exits before init|F|WISPR_LINUX_EARLY_SINGLETON_V1"
