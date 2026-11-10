@@ -56,6 +56,21 @@ echo 'export WISPR_DISABLE_GPU=1' >> ~/.profile
 tail -f ~/.cache/wispr-flow/launcher.log
 ```
 
+## Dictation audio
+
+"Mute all audio while dictating" uses `pactl` 16 or newer.
+It works with PulseAudio or PipeWire's PulseAudio service.
+"Pause music while dictating" uses `playerctl` with MPRIS.
+MPD needs an MPRIS bridge such as `mpDris2`.
+
+The app restores only outputs and players it changed. Outputs already muted
+stay muted. Players already paused stay paused. Audio returns when dictation
+ends or the app exits.
+
+The deb, rpm, and AUR packages include these tools. AppImage users need
+`pulseaudio-utils` and `playerctl` (`libpulse` and `playerctl` on Arch).
+Missing tools appear in `launcher.log` and do not prevent dictation.
+
 ## Text injection: `/dev/uinput` access
 
 Keystroke injection (and clipboard-based paste) writes evdev events to an
