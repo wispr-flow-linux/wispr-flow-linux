@@ -1351,14 +1351,14 @@ JS
 	status_bounds_1209 > "$FIX"
 	run bash "$PATCH_DIR/linux-status-compact.sh" "$FIX"
 	[[ "$status" -eq 0 ]]
-	grep -qF 'return(/*WISPR_LINUX_STATUS_COMPACT*/"linux"===process.platform)?{x:u+(h-200)/2,y:p+m-110,width:200,height:110}:{x:u+(h-l)/2,y:p+m-o,width:l,height:o}' "$FIX"
+	grep -qF 'return(/*WISPR_LINUX_STATUS_COMPACT*/"linux"===process.platform)?{x:u+(h-l)/2,y:p+m-216,width:l,height:216}:{x:u+(h-l)/2,y:p+m-o,width:l,height:o}' "$FIX"
 	# the top branch (y:p+a) is untouched
 	grep -qF 'if("top"===t)return{x:u+(h-l)/2,y:p+a,width:l,height:o}' "$FIX"
 	[[ "$(grep -o 'WISPR_LINUX_STATUS_COMPACT' "$FIX" | wc -l)" -eq 1 ]]
 	node_check "$FIX"
 }
 
-@test "status-compact: the patched branch returns 200x110 on linux, the shipped box elsewhere" {
+@test "status-compact: the patched branch returns a 216 px tall box on linux, the shipped box elsewhere" {
 	if ! command -v node >/dev/null; then
 		skip 'node not installed'
 	fi
@@ -1373,7 +1373,7 @@ JS
 		console.log(JSON.stringify([linux, win]));
 	' "$FIX"
 	[[ "$status" -eq 0 ]]
-	[[ "$output" == '[{"x":860,"y":930,"width":200,"height":110},{"x":704,"y":426,"width":512,"height":614}]' ]]
+	[[ "$output" == '[{"x":704,"y":824,"width":512,"height":216},{"x":704,"y":426,"width":512,"height":614}]' ]]
 }
 
 @test "status-compact: matches the literal-width shape of 1.6.957 and earlier" {
@@ -1382,7 +1382,7 @@ function b(e,t){const{x:o,y:c,width:l,height:d}=e.workArea,s=320;return{x:o+(l-4
 JS
 	run bash "$PATCH_DIR/linux-status-compact.sh" "$FIX"
 	[[ "$status" -eq 0 ]]
-	grep -qF 'return(/*WISPR_LINUX_STATUS_COMPACT*/"linux"===process.platform)?{x:o+(l-200)/2,y:c+d-110,width:200,height:110}:{x:o+(l-440)/2,y:c+d-s,width:440,height:s}' "$FIX"
+	grep -qF 'return(/*WISPR_LINUX_STATUS_COMPACT*/"linux"===process.platform)?{x:o+(l-440)/2,y:c+d-216,width:440,height:216}:{x:o+(l-440)/2,y:c+d-s,width:440,height:s}' "$FIX"
 	node_check "$FIX"
 }
 
