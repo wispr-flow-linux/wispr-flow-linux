@@ -374,6 +374,10 @@ step3_patch_bundle() {
     auto "Running linux-status-compact.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-status-compact.sh" "$target_bundle" \
       || die "linux-status-compact.sh failed -- see its output above."
+    # Notetaker system audio on Linux (#61).
+    auto "Running linux-meeting-loopback.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-meeting-loopback.sh" "$target_bundle" \
+      || die "linux-meeting-loopback.sh failed -- see its output above."
 
     # Renderer + preload patches live alongside the main bundle under .webpack/.
     local webpack_root="${target_bundle%/main/index.js}"
@@ -385,6 +389,10 @@ step3_patch_bundle() {
       auto "Running linux-renderer-chrome.sh on $hub_renderer"
       bash "$SCRIPT_DIR/patches/linux-renderer-chrome.sh" "$hub_renderer" \
         || die "Renderer-chrome patch failed -- see linux-renderer-chrome.sh output above."
+      # Notetaker system audio without echo cancellation (#61).
+      auto "Running linux-renderer-raw-loopback.sh on $hub_renderer"
+      bash "$SCRIPT_DIR/patches/linux-renderer-raw-loopback.sh" "$hub_renderer" \
+        || die "Raw-loopback patch failed -- see linux-renderer-raw-loopback.sh output above."
     else
       die "Hub renderer bundle not found at $hub_renderer (its marker is required)."
     fi

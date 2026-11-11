@@ -6,7 +6,7 @@
 # (the .asar stores the JS bundle as concatenated plaintext, so a byte-grep
 # finds the markers without unpacking).
 #
-# verify-patches.sh greps a fixed set of markers (16 fixed strings + 1 Perl
+# verify-patches.sh greps a fixed set of markers (18 fixed strings + 1 Perl
 # regex). We build a tiny fixture carrying those exact marker strings (PASS)
 # and per-marker fixtures that omit one (FAIL).
 #
@@ -45,6 +45,8 @@ declare -gA MARKER_SAMPLES=(
 	[xdgdatadir]='f=u?o().join(process.env.APPDATA||"","Wispr Flow"):("linux"===process.platform/*WISPR_LINUX_XDG_DATA_DIR*/?o().join(process.env.XDG_CONFIG_HOME||o().join(i().homedir(),".config"),"Wispr Flow"):o().join(i().homedir(),"Library","Application Support","Wispr Flow"))'
 	[statuscompact]='return(/*WISPR_LINUX_STATUS_COMPACT*/"linux"===process.platform)?{x:0}:{x:1}'
 	[pickeranchor]='(0,g.Bn)(A.RA.contextMenuWindow,d.qM.ShowAutoPolishPicker,/*WISPR_LINUX_PICKER_ANCHOR*/((p,b)=>b&&p?{...p}:p)(e,b))'
+	[meetingloopback]='if("win32"===process.platform||"linux"===process.platform/*WISPR_LINUX_MEETING_LOOPBACK*/)return void t({audio:"loopback"})'
+	[rawloopback]='getDisplayMedia({audio:/*WISPR_LINUX_RAW_LOOPBACK*/"linux"===window.electron.platform.os?{echoCancellation:!1}:!0,video:!1})'
 )
 
 # Write a fixture app.asar-like file containing every marker, except the one

@@ -1410,3 +1410,51 @@ JS
 	[[ "$output" == *'expected 1 status-bounds anchor, found 2'* ]]
 	! grep -q 'WISPR_LINUX_STATUS_COMPACT' "$FIX"
 }
+
+# =============================================================================
+# linux-meeting-loopback.sh / linux-renderer-raw-loopback.sh
+# =============================================================================
+
+meeting_handler() {
+	cat <<'JS'
+function inst(){if("linux"===process.platform)return $s().info("[MeetingDisplayMedia] Skipping handler install on Linux (no system loopback path)"),void(_=!0);r.session.defaultSession.setDisplayMediaRequestHandler((e,$t)=>{if("win32"===process.platform)return void $t({audio:"loopback"});$t({})})}
+JS
+}
+
+@test "meeting-loopback: drops the Linux skip and answers linux with the loopback" {
+	meeting_handler > "$FIX"
+	run bash "$PATCH_DIR/linux-meeting-loopback.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	! grep -qF 'Skipping handler install' "$FIX"
+	grep -qF 'if("win32"===process.platform||"linux"===process.platform/*WISPR_LINUX_MEETING_LOOPBACK*/)return void $t({audio:"loopback"})' "$FIX"
+	node_check "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-meeting-loopback.sh" "$FIX"
+}
+
+@test "meeting-loopback: bails without the Linux skip" {
+	meeting_handler | sed 's/if("linux"[^;]*;//' > "$FIX"
+	run bash "$PATCH_DIR/linux-meeting-loopback.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_MEETING_LOOPBACK' "$FIX"
+}
+
+@test "raw-loopback: rewrites every system-audio request, leaves the mic" {
+	cat > "$FIX" <<'JS'
+const a=()=>navigator.mediaDevices.getDisplayMedia({audio:!0,video:!1});
+const b=()=>navigator.mediaDevices.getDisplayMedia({audio:!0,video:!1});
+const c=()=>navigator.mediaDevices.getUserMedia({audio:{echoCancellation:!1}});
+JS
+	run bash "$PATCH_DIR/linux-renderer-raw-loopback.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	[[ "$(grep -c '"linux"===window.electron.platform.os?{echoCancellation:!1,noiseSuppression:!1,autoGainControl:!1}:!0' "$FIX")" -eq 2 ]]
+	grep -qF 'getUserMedia({audio:{echoCancellation:!1}})' "$FIX"
+	node_check "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-renderer-raw-loopback.sh" "$FIX"
+}
+
+@test "raw-loopback: bails when no system-audio request is present" {
+	echo 'navigator.mediaDevices.getDisplayMedia({video:!0,audio:!1});' > "$FIX"
+	run bash "$PATCH_DIR/linux-renderer-raw-loopback.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_RAW_LOOPBACK' "$FIX"
+}
