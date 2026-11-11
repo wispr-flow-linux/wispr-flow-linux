@@ -6,7 +6,8 @@
 # (the .asar stores the JS bundle as concatenated plaintext, so a byte-grep
 # finds the markers without unpacking).
 #
-# verify-patches.sh greps a fixed set of markers and a Perl regex. We build a tiny fixture carrying those exact marker strings (PASS)
+# verify-patches.sh greps a fixed set of markers and a Perl regex.
+# We build a fixture carrying the required marker strings (PASS)
 # and per-marker fixtures that omit one (FAIL).
 #
 
@@ -47,6 +48,8 @@ declare -gA MARKER_SAMPLES=(
 	[cosmicoverlay]='/*WISPR_LINUX_COSMIC_OVERLAY*/'
 	[statuscompact]='return(/*WISPR_LINUX_STATUS_COMPACT*/"linux"===process.platform)?{x:0}:{x:1}'
 	[pickeranchor]='(0,g.Bn)(A.RA.contextMenuWindow,d.qM.ShowAutoPolishPicker,/*WISPR_LINUX_PICKER_ANCHOR*/((p,b)=>b&&p?{...p}:p)(e,b))'
+	[meetingloopback]='if("win32"===process.platform||"linux"===process.platform/*WISPR_LINUX_MEETING_LOOPBACK*/)return void t({audio:"loopback"})'
+	[rawloopback]='getDisplayMedia({audio:/*WISPR_LINUX_RAW_LOOPBACK*/"linux"===window.electron.platform.os?{echoCancellation:!1}:!0,video:!1})'
 )
 
 # Write a fixture app.asar-like file containing every marker, except the one
