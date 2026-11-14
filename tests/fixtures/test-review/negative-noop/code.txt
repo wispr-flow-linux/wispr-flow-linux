@@ -1,0 +1,6 @@
+run_launch_cleanup() {
+	if [[ -n ${CI:-} ]]; then
+		pkill -KILL -f "$1"
+	fi
+	kill -- "-$2" 2>/dev/null
+}

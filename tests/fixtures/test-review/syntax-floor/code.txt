@@ -1,0 +1,4 @@
+# scripts/patches/linux-autostart.sh rewrites the bundle's login-item setter
+# in the JavaScript file under the directory it is given. The patch script
+# only edits that file; the patched app, when it later runs, is what writes
+# the autostart entry.

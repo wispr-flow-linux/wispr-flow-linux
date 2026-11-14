@@ -33,6 +33,10 @@ Before the first real release:
   - `GH_PAT` — a PAT with `repo` + `workflow` scope. `check-wispr-version` and
     `update-flake-lock` use it; a tag pushed with the default `GITHUB_TOKEN`
     would **not** re-trigger the tag-driven workflow.
+  - `TYPESAFE_API_KEY` (optional, not release-related) — a TypeSafe Jev key
+    for the advisory `test-review.yml` PR check. Without it the check runs
+    its grep layer only. See
+    [test-methodology.md](docs/learnings/test-methodology.md#the-advisory-test-review).
 
 - **`gh-pages` branch** — an orphan branch holding the published repo metadata.
   GitHub Pages does **not** need to be enabled: the Worker reads metadata from
