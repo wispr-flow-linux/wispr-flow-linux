@@ -69,6 +69,8 @@ MARKERS=(
   "autostart: linux login items backed by an XDG autostart entry|F|WISPR_LINUX_AUTOSTART"
   "status-compact: linux status window shrunk to pill size|F|WISPR_LINUX_STATUS_COMPACT"
   "status-picker-anchor: pickers offset by the status window on Wayland|F|WISPR_LINUX_PICKER_ANCHOR"
+  "meeting-loopback: Notetaker system-audio handler on Linux|F|WISPR_LINUX_MEETING_LOOPBACK"
+  "raw-loopback: system-audio request without echo cancellation|F|WISPR_LINUX_RAW_LOOPBACK"
 )
 
 missing=0

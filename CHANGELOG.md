@@ -20,6 +20,11 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   upgrading so GNOME Shell loads the updated extension. Thanks to
   @crafteraadarsh (helper #16 to #19, #34).
 
+### Fixed
+
+- Notetaker records system audio (the other people in a call) on Linux,
+  not only your mic (#61). Thanks to @ThomasHFWright for the diagnosis.
+
 ## [v1.0.5] - 2026-10-28
 
 ### Added
