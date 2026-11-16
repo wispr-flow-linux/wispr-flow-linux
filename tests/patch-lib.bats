@@ -131,3 +131,16 @@ patch_expect_shape -qE "MARKER\\*/x\$" -- "unused"')
 	[[ "$status" -eq 0 ]]
 	[[ "$output" == *'node --check OK'*"OK: the test patch applied to $FIX"* ]]
 }
+
+@test "rollback preserves earlier patches despite stale backups" {
+	printf 'var pristine=1;\n' > "$FIX.orig"
+	printf 'var stale=1;\n' > "$FIX.WISPR_TEST_MARKER.orig"
+	printf 'var earlierPatch=1;\n' > "$FIX"
+	for body in 'printf "broken\n" > "$BUNDLE"' \
+		'printf "var =;/*WISPR_TEST_MARKER*/\n" > "$BUNDLE"'; do
+		script=$(_patch_script "$body")
+		run bash "$script" "$FIX"
+		[[ $status -eq 1 ]]
+		cmp -s "$FIX" <(printf 'var earlierPatch=1;\n')
+	done
+}
