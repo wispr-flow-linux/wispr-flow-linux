@@ -374,9 +374,17 @@ step3_patch_bundle() {
     auto "Running linux-status-compact.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-status-compact.sh" "$target_bundle" \
       || die "linux-status-compact.sh failed -- see its output above."
+    # Unmap idle Status surfaces; recording/notification reports restore them.
+    auto "Running linux-status-idle-unmap.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-status-idle-unmap.sh" "$target_bundle" \
+      || die "Status idle-unmap patch failed -- see output above."
 
     # Renderer + preload patches live alongside the main bundle under .webpack/.
     local webpack_root="${target_bundle%/main/index.js}"
+    local status_renderer="$webpack_root/renderer/status/index.js"
+    auto "Running linux-status-surface-report.sh on $status_renderer"
+    bash "$SCRIPT_DIR/patches/linux-status-surface-report.sh" "$status_renderer" \
+      || die "Status surface-report patch failed -- see output above."
     # Remap the <html> platform class linux->win32 so Linux adopts the tested
     # .win32 stylesheet (fixes the ~68px phantom window-control inset that shoved
     # the sidebar collapse toggle right and left the controls invisible).
