@@ -463,7 +463,7 @@ _doctor_check_html_default() {
 # Exec= path, when it has the plain form.
 #------------------------------------------------------------------------------
 _doctor_check_autostart() {
-	local entry line target
+	local entry line target=''
 	entry="${XDG_CONFIG_HOME:-$HOME/.config}/autostart/wispr-flow.desktop"
 	[[ -f $entry ]] || return 0
 

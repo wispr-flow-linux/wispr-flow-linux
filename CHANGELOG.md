@@ -8,6 +8,20 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+### Changed
+
+- Wispr Flow 1.6.1337. Upstream's credential store for extension
+  connections now refuses to run on Linux without a Secret Service keyring;
+  see the "Secure credential storage is unavailable" entry in
+  `docs/troubleshooting.md`.
+- The bundled helper is now v0.1.4. On GNOME 45 and later the status pill
+  sits bottom-centre above the dock instead of mid-screen, and lets clicks
+  through when it is over a fullscreen app. Log out and back in after
+  upgrading so GNOME Shell loads the updated extension. Thanks to
+  @crafteraadarsh (helper #16 to #19, #34).
+
+## [v1.0.5] - 2026-10-28
+
 ### Added
 
 - "Open at login" works on Linux (#81). `linux-autostart.sh` backs
@@ -35,6 +49,33 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   `~/.config/mimeapps.list` on the first start after the update, so `.html`
   files fall back to the desktop's default browser, and `--doctor` warns
   while the line remains.
+- The status pill's window on Linux is sized to the pill, 200x110 instead
+  of upstream's 512x614, so its transparent margin no longer swallows clicks
+  meant for the windows around it (#67, refs #44). The new
+  `linux-status-compact.sh` patch does it; verified on the shipped 1.6.1209
+  and 1.6.1264 bundles by @Z3roS4n. If new pill UI ever looks clipped, this
+  box is the first place to look.
+- `--doctor` no longer aborts with `target: unbound variable` when the
+  autostart entry's `Exec=` line is not the quoted `--hidden` form (#119).
+- The bundled helper is now v0.1.3. Held Ctrl, Alt and Shift are no longer
+  left stuck after a paste (#53, #123), injected text follows the active
+  keyboard layout such as Dvorak (#122), focus changes reach the app
+  without a setting (#121), keyboards plugged in after start are picked up,
+  and Mouse 4 and 5 can be used as shortcuts.
+- Wispr Flow 1.6.1264 builds again, so the nightly bump can move the pin
+  past 1.6.1209 (#135). Upstream reshaped three patch sites while keeping
+  their literals: the cold-start deep-link guard now ends a comma sequence,
+  the Applications-folder guard is an async arrow, and the Hub's
+  webPreferences gained `webviewTag` before `devTools`. `linux-deeplink.sh`,
+  `mac-gates.sh` and `linux-hub-focusable.sh` accept both shapes and leave
+  1.6.1209 byte-identical.
+- On native Wayland the pickers the status pill opens (auto-polish,
+  fetch link, extension bubble menu, shortcut-join drawer) now open next to
+  the pill instead of the screen's top-left corner, and the pill's hover
+  check after a menu closes lines up again. Wayland reports
+  `window.screenX/Y` as 0, so `linux-status-picker-anchor.sh` has main add
+  the status window's bounds to each forwarded point and take them off the
+  cursor point it sends back. X11 and XWayland are unchanged.
 - The database, meetings, backups and extension state now live in
   `~/.config/Wispr Flow` (or `$XDG_CONFIG_HOME/Wispr Flow`) instead of
   `~/Library/Application Support/Wispr Flow`, and the app no longer creates
@@ -43,6 +84,12 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   on the first start after the update, and skips the move while an instance
   holds the lock or when any file would be overwritten. `--doctor` warns
   while a legacy dir remains.
+- The nightly bump no longer stalls when upstream's `latest.json` is
+  unreachable or unparsable (#83). `resolve-installer-url.sh` falls back to
+  the Squirrel `RELEASES` file beside the installer, downloads the Setup
+  `.exe` it names to compute the SHA-256 the pin requires, and checks the
+  SHA-1 of the `*-full.nupkg` inside against the `RELEASES` line. A
+  manifest that parses but is refused stays fatal.
 
 ### Changed
 
@@ -356,7 +403,8 @@ Initial release — unofficial Linux repackaging of Wispr Flow (1.5.695) as
 (text injection, clipboard, global key capture), the Linux platform-gate
 patches, Nix flake, docs tree, and the tag-driven release/publish pipeline.
 
-[Unreleased]: https://github.com/wispr-flow-linux/wispr-flow-linux/compare/v1.0.4+wispr1.6.937...HEAD
+[Unreleased]: https://github.com/wispr-flow-linux/wispr-flow-linux/compare/v1.0.5+wispr1.6.1209...HEAD
+[v1.0.5]: https://github.com/wispr-flow-linux/wispr-flow-linux/compare/v1.0.4+wispr1.6.957...v1.0.5+wispr1.6.1209
 [v1.0.4]: https://github.com/wispr-flow-linux/wispr-flow-linux/compare/v1.0.3+wispr1.6.897...v1.0.4+wispr1.6.937
 [v1.0.3]: https://github.com/wispr-flow-linux/wispr-flow-linux/compare/v1.0.2+wispr1.5.751...v1.0.3+wispr1.5.751
 [v1.0.2]: https://github.com/wispr-flow-linux/wispr-flow-linux/compare/v1.0.1+wispr1.5.695...v1.0.2+wispr1.5.695

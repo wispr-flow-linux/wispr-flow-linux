@@ -26,6 +26,9 @@ them, they win. Read them before opening a non-trivial issue or PR.
   shell conventions (forked from YSAP). Tabs, 80 cols, `[[ ]]`, no `set -e`.
 - [`SECURITY.md`](SECURITY.md) — vulnerability reporting; what's in scope vs.
   what belongs to Wispr.
+- [`MAINTAINING.md`](MAINTAINING.md) — how the four org repos fit, triage
+  rules and labels, per-repo release steps, the bump-failure runbook, and what
+  always waits for a maintainer's yes. Read it before triaging or reviewing.
 
 This file is a fast reference for the highest-leverage rules and the project's
 accumulated conventions. New policy goes in the style guides or CONTRIBUTING.md.

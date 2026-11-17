@@ -20,7 +20,8 @@ protocol — the contract everything else hangs off — is in
 ## Installation & building
 
 - [**Installing**](installation.md) — prebuilt packages: the APT/DNF repos, the
-  AUR package, AppImage / manual download, updating, and uninstalling
+  AUR package, the Gentoo community overlay, AppImage / manual download,
+  updating, and uninstalling
 - [**Building from source**](building.md) — `./build.sh`, format flags, the
   Electron download, the native sqlite rebuild, the mandatory launcher rename
 - [**Configuration**](configuration.md) — env vars, where state lives, the
@@ -34,6 +35,8 @@ protocol — the contract everything else hangs off — is in
 
 - [**Releasing**](../RELEASING.md) — the tag scheme, the one-time prerequisites
   (vars, secrets, `gh-pages`, AUR, Worker), and what CI does on a tag push
+- [**Maintaining**](../MAINTAINING.md) — how the four org repos fit, triage
+  rules and labels, per-repo release steps, the bump-failure runbook
 - [**APT/DNF + redirect Worker**](learnings/apt-worker-architecture.md) — how
   binaries reach users without hitting GitHub's 100 MB push cap
 

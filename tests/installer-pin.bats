@@ -8,14 +8,15 @@
 #                                              output, refuses bad or partial
 #                                              input, never touches comments
 #   * scripts/setup/resolve-installer-url.sh -> parses upstream's JSON manifest
-#                                              (driven via file:// fixtures)
+#                                              (driven via file:// fixtures),
+#                                              and its RELEASES fallback
 #   * scripts/setup/download.sh             -> fetch_installer verifies the
 #                                              digest and caches; the --exe
 #                                              path warns; extract_installer
 #                                              refuses a wrong-version tree
 #
-# Every FAIL branch below hits the real tool (sha256sum, sed, curl, python3,
-# find); only the network fetch itself is a stub (_fetch copies a fixture).
+# Every FAIL branch below hits the real tool (sha256sum, sha1sum, 7z, sed,
+# curl, python3, find); only the network fetch itself is a stub (_fetch copies a fixture).
 #
 
 SCRIPT_DIR="$(cd "$(dirname "${BATS_TEST_FILENAME}")" && pwd)"
@@ -298,6 +299,182 @@ source_download() {
 	run "$RESOLVE_SH" --latest-url "file://$TEST_TMP/does-not-exist.json"
 	[[ $status -eq 1 ]]
 	[[ $output == *'failed to fetch'* ]]
+}
+
+# =============================================================================
+# resolve-installer-url.sh: the RELEASES fallback (latest.json unreachable or
+# unparsable). The .exe fixture is a real 7z archive holding the nupkg, so the
+# extract and both digests run through the real 7z, sha1sum and sha256sum.
+# =============================================================================
+
+# squirrel_dir <version> [nupkg-bytes] -- lay out win32/x64/ with a Setup .exe
+# wrapping WisprFlow-<version>-full.nupkg and a RELEASES line for it.
+squirrel_dir() {
+	command -v 7z >/dev/null 2>&1 || skip "7z not installed"
+	local dir="$TEST_TMP/win32/x64" stage="$TEST_TMP/stage-$1"
+	local nupkg="WisprFlow-$1-full.nupkg" sha1
+	mkdir -p "$dir" "$stage"
+	printf "%s" "${2:-payload for $1}" > "$stage/$nupkg"
+	(cd "$stage" && 7z a -t7z "$dir/Wispr Flow Setup-v$1.exe" "$nupkg" \
+		>/dev/null) || return 1
+	read -r sha1 _ < <(sha1sum "$stage/$nupkg")
+	printf "%s %s 123\r\n" "${sha1^^}" "$nupkg" >> "$dir/RELEASES"
+}
+
+# exe_sha256 <version> -- the digest the fallback must emit.
+exe_sha256() {
+	local sha
+	read -r sha _ < <(sha256sum "$TEST_TMP/win32/x64/Wispr Flow Setup-v$1.exe")
+	printf "%s" "$sha"
+}
+
+@test "fallback: an unreachable latest.json resolves through RELEASES" {
+	squirrel_dir 1.6.957
+	run "$RESOLVE_SH" --latest-url "file://$TEST_TMP/win32/latest.json"
+	[[ $status -eq 0 ]]
+	[[ $output == *"URL=file://$TEST_TMP/win32/x64/Wispr%20Flow%20Setup-v1.6.957.exe"* ]]
+	[[ $output == *"VERSION=1.6.957"* ]]
+	[[ $output == *"SHA256=$(exe_sha256 1.6.957)"* ]]
+	[[ $output == *"Nupkg SHA-1 matches RELEASES"* ]]
+	[[ $output == *"Resolved via: RELEASES fallback"* ]]
+}
+
+@test "fallback: stdout is still exactly URL, VERSION and SHA256" {
+	squirrel_dir 1.6.957
+	local out
+	out=$("$RESOLVE_SH" --latest-url "file://$TEST_TMP/win32/latest.json" 2>/dev/null)
+	[[ $(printf "%s\n" "$out" | wc -l) -eq 3 ]]
+	[[ $(printf "%s\n" "$out" | grep -c "^SHA256=[0-9a-f]\{64\}\$") -eq 1 ]]
+}
+
+@test "fallback: a latest.json that is not JSON falls back" {
+	squirrel_dir 1.6.957
+	printf "<html>maintenance</html>" > "$TEST_TMP/win32/latest.json"
+	run "$RESOLVE_SH" --latest-url "file://$TEST_TMP/win32/latest.json"
+	[[ $status -eq 0 ]]
+	[[ $output == *"not valid JSON"* ]]
+	[[ $output == *"Resolved via: RELEASES fallback"* ]]
+}
+
+@test "fallback: a latest.json with no windows.x64 entry falls back" {
+	squirrel_dir 1.6.957
+	printf "{\"schemaVersion\":2,\"win\":{}}" > "$TEST_TMP/win32/latest.json"
+	run "$RESOLVE_SH" --latest-url "file://$TEST_TMP/win32/latest.json"
+	[[ $status -eq 0 ]]
+	[[ $output == *"VERSION=1.6.957"* ]]
+}
+
+@test "fallback: not taken when latest.json resolves (the path is logged)" {
+	squirrel_dir 1.6.957
+	manifest "$TEST_TMP/win32/latest.json" \
+		"https://dl.example/win32/x64/Wispr%20Flow%20Setup-v1.6.900.exe" "$FAKE_SHA"
+	run "$RESOLVE_SH" --latest-url "file://$TEST_TMP/win32/latest.json"
+	[[ $status -eq 0 ]]
+	[[ $output == *"VERSION=1.6.900"* ]]
+	[[ $output == *"Resolved via: latest.json"* ]]
+	[[ $output != *"Falling back"* ]]
+}
+
+@test "fallback: not taken when latest.json parses but is refused (non-https)" {
+	squirrel_dir 1.6.957
+	manifest "$TEST_TMP/win32/latest.json" \
+		"http://dl.example/win32/x64/Wispr%20Flow%20Setup-v1.6.957.exe" "$FAKE_SHA"
+	run "$RESOLVE_SH" --latest-url "file://$TEST_TMP/win32/latest.json"
+	[[ $status -eq 1 ]]
+	[[ $output == *"refusing non-https"* ]]
+	[[ $output != *"Falling back"* ]]
+}
+
+@test "fallback: not taken when the manifest sha256 is malformed" {
+	squirrel_dir 1.6.957
+	manifest "$TEST_TMP/win32/latest.json" \
+		"https://dl.example/win32/x64/Wispr%20Flow%20Setup-v1.6.957.exe" "abc123"
+	run "$RESOLVE_SH" --latest-url "file://$TEST_TMP/win32/latest.json"
+	[[ $status -eq 1 ]]
+	[[ $output != *"Falling back"* ]]
+}
+
+@test "fallback: picks the newest full nupkg and skips delta lines" {
+	squirrel_dir 1.6.9
+	squirrel_dir 1.6.957
+	squirrel_dir 1.6.10
+	printf "%s WisprFlow-1.7.0-delta.nupkg 5\n" "$(printf "a%.0s" {1..40})" \
+		>> "$TEST_TMP/win32/x64/RELEASES"
+	run "$RESOLVE_SH" --latest-url "file://$TEST_TMP/win32/latest.json"
+	[[ $status -eq 0 ]]
+	[[ $output == *"VERSION=1.6.957"* ]]
+	[[ $output == *"SHA256=$(exe_sha256 1.6.957)"* ]]
+}
+
+@test "fallback: --version selects that RELEASES line" {
+	squirrel_dir 1.6.900
+	squirrel_dir 1.6.957
+	run "$RESOLVE_SH" --latest-url "file://$TEST_TMP/win32/latest.json" \
+		--version 1.6.900
+	[[ $status -eq 0 ]]
+	[[ $output == *"URL=file://$TEST_TMP/win32/x64/Wispr%20Flow%20Setup-v1.6.900.exe"* ]]
+	[[ $output == *"SHA256=$(exe_sha256 1.6.900)"* ]]
+}
+
+@test "fallback: --version absent from RELEASES is fatal" {
+	squirrel_dir 1.6.957
+	run "$RESOLVE_SH" --latest-url "file://$TEST_TMP/win32/latest.json" \
+		--version 1.6.900
+	[[ $status -eq 1 ]]
+	[[ $output == *"no full nupkg for --version 1.6.900"* ]]
+}
+
+@test "fallback: a nupkg whose SHA-1 disagrees with RELEASES is fatal" {
+	squirrel_dir 1.6.957
+	# Replace the whole digest so it cannot collide with the real one.
+	sed -i -E "1s/^[0-9A-F]{40}/$(printf "F%.0s" {1..40})/" \
+		"$TEST_TMP/win32/x64/RELEASES"
+	run "$RESOLVE_SH" --latest-url "file://$TEST_TMP/win32/latest.json"
+	[[ $status -eq 1 ]]
+	[[ $output == *"SHA-1 mismatch"* ]]
+	[[ $output != *"SHA256="* ]]
+}
+
+@test "fallback: a Setup .exe missing from the CDN directory is fatal" {
+	squirrel_dir 1.6.957
+	rm "$TEST_TMP/win32/x64/Wispr Flow Setup-v1.6.957.exe"
+	run "$RESOLVE_SH" --latest-url "file://$TEST_TMP/win32/latest.json"
+	[[ $status -eq 1 ]]
+	[[ $output == *"does not resolve"* ]]
+}
+
+@test "fallback: a Setup .exe that does not carry the named nupkg is fatal" {
+	squirrel_dir 1.6.957
+	squirrel_dir 1.6.900
+	cp "$TEST_TMP/win32/x64/Wispr Flow Setup-v1.6.900.exe" \
+		"$TEST_TMP/win32/x64/Wispr Flow Setup-v1.6.957.exe"
+	run "$RESOLVE_SH" --latest-url "file://$TEST_TMP/win32/latest.json"
+	[[ $status -eq 1 ]]
+	[[ $output == *"does not contain WisprFlow-1.6.957-full.nupkg"* ]]
+}
+
+@test "fallback: a RELEASES file with no full nupkg line is fatal" {
+	mkdir -p "$TEST_TMP/win32/x64"
+	printf "garbage\n" > "$TEST_TMP/win32/x64/RELEASES"
+	run "$RESOLVE_SH" --latest-url "file://$TEST_TMP/win32/latest.json"
+	[[ $status -eq 1 ]]
+	[[ $output == *"no <sha1> <name>-x.y.z-full.nupkg line"* ]]
+}
+
+@test "fallback: both latest.json and RELEASES unreachable is fatal" {
+	run "$RESOLVE_SH" --latest-url "file://$TEST_TMP/win32/latest.json"
+	[[ $status -eq 1 ]]
+	[[ $output == *"failed to fetch file://$TEST_TMP/win32/latest.json"* ]]
+	[[ $output == *"failed to fetch file://$TEST_TMP/win32/x64/RELEASES"* ]]
+}
+
+@test "fallback: --releases-url overrides the derived location" {
+	squirrel_dir 1.6.957
+	mv "$TEST_TMP/win32/x64" "$TEST_TMP/elsewhere"
+	run "$RESOLVE_SH" --latest-url "file://$TEST_TMP/win32/latest.json" \
+		--releases-url "file://$TEST_TMP/elsewhere/RELEASES"
+	[[ $status -eq 0 ]]
+	[[ $output == *"URL=file://$TEST_TMP/elsewhere/Wispr%20Flow%20Setup-v1.6.957.exe"* ]]
 }
 
 @test "resolve | write: the bump pipeline moves the pin end to end" {

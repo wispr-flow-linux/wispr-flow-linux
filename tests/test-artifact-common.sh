@@ -149,8 +149,14 @@ validate_app_contents() {
 	# resources/ and resources/Release/ must be traversable by non-root users:
 	# Electron runs as the user and reads app.asar / the helper from here. A
 	# 0700 dir here crashes launch even though the files inside are readable.
-	assert_dir_traversable "$resources_dir"
-	assert_dir_traversable "$resources_dir/Release"
+	# artifact_dir_modes=lossy means the caller unpacked with a tool that
+	# resets directory modes, so these two would test the tool, not the package.
+	if [[ ${artifact_dir_modes:-} == 'lossy' ]]; then
+		pass "Skipping resources/ traversal checks (unpacker resets dir modes)"
+	else
+		assert_dir_traversable "$resources_dir"
+		assert_dir_traversable "$resources_dir/Release"
+	fi
 
 	# Unpacked native modules: better-sqlite3 + sqlite3 (rebuilt for Electron
 	# 42's V8 14.8) live under the unpacked .webpack tree and must ship as real
