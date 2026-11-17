@@ -440,6 +440,108 @@ teardown() {
 }
 
 # =============================================================================
+# repair_html_default
+# =============================================================================
+
+# A mimeapps.list as xdg-utils 1.1.3 leaves it after an affected start: the
+# stolen text/html default beside defaults and associations that are not ours.
+_seed_mimeapps() {
+	cat > "$XDG_CONFIG_HOME/mimeapps.list" <<'EOF'
+[Default Applications]
+x-scheme-handler/http=firefox.desktop
+text/html=wispr-flow.desktop
+x-scheme-handler/wispr-flow=wispr-flow.desktop
+application/pdf=org.gnome.Evince.desktop
+
+[Added Associations]
+text/html=firefox.desktop;wispr-flow.desktop;
+EOF
+}
+
+@test "repair_html_default: no mimeapps.list - no-op, creates nothing" {
+	setup_logging
+	run repair_html_default
+	[[ $status -eq 0 ]]
+	[[ ! -e "$XDG_CONFIG_HOME/mimeapps.list" ]]
+	[[ ! -s $log_file ]]
+}
+
+@test "repair_html_default: removes only the stolen text/html default" {
+	local list="$XDG_CONFIG_HOME/mimeapps.list"
+	_seed_mimeapps
+	setup_logging
+	repair_html_default
+	# every other line survives, in order, including the scheme handler and
+	# the Added Associations line that also names text/html
+	[[ $(< "$list") == '[Default Applications]
+x-scheme-handler/http=firefox.desktop
+x-scheme-handler/wispr-flow=wispr-flow.desktop
+application/pdf=org.gnome.Evince.desktop
+
+[Added Associations]
+text/html=firefox.desktop;wispr-flow.desktop;' ]]
+	grep -qF 'Removed text/html=wispr-flow.desktop' "$log_file"
+}
+
+@test "repair_html_default: a second start changes nothing and logs nothing" {
+	local list="$XDG_CONFIG_HOME/mimeapps.list" before
+	_seed_mimeapps
+	setup_logging
+	repair_html_default
+	before=$(md5sum "$list")
+	: > "$log_file"
+	repair_html_default
+	[[ $(md5sum "$list") == "$before" ]]
+	[[ ! -s $log_file ]]
+}
+
+@test "repair_html_default: leaves a browser's text/html default alone" {
+	local list="$XDG_CONFIG_HOME/mimeapps.list" before
+	# Near misses: another app holds text/html; ours appears only as the
+	# scheme handler, under another type, and outside Default Applications.
+	cat > "$list" <<'EOF'
+[Default Applications]
+text/html=firefox.desktop
+application/xhtml+xml=wispr-flow.desktop
+x-scheme-handler/wispr-flow=wispr-flow.desktop
+text/html=wispr-flow-beta.desktop
+
+[Removed Associations]
+text/html=wispr-flow.desktop
+EOF
+	before=$(md5sum "$list")
+	setup_logging
+	repair_html_default
+	[[ $(md5sum "$list") == "$before" ]]
+	[[ ! -s $log_file ]]
+}
+
+@test "repair_html_default: a symlinked mimeapps.list stays a symlink" {
+	local list="$XDG_CONFIG_HOME/mimeapps.list"
+	_seed_mimeapps
+	mv "$list" "$TEST_TMP/dotfiles-mimeapps.list"
+	ln -s "$TEST_TMP/dotfiles-mimeapps.list" "$list"
+	setup_logging
+	repair_html_default
+	[[ -L $list ]]
+	! grep -qxF 'text/html=wispr-flow.desktop' "$TEST_TMP/dotfiles-mimeapps.list"
+	grep -qF 'application/pdf=org.gnome.Evince.desktop' "$list"
+}
+
+@test "repair_html_default: an unwritable file is left intact and logged" {
+	[[ $EUID -ne 0 ]] || skip 'root ignores file modes'
+	local list="$XDG_CONFIG_HOME/mimeapps.list" before
+	_seed_mimeapps
+	before=$(md5sum "$list")
+	chmod 0444 "$list"
+	setup_logging
+	run repair_html_default
+	[[ $status -eq 0 ]]
+	[[ $(md5sum "$list") == "$before" ]]
+	grep -qF 'text/html default not repaired' "$log_file"
+}
+
+# =============================================================================
 # migrate_legacy_data_dir
 # =============================================================================
 

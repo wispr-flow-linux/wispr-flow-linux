@@ -307,6 +307,39 @@ reports `Open at login: on`. Disabling the entry in your desktop's
 startup-apps settings does not change the toggle, which keeps showing the
 preference.
 
+## .html files open in Wispr Flow instead of the browser
+
+Opening an `.html` file from the file manager starts Wispr Flow, and setting
+the browser back as the default only lasts until Wispr Flow next starts.
+Seen on GNOME with xdg-utils 1.1.3 (Ubuntu 22.04).
+
+### Fix
+
+Update Wispr Flow. Older builds registered the `wispr-flow:` link scheme
+through `xdg-settings` at every start, and that version of `xdg-settings`
+also rewrites the `text/html` default each time. Current builds declare the
+scheme in the desktop entry and leave your defaults alone.
+
+The first start after the update also removes the
+`text/html=wispr-flow.desktop` line the old builds left in
+`~/.config/mimeapps.list`, so `.html` files go back to your desktop's
+default browser. The choice you had made before is not recoverable. If you
+want a different browser, or the line is still there, set it yourself from
+the file manager (Properties, Open With) or with:
+
+```bash
+xdg-mime query default text/html   # wispr-flow.desktop when affected
+xdg-mime default firefox.desktop text/html
+```
+
+Use your browser's desktop file name in place of `firefox.desktop`.
+`wispr-flow --doctor` warns while the line remains, and the launcher log
+says why it was not removed:
+
+```bash
+grep 'text/html default' ~/.cache/wispr-flow/launcher.log
+```
+
 ## App won't start from a terminal
 
 Launching from an SSH session or bare TTY does nothing, or the launcher log says

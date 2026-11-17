@@ -134,6 +134,7 @@ setup_logging || exit 1
 setup_electron_env
 cleanup_stale_lock
 migrate_legacy_data_dir
+repair_html_default
 
 log_message '--- Wispr Flow Launcher Start (appimage) ---'
 log_message "Timestamp: \$(date)"
@@ -172,6 +173,7 @@ Type=Application
 Categories=Utility;AudioVideo;Audio;
 StartupWMClass=$WM_CLASS
 Keywords=voice;dictation;speech;transcription;
+MimeType=x-scheme-handler/wispr-flow;
 X-AppImage-Version=$APP_VERSION
 X-AppImage-Name=Wispr Flow
 EOF

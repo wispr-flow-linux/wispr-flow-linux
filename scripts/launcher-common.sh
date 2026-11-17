@@ -41,6 +41,32 @@ wispr_legacy_data_dir() {
 	printf '%s' "$HOME/Library/Application Support/Wispr Flow"
 }
 
+# The user's default-application list, where builds before the fix for
+# issue #75 had xdg-settings write a text/html default at every start.
+# Shared with doctor.sh so the launcher and --doctor agree on it.
+wispr_mimeapps_list() {
+	printf '%s' "${XDG_CONFIG_HOME:-$HOME/.config}/mimeapps.list"
+}
+
+# Print mimeapps.list <file> without the text/html=wispr-flow.desktop line
+# of its [Default Applications] section. Exit 0 when that line was there,
+# 1 when it was not, so the same pass both detects and repairs. The same
+# line under [Added Associations] or for any other type is left alone.
+wispr_strip_html_default() {
+	awk '
+		/^[[:space:]]*\[/ {
+			in_defaults = ($0 ~ /^[[:space:]]*\[Default Applications\]/)
+		}
+		in_defaults &&
+		/^text\/html[[:space:]]*=[[:space:]]*wispr-flow\.desktop;?[[:space:]]*$/ {
+			found = 1
+			next
+		}
+		{ print }
+		END { exit(found ? 0 : 1) }
+	' "$1"
+}
+
 # Setup logging directory and file.
 # Sets: log_dir, log_file
 setup_logging() {
@@ -282,6 +308,38 @@ migrate_legacy_data_dir() {
 	# rmdir refuses a non-empty dir; that refusal is the point, not an error.
 	rmdir -- "$legacy" "${legacy%/*}" "$HOME/Library" 2>/dev/null || true
 	log_message "Moved ${#entries[@]} entries from $legacy to $target"
+	return 0
+}
+
+# Give text/html back, once, after builds before the fix for issue #75 took
+# it. Those builds re-ran `xdg-settings set default-url-scheme-handler` at
+# every start, and xdg-utils 1.1.3 on GNOME wrote
+# `text/html=wispr-flow.desktop` into the user's mimeapps.list as a side
+# effect. linux-protocol-registration.sh stops the writing; this removes
+# what was written, so text/html falls back to the desktop's own default
+# (the choice the user had before is gone and cannot be restored).
+#
+# The desktop entry has never declared text/html, so that line can only
+# come from the bug. Nothing else in the file is touched. The file is
+# rewritten in place, not replaced, so a symlinked mimeapps.list (a
+# dotfiles checkout) stays a symlink.
+repair_html_default() {
+	local list stripped
+	list="$(wispr_mimeapps_list)"
+	[[ -f $list ]] || return 0
+
+	# Status 1 is "line not there": the common case, and the fast path.
+	stripped=$(wispr_strip_html_default "$list" 2>/dev/null) || return 0
+
+	if [[ ! -w $list ]]; then
+		log_message "text/html default not repaired: $list is not writable"
+		return 0
+	fi
+	if ! printf '%s\n' "$stripped" > "$list"; then
+		log_message "text/html default not repaired: cannot write $list"
+		return 1
+	fi
+	log_message "Removed text/html=wispr-flow.desktop from $list (issue #75)"
 	return 0
 }
 

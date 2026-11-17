@@ -150,6 +150,8 @@ assert_contains "$desktop_file" 'Exec=wispr-flow' "Desktop entry Exec correct"
 assert_contains "$desktop_file" 'Type=Application' "Desktop entry Type correct"
 assert_contains "$desktop_file" 'StartupWMClass=Wispr Flow' \
 	"Desktop entry StartupWMClass correct"
+assert_contains "$desktop_file" 'MimeType=x-scheme-handler/wispr-flow;' \
+	"Desktop entry registers the wispr-flow: scheme"
 
 resources_dir='/usr/lib/wispr-flow/resources'
 validate_app_contents "$resources_dir"
