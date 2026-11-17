@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #===============================================================================
-# linux-status-compact.sh -- shrink the status-pill window to the pill's own
-# footprint on Linux, in the Wispr Flow main bundle (.webpack/main/index.js).
+# linux-status-compact.sh -- shrink the status-pill window to the pill's
+# height on Linux, in the Wispr Flow main bundle (.webpack/main/index.js).
 #
 # WHY THIS PATCH EXISTS
 # ---------------------
@@ -37,13 +37,13 @@
 #
 # THE PATCH
 # ---------
-# On Linux the branch returns a 200x110 box instead, still bottom-centred:
+# On Linux the branch keeps upstream's width and returns a 216 px tall box,
+# still bottom-centred: enough for the hover tooltips and the 153 px cards
+# drawn above the pill (#146):
 #
 #   return(/*WISPR_LINUX_STATUS_COMPACT*/"linux"===process.platform)
-#     ?{x:u+(h-200)/2,y:p+m-110,width:200,height:110}
+#     ?{x:u+(h-l)/2,y:p+m-216,width:l,height:216}
 #     :{x:u+(h-l)/2,y:p+m-o,width:l,height:o}
-#
-# Toasts that the status window draws above the pill are clipped as a result.
 #
 # Usage: linux-status-compact.sh <path-to-.webpack/main/index.js>
 #===============================================================================
@@ -74,17 +74,17 @@ if len(ms) != 1:
 		f"function (see this script's header) before patching.")
 
 m = ms[0]
-o, l, c, d = m['o'], m['l'], m['c'], m['d']
+o, l, w, c, d = m['o'], m['l'], m['w'], m['c'], m['d']
 text = (
 	'return(/*' + marker + '*/"linux"===process.platform)'
-	f'?{{x:{o}+({l}-200)/2,y:{c}+{d}-110,width:200,height:110}}'
+	f'?{{x:{o}+({l}-{w})/2,y:{c}+{d}-216,width:{w},height:216}}'
 	':' + m.group(0)[len('return'):]
 )
 src = src[:m.start()] + text + src[m.end():]
 
 with io.open(path, "w", encoding="utf-8", errors="surrogateescape") as f:
 	f.write(src)
-print("Patched: status window is 200x110 on Linux.")
+print("Patched: status window is 216 px tall on Linux.")
 PY
 
 # --- Verify the result --------------------------------------------------------
