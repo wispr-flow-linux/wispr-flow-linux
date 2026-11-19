@@ -585,6 +585,7 @@ jobs:
           # The in-repo template is the source of truth; copy it into the AUR
           # checkout each release so the two never drift.
           cp "$GITHUB_WORKSPACE/scripts/aur/PKGBUILD.template" PKGBUILD.template
+          cp "$GITHUB_WORKSPACE/scripts/aur/wispr-flow-appimage.install" .
           sed \
             -e "s/%%PKGVER%%/${PKGVER}/" \
             -e "s/%%APPIMAGE_NAME%%/${APPIMAGE_NAME}/" \
@@ -608,7 +609,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add PKGBUILD PKGBUILD.template .SRCINFO
+          git add PKGBUILD PKGBUILD.template wispr-flow-appimage.install .SRCINFO
           if git diff --staged --quiet; then
             echo "No changes to commit"
             exit 0

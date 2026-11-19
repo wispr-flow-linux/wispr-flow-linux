@@ -1,0 +1,3 @@
+post_upgrade() {
+	find /opt/wispr-flow-appimage -type d -exec chmod 0755 {} +
+}

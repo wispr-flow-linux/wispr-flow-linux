@@ -20,6 +20,18 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   upgrading so GNOME Shell loads the updated extension. Thanks to
   @crafteraadarsh (helper #16 to #19, #34).
 
+### Fixed
+
+- The AUR package installs `/opt/wispr-flow-appimage` traversable, so
+  `wispr-flow` is found for non-root users. The PKGBUILD unpacks the
+  AppImage with `--appimage-extract`, which creates every directory 0700
+  (#138), and `cp -a` kept those modes, leaving `/usr/bin/wispr-flow` a
+  dangling symlink for anyone but root. `package()` now resets directory
+  modes to 0755 after the copy, as the deb, rpm and AppImage makers do
+  since #10. pacman keeps the mode of a directory that already exists, so
+  a new `wispr-flow-appimage.install` repairs an affected install in
+  `post_upgrade()`.
+
 ## [v1.0.5] - 2026-10-28
 
 ### Added
