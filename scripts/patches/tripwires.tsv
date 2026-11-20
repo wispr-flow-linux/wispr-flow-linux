@@ -17,7 +17,9 @@
 #   pattern   the literal or regex; no tabs
 #
 # Counts verified on 1.6.897, 1.6.937, 1.6.1209 and 1.6.1264, and on
-# 1.6.1337 with the upstream Linux-read count moved from 4 to 5.
+# 1.6.1337 with the upstream Linux-read count moved from 4 to 5, and on
+# 1.6.1568 with it back at 4 and the fetch-link picker handler gone (the
+# picker-anchor patch checks that site itself, as present-or-removed).
 helper-resolver	main	F	1	the Dev-Mac helper log line	Running Dev Mac Helper service
 helper-resolver	main	F	1	the packaged-Windows helper log line	Running packaged Windows Helper service
 helper-resolver	main	F	1	the missing-helper error	Helper service script path not found
@@ -29,7 +31,6 @@ mac-gates	main	P	1	the early-out guard before getAppPath	\{if\([\w$]+\.[\w$]+\)r
 linux-deeplink	main	P	1	the cold-start argv deep-link parse	[(,][\w$]+(?:\.[\w$]+)?\)\{const [\w$]+=[\w$]+\(process\.argv\.find\(
 linux-disable-pill-drag	main	F	1	the drag-overlay state log line	[Drag Overlay]: Setting drag overlay state to
 linux-status-picker-anchor	main	F	1	the auto-polish picker log line	Showing auto polish picker
-linux-status-picker-anchor	main	F	1	the fetch-link picker forward handler	.ShowFetchLinkPicker,!1,
 linux-status-picker-anchor	main	F	1	the extension bubble menu log line	Showing extension context menu
 linux-status-picker-anchor	main	F	1	the shortcut-join drawer log line	Showing shortcut join drawer
 linux-status-picker-anchor	main	P	2	the DidHide cursor point sent to the status window	\.statusWindow,[\w$]+\.[\w$]+\.DidHide,\{cursorScreenPoint:[\w$]+\.screen\.getCursorScreenPoint\(\)\}
@@ -48,10 +49,10 @@ linux-renderer-treat-as-windows	renderer/*	F	1+	the per-renderer isWindows bind	
 # linux-status-compact: the centred-bottom return matches once in 1.6.1209
 # and 1.6.1264 (checked by @Z3roS4n on the shipped bytes, PR #67).
 linux-status-compact	main	P	1	the bottom-centred status-window bounds return	return\{x:[\w$]+\+\([\w$]+-([\w$]+)\)/2,y:[\w$]+\+[\w$]+-([\w$]+),width:\1,height:\2\}
-# upstream: the five Linux reads in 1.6.1337, each audited as needing no
+# upstream: the four Linux reads in 1.6.1568, each audited as needing no
 # patch: a `ps` fallback to /proc/<pid>/stat, a home-dir resolver arm, a
-# longer action timeout, MeetingDisplayMedia skipping its loopback handler,
-# and (new since 1.6.1264) the credential store refusing Electron's
-# basic_text safeStorage backend, i.e. no Secret Service keyring
-# (docs/troubleshooting.md).
-upstream	main	F	5	upstream's own Linux platform reads (a new one means a re-audit)	"linux"===process.platform
+# longer action timeout, and MeetingDisplayMedia skipping its loopback
+# handler. 1.6.1337 had a fifth, the Composio credential store refusing
+# Electron's basic_text safeStorage backend; 1.6.1568 removed that store
+# (`extension-connections-composio`) and the read went with it.
+upstream	main	F	4	upstream's own Linux platform reads (a new one means a re-audit)	"linux"===process.platform

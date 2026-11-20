@@ -454,7 +454,8 @@ See the helper section of [building.md](building.md#the-clean-room-helper-prebui
 ## "Secure credential storage is unavailable on this device."
 
 Connecting an app through Wispr Flow's extension connections fails with
-this error. Dictation is unaffected.
+this error. Dictation is unaffected. This is Wispr Flow 1.6.1337 and
+earlier; 1.6.1568 no longer has the check.
 
 ### Fix
 
