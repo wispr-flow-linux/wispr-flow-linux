@@ -8,6 +8,12 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+### Added
+
+- Native COSMIC Wayland dictation indicator when the bundled helper supports
+  layer-shell. The indicator shows recording and processing on the active
+  display and passes pointer and keyboard input through to the focused app.
+
 ### Changed
 
 - Wispr Flow 1.6.1337. Upstream's credential store for extension

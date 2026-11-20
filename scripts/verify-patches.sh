@@ -24,6 +24,7 @@
 #       pill's footprint on Linux
 #     * linux-status-picker-anchor.sh -> status pill pickers anchored at
 #       the pill on native Wayland (status window bounds added in main)
+#     * linux-cosmic-overlay.sh -> bridge dictation state to the native HUD
 #   renderer bundles:
 #     * linux-renderer-chrome.sh -> remaps the <html> platform class linux->win32
 #     * linux-renderer-treat-as-windows.sh -> widens each renderer's isWindows
@@ -68,6 +69,7 @@ MARKERS=(
   "xdg-data-dir: linux app data and logs under XDG_CONFIG_HOME|F|WISPR_LINUX_XDG_DATA_DIR"
   "autostart: linux login items backed by an XDG autostart entry|F|WISPR_LINUX_AUTOSTART"
   "status-compact: linux status window shrunk to pill size|F|WISPR_LINUX_STATUS_COMPACT"
+  "cosmic-overlay: dictation state bridge|F|WISPR_LINUX_COSMIC_OVERLAY"
   "status-picker-anchor: pickers offset by the status window on Wayland|F|WISPR_LINUX_PICKER_ANCHOR"
 )
 

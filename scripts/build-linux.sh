@@ -375,6 +375,11 @@ step3_patch_bundle() {
     bash "$SCRIPT_DIR/patches/linux-status-compact.sh" "$target_bundle" \
       || die "linux-status-compact.sh failed -- see its output above."
 
+    # Forward ordinary dictation states to the optional COSMIC Wayland HUD.
+    auto "Running linux-cosmic-overlay.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-cosmic-overlay.sh" "$target_bundle" \
+      || die "linux-cosmic-overlay.sh failed -- see its output above."
+
     # Renderer + preload patches live alongside the main bundle under .webpack/.
     local webpack_root="${target_bundle%/main/index.js}"
     # Remap the <html> platform class linux->win32 so Linux adopts the tested
