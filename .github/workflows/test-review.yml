@@ -1,0 +1,99 @@
+name: Test Review
+run-name: |
+  Test Review: ${{
+    github.event_name == 'pull_request' && format('PR #{0} by @{1} - {2}', github.event.pull_request.number, github.actor, github.event.pull_request.title) ||
+    format('{0} triggered by @{1}', github.event_name, github.actor)
+  }}
+
+# Advisory test-integrity review of a PR's diff (scripts/test-review.sh):
+# grep checks plus TypeSafe Jev judgements on each changed test and function,
+# each asked three times and averaged, against the Jev version pinned in
+# scripts/test-review-checks.json.
+# Standalone rather than a job in ci.yml so a third-party API outage can
+# never hold the release chain, and continue-on-error so it never blocks a
+# merge. Do not make it a required check until the thresholds are calibrated.
+#
+# Plain pull_request, never pull_request_target: the job runs the PR's own
+# script, so it must not see the key on a fork PR. GitHub withholds secrets
+# from fork and Dependabot PRs; the script then runs its grep checks and
+# names the skipped Jev layer.
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Review every test (all) or run the calibration cases
+        type: choice
+        options: [all, calibrate]
+        default: all
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-review-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Test integrity review (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          # The review diffs HEAD against its merge base with the target.
+          fetch-depth: 0
+
+      - name: Review tests
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          # Through env, never interpolated into the script: the body is
+          # PR-author text.
+          TEST_REVIEW_PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_REF: ${{ github.base_ref }}
+        run: scripts/test-review.sh --base "origin/$BASE_REF"
+
+      # A PR that changes the checker's script, questions or calibration
+      # cases re-proves them: the cases must fire exactly their expected
+      # checks, clear of the band in every sample, and the current suite
+      # (every test and every function a test names) is reported whole for
+      # false positives.
+      - name: Check whether the checker changed
+        id: checker
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          EVENT: ${{ github.event_name }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          changed=false
+          if [[ $EVENT == pull_request ]]; then
+            git diff --name-only "origin/$BASE_REF"...HEAD \
+              | grep -qE '^(scripts/test-review|tests/fixtures/test-review/)' \
+              && changed=true
+          fi
+          echo "calibrate=$([[ $changed == true || $MODE == calibrate ]] \
+            && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "all=$([[ $changed == true || $MODE == all ]] \
+            && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - name: Calibrate
+        if: steps.checker.outputs.calibrate == 'true'
+        continue-on-error: true
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+        run: scripts/test-review.sh --calibrate tests/fixtures/test-review
+
+      - name: Review every test
+        if: steps.checker.outputs.all == 'true'
+        continue-on-error: true
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+        run: scripts/test-review.sh --all

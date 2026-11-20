@@ -1,0 +1,8 @@
+_doctor_check_apparmor() {
+	local loaded="$1"
+	if grep -q '^wispr-flow-unofficial ' "$loaded"; then
+		echo '[PASS] AppArmor profile loaded'
+	else
+		echo '[WARN] AppArmor profile not loaded'
+	fi
+}

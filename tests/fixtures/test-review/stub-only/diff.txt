@@ -1,0 +1,8 @@
+@@ -5,6 +5,6 @@ _doctor_check_uinput_perms() {
+ 	if [[ $mode == 660 || $mode == 666 ]]; then
+ 		echo '[PASS] /dev/uinput is writable by the input group'
+ 	else
+-		_fail "bad permissions on /dev/uinput"
++		_fail "/dev/uinput mode is $mode"
+ 	fi
+ }

@@ -1,0 +1,12 @@
+_doctor_check_helper() {
+	local version
+	if ! version=$("$HELPER_BIN" --version 2>/dev/null); then
+		_fail "helper does not run: $HELPER_BIN"
+		return
+	fi
+	if [[ ! $version =~ ^wispr-flow-linux-helper\ [0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+		_fail "unexpected helper version: $version"
+		return
+	fi
+	_pass "helper: $version"
+}
