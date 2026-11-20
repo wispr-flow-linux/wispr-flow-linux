@@ -10,10 +10,12 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Changed
 
-- Wispr Flow 1.6.1337. Upstream's credential store for extension
-  connections now refuses to run on Linux without a Secret Service keyring;
-  see the "Secure credential storage is unavailable" entry in
-  `docs/troubleshooting.md`.
+- Wispr Flow 1.6.1568. Upstream removed the fetch-link picker, and with it
+  one of the pickers the status pill anchors on Wayland. It also removed the
+  credential store for extension connections that 1.6.1337 refused to run
+  on Linux without a Secret Service keyring, so the "Secure credential
+  storage is unavailable" entry in `docs/troubleshooting.md` now applies to
+  1.6.1337 and earlier only.
 - The bundled helper is now v0.1.4. On GNOME 45 and later the status pill
   sits bottom-centre above the dock instead of mid-screen, and lets clicks
   through when it is over a fullscreen app. Log out and back in after
