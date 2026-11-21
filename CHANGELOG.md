@@ -8,6 +8,17 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+### Fixed
+
+- The screen turns off again while Wispr Flow runs after "Open at login".
+  The hidden Hub played the looping video in the post-onboarding dialog
+  ("How would you like to use Flow first?") for an account that hadn't
+  finished it. Chromium holds a "Video Wake Lock" for any playing video
+  in a page it thinks is visible, and on Linux that is an
+  `org.freedesktop.ScreenSaver` inhibit, so the idle timeout never fired.
+  `linux-hub-video-focus-pause.sh` pauses that video whenever it starts
+  while the Hub has no focus. Opening the Hub plays it as before.
+
 ### Changed
 
 - Wispr Flow 1.6.1337. Upstream's credential store for extension

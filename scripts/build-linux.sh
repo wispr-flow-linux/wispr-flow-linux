@@ -385,6 +385,13 @@ step3_patch_bundle() {
       auto "Running linux-renderer-chrome.sh on $hub_renderer"
       bash "$SCRIPT_DIR/patches/linux-renderer-chrome.sh" "$hub_renderer" \
         || die "Renderer-chrome patch failed -- see linux-renderer-chrome.sh output above."
+      # The hidden Hub (autostart --hidden) must not play the post-onboarding
+      # dialog's video: Chromium holds a "Video Wake Lock" for it, which is a
+      # ScreenSaver inhibit, so the screen never turns off. See
+      # patches/linux-hub-video-focus-pause.sh.
+      auto "Running linux-hub-video-focus-pause.sh on $hub_renderer"
+      bash "$SCRIPT_DIR/patches/linux-hub-video-focus-pause.sh" "$hub_renderer" \
+        || die "Hub video focus-pause patch failed -- see linux-hub-video-focus-pause.sh output above."
     else
       die "Hub renderer bundle not found at $hub_renderer (its marker is required)."
     fi

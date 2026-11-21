@@ -153,6 +153,10 @@ alone. Consult the relevant entry before working on a subsystem; add a new entry
 when you discover something non-obvious that would save the next contributor
 (human or AI) significant time.
 
+- [`hidden-window-wake-lock.md`](docs/learnings/hidden-window-wake-lock.md)
+  — the never-shown Hub reports itself visible, so a playing video there
+  holds a "Video Wake Lock" (a ScreenSaver inhibit) and the screen never
+  turns off; how to trace an inhibit to its window.
 - [`kwin-zbus-tokio.md`](docs/learnings/kwin-zbus-tokio.md) — the async-zbus-on-
   tokio dispatch deadlock that left KDE active-app empty, and the fix.
 - [`gnome-shell-extension.md`](docs/learnings/gnome-shell-extension.md) — install,
