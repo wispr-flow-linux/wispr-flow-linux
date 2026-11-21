@@ -30,6 +30,23 @@ readonly WM_CLASS='Wispr Flow'
 
 # User config dir (Electron app name "Wispr Flow" -> ~/.config/Wispr Flow).
 # Exposed as a function so doctor.sh and cleanup_stale_lock agree on it.
+# The helper owns Linux preferences so every package uses the same file.
+run_linux_options() {
+	local helper="$1" mode
+	shift
+	[[ ${1:-} == '--clipboard-mode' ]] || return 0
+	# Earlier helpers recognize --version and exit without capturing input.
+	mode=$("$helper" "$@" --version) || exit $?
+	case "$mode" in
+		'clipboard-mode=preserve'|'clipboard-mode=keep-transcript')
+			printf '%s\n' "$mode" ;;
+		*)
+			echo 'Clipboard mode requires a newer Linux helper.' >&2
+			exit 1 ;;
+	esac
+	exit 0
+}
+
 wispr_config_dir() {
 	printf '%s' "${XDG_CONFIG_HOME:-$HOME/.config}/Wispr Flow"
 }

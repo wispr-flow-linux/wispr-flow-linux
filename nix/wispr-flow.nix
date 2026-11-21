@@ -200,14 +200,14 @@ stdenvNoCC.mkDerivation {
       --exclude 'Release/Wispr Flow Helper.exe' \
       "$resources_src/" stage/
 
-    #-- 3. Unpack app.asar, patch the main bundle, repack ---------------------
-    asar extract "$resources_src/app.asar" asar-contents
-    main_bundle=asar-contents/.webpack/main/index.js
-    [[ -f "$main_bundle" ]] || { echo "main bundle not found at $main_bundle" >&2; exit 1; }
-
-    # Add the 'linux' helper-path branch + gate the macOS Applications guard.
-    bash ${sourceRoot}/scripts/patches/helper-resolver.sh "$main_bundle"
-    bash ${sourceRoot}/scripts/patches/mac-gates.sh "$main_bundle"
+    #-- 3. Unpack app.asar and use the shared, offline patch stage ------------
+    asar extract "$resources_src/app.asar" app.asar.contents
+    (
+      source ${sourceRoot}/scripts/build-linux.sh
+      WORK_DIR="$PWD"
+      step3_patch_bundle
+      drop_patch_backups "$WORK_DIR/app.asar.contents"
+    )
 
     # Stage the unpacked native-module tree (Windows *.node kept as-is — see the
     # NATIVE-MODULE NOTE above) and drop the win-ca crypt32 Windows bindings.
@@ -218,7 +218,7 @@ stdenvNoCC.mkDerivation {
     fi
 
     # Repack with native modules left unpacked, then verify the Linux markers.
-    asar pack asar-contents stage/app.asar --unpack '**/*.node'
+    asar pack app.asar.contents stage/app.asar --unpack '**/*.node'
     bash ${sourceRoot}/scripts/verify-patches.sh stage/app.asar
 
     #-- 4. Stage the clean-room Linux helper (mode 0755 — the app does not chmod)
@@ -339,7 +339,9 @@ helper_bin="RESOURCES_PLACEHOLDER/Release/wispr-flow-linux-helper"
 # shellcheck source=/dev/null
 source "LAUNCHER_LIB_PLACEHOLDER"
 
-# Handle --doctor before anything else.
+run_linux_options "$helper_bin" "$@"
+
+# Handle --doctor before launching Electron.
 if [[ "''${1:-}" == '--doctor' ]]; then
 	run_doctor "$helper_bin"
 	exit $?

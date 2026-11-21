@@ -90,9 +90,10 @@ _doctor_check_display() {
 	local desktop="${XDG_CURRENT_DESKTOP:-unknown}"
 	local d="${desktop,,}"
 	local family
-	case "$d" in
+	case ":$d:" in
 		*kde*|*plasma*) family='KDE Plasma (KWin)' ;;
 		*gnome*)        family='GNOME (Mutter)' ;;
+		*:cosmic:*)     family='COSMIC' ;;
 		*sway*|*hyprland*|*wlroots*|*niri*|*river*)
 			family='wlroots-based' ;;
 		*) family='other / unknown' ;;
@@ -216,6 +217,69 @@ _doctor_check_clipboard() {
 		_info 'X11 paste and selection capture require one of them.'
 		_info 'Fix: install "xclip" or "xsel"'
 	fi
+}
+
+# COSMIC probes report support without taking keyboard or microphone access.
+_doctor_check_cosmic() {
+	local helper="$1" report='' mode=''
+	if [[ -x $helper ]] && command -v timeout >/dev/null; then
+		report=$(timeout 2 "$helper" --wayland-capabilities --version \
+			2>/dev/null) || report=''
+		mode=$(timeout 2 "$helper" --clipboard-mode --version \
+			2>/dev/null) || mode=''
+	fi
+
+	if [[ $report == *'cosmic-toplevel=yes'* ]]; then
+		_pass 'COSMIC toplevel tracking available'
+	else
+		_info 'COSMIC toplevel tracking unconfirmed; AT-SPI is the fallback'
+	fi
+	if [[ ${WISPR_COSMIC_OVERLAY:-} == 0 || ${WISPR_USE_X11:-} == 1 ]]; then
+		_info 'Native dictation overlay disabled by launcher settings'
+	elif [[ $report == *'layer-shell=yes'* ]]; then
+		_pass 'COSMIC layer-shell is available for the native overlay'
+	else
+		_info 'COSMIC layer-shell unconfirmed; Electron is the fallback'
+	fi
+	case "$mode" in
+		'clipboard-mode=preserve'|'clipboard-mode=keep-transcript')
+			_info "Clipboard mode: ${mode#*=}"
+			_info 'Change with: wispr-flow --clipboard-mode preserve'
+			_info 'Or: wispr-flow --clipboard-mode keep-transcript' ;;
+	esac
+	if [[ $mode == 'clipboard-mode=preserve' &&
+		$report != *'clipboard-preservation=yes'* ]]; then
+		_warn 'Clipboard preservation needs Wayland ext-data-control'
+	fi
+
+	if command -v busctl >/dev/null &&
+		busctl --user --timeout=1s get-property \
+			org.freedesktop.portal.Desktop /org/freedesktop/portal/desktop \
+			org.freedesktop.portal.GlobalShortcuts version >/dev/null 2>&1
+	then
+		_info 'GlobalShortcuts portal detected; this helper uses evdev'
+	else
+		_info 'GlobalShortcuts portal unavailable; shortcuts use evdev'
+	fi
+	_info 'Caps Lock: disable capitalization in the COSMIC XKB options'
+	_info 'See the COSMIC section of docs/configuration.md for setup.'
+}
+
+_doctor_check_audio_input() {
+	local volume
+	command -v wpctl >/dev/null || return 0
+	command -v timeout >/dev/null || return 0
+	volume=$(timeout 2 wpctl get-volume @DEFAULT_AUDIO_SOURCE@ \
+		2>/dev/null) || {
+		_warn 'Default desktop microphone unavailable via PipeWire'
+		return
+	}
+	if [[ $volume == *'[MUTED]' ]]; then
+		_warn 'Default desktop microphone is muted'
+	else
+		_info 'Default desktop microphone is unmuted'
+	fi
+	_info 'Flow can select a different input in Settings → General.'
 }
 
 #------------------------------------------------------------------------------
@@ -607,6 +671,13 @@ run_doctor() {
 	echo -e "${_bold}Clipboard${_reset}"
 	_doctor_check_clipboard
 	echo
+
+	if [[ -n ${WAYLAND_DISPLAY:-} && :${desktop,,}: == *:cosmic:* ]]; then
+		echo -e "${_bold}COSMIC Integration${_reset}"
+		_doctor_check_cosmic "$helper_path"
+		_doctor_check_audio_input
+		echo
+	fi
 
 	echo -e "${_bold}Accessibility (AT-SPI)${_reset}"
 	_doctor_check_atspi
