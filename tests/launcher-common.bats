@@ -571,3 +571,38 @@ _seed_legacy() {
 		[[ ${lines[1]} == 'migrate_legacy_data_dir' ]]
 	done
 }
+
+@test "clipboard mode dispatch reports settings without starting Electron" {
+	local shim="$BATS_TEST_TMPDIR/helper"
+	cat > "$shim" <<'SH'
+#!/usr/bin/env bash
+[[ $1 == '--clipboard-mode' && $2 == 'preserve' && $3 == '--version' ]] \
+	|| exit 4
+printf '%s\n' 'clipboard-mode=preserve'
+SH
+	chmod +x "$shim"
+	run bash -c '
+		source "$1"
+		run_linux_options "$2" --clipboard-mode preserve
+		exit 99
+	' bash "$BATS_TEST_DIRNAME/../scripts/launcher-common.sh" "$shim"
+	[[ $status == 0 ]]
+	[[ $output == 'clipboard-mode=preserve' ]]
+}
+
+@test "clipboard mode dispatch handles an older helper safely" {
+	local shim="$BATS_TEST_TMPDIR/helper"
+	cat > "$shim" <<'SH'
+#!/usr/bin/env bash
+[[ $2 == '--version' ]] || exit 4
+printf '%s\n' 'wispr-flow-linux-helper 0.1.4'
+SH
+	chmod +x "$shim"
+	run bash -c '
+		source "$1"
+		run_linux_options "$2" --clipboard-mode
+		exit 99
+	' bash "$BATS_TEST_DIRNAME/../scripts/launcher-common.sh" "$shim"
+	[[ $status == 1 ]]
+	[[ $output == 'Clipboard mode requires a newer Linux helper.' ]]
+}

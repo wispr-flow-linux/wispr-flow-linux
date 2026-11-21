@@ -339,7 +339,9 @@ helper_bin="RESOURCES_PLACEHOLDER/Release/wispr-flow-linux-helper"
 # shellcheck source=/dev/null
 source "LAUNCHER_LIB_PLACEHOLDER"
 
-# Handle --doctor before anything else.
+run_linux_options "$helper_bin" "$@"
+
+# Handle --doctor before launching Electron.
 if [[ "''${1:-}" == '--doctor' ]]; then
 	run_doctor "$helper_bin"
 	exit $?

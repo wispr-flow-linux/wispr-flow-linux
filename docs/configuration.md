@@ -43,6 +43,41 @@ echo 'export WISPR_DISABLE_GPU=1' >> ~/.profile
 > Wayland input-shaping path for the status pill (see
 > [troubleshooting](troubleshooting.md#clicks-near-the-status-pill-are-swallowed-or-the-pills-buttons-dont-respond-on-wayland)).
 
+## COSMIC Wayland
+
+Use the Flow shortcut settings to bind Caps Lock and choose hold or double-tap.
+To keep Caps Lock from changing capitalization, choose **Disabled** for its
+XKB behavior if your COSMIC Settings version offers that option. Older versions
+can set `caps:none` in
+`~/.config/cosmic/com.system76.CosmicComp/v1/xkb_config`. Preserve any existing
+XKB options by adding `caps:none` to the comma-separated options string. Shift
+still capitalizes letters.
+
+The layer-shell indicator follows the focused window's output when COSMIC
+reports one, honors fractional scaling, and stays click-through. The helper
+uses Ctrl+Shift+V in recognized terminal apps and Ctrl+V in other targets.
+If the focused window changes while the paste is being prepared, use the
+transcript in Flow History to recover it.
+
+```bash
+wispr-flow --doctor
+wispr-flow --clipboard-mode
+wispr-flow --clipboard-mode preserve
+wispr-flow --clipboard-mode keep-transcript
+```
+
+`preserve` temporarily uses the Wayland clipboard for insertion and restores
+its original formats. When the previous selection cannot be saved safely, use
+Flow History to recover that transcript. Preserve mode reads selections via
+AT-SPI and skips the clipboard-copy fallback. Clipboard history managers can
+still see temporary selections. The helper reads this setting on each paste.
+
+The GlobalShortcuts portal is a prerequisite for reducing raw keyboard access.
+The helper currently uses evdev for hold and double-tap. On systemd desktops
+prefer the active-session udev ACL over permanent `input` group membership.
+`--doctor` reports portal availability and the mute state of the default
+desktop microphone. Flow can select its own microphone in Settings.
+
 ## Where state lives
 
 | Path | Contents |
