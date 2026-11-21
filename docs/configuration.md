@@ -56,8 +56,9 @@ still capitalizes letters.
 The layer-shell indicator follows the focused window's output when COSMIC
 reports one, honors fractional scaling, and stays click-through. The helper
 uses Ctrl+Shift+V in recognized terminal apps and Ctrl+V in other targets.
-If the focused window changes while the paste is being prepared, use the
-transcript in Flow History to recover it.
+Automatic dictation pastes into the window that had focus when dictation
+started. If it loses focus, recover the transcript from Flow History.
+Explicit paste commands use the currently focused window.
 
 ```bash
 wispr-flow --doctor
@@ -67,8 +68,10 @@ wispr-flow --clipboard-mode keep-transcript
 ```
 
 `preserve` temporarily uses the Wayland clipboard for insertion and restores
-its original formats. When the previous selection cannot be saved safely, use
-Flow History to recover that transcript. Preserve mode reads selections via
+its original formats. The restored clipboard can survive a Flow restart.
+If you copy something new before Flow can paste, your newer copy takes
+precedence. When the previous selection cannot be saved safely, use Flow
+History to recover the transcript. Preserve mode reads selections via
 AT-SPI and skips the clipboard-copy fallback. Clipboard history managers can
 still see temporary selections. The helper reads this setting on each paste.
 
