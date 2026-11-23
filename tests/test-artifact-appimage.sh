@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 # Integration tests for Wispr Flow AppImage artifacts.
 #
-# Accepts either a built *.AppImage (unpacked with unsquashfs, or with
-# --appimage-extract when unsquashfs is missing) or, as a fallback, the staged
-# AppDir the maker leaves under build-linux/appimage when appimagetool isn't
-# installed. All structure/content checks run with no install; the optional
-# headless launch runs the built AppImage and degrades to a skip when the
-# launch tooling is missing.
+# Accepts either a built *.AppImage (extracted via unsquashfs) or, as a
+# fallback, the staged AppDir the maker leaves under build-linux/appimage when
+# appimagetool isn't installed. All structure/content checks run with no
+# install; the optional headless launch runs the built AppImage and degrades to
+# a skip when the launch tooling is missing.
 
 artifact_dir="${1:?Usage: $0 <artifact-dir>}"
 artifact_dir="$(cd "$artifact_dir" && pwd)"
@@ -33,24 +32,23 @@ if [[ -n $appimage_file ]]; then
 	pass "Found AppImage: $(basename "$appimage_file")"
 	chmod +x "$appimage_file" 2>/dev/null || true
 	assert_executable "$appimage_file"
+	if ! command -v unsquashfs >/dev/null 2>&1; then
+		fail 'unsquashfs is required to inspect packaged directory permissions'
+		print_summary
+	fi
 	extract_dir=$(mktemp -d)
-	# Prefer unsquashfs: it keeps the modes stored in the image. The runtime's
-	# own --appimage-extract creates every directory 0700 whatever the image
-	# says (type2-runtime fedfad5), so the resources/ traversal checks can't
-	# judge an image unpacked that way and are skipped for it.
-	offset=$("$appimage_file" --appimage-offset 2>/dev/null)
-	if command -v unsquashfs >/dev/null 2>&1 && [[ $offset =~ ^[0-9]+$ ]] \
-		&& unsquashfs -q -n -o "$offset" -d "$extract_dir/squashfs-root" \
-			"$appimage_file" >/dev/null 2>&1; then
-		pass "unsquashfs extracted the image at offset $offset"
+	# The runtime's --appimage-extract creates dirs as 0700, hiding stored modes.
+	offset=$("$appimage_file" --appimage-offset) || {
+		fail 'Could not resolve AppImage SquashFS offset'
+		print_summary
+	}
+	if unsquashfs -o "$offset" -d "$extract_dir/squashfs-root" \
+		"$appimage_file" >/dev/null 2>&1; then
+		pass 'unsquashfs extraction succeeded (stored permissions preserved)'
 		appdir="$extract_dir/squashfs-root"
-	elif (cd "$extract_dir" && "$appimage_file" --appimage-extract \
-			>/dev/null 2>&1) && [[ -d "$extract_dir/squashfs-root" ]]; then
-		pass "--appimage-extract succeeded (no unsquashfs; dir modes unknown)"
-		appdir="$extract_dir/squashfs-root"
-		artifact_dir_modes='lossy'
 	else
-		pass "Skipping extract (--appimage-extract unavailable); trying staged AppDir"
+		fail 'Could not extract AppImage filesystem'
+		print_summary
 	fi
 fi
 
