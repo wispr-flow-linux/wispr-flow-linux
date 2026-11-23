@@ -24,11 +24,13 @@
 #       pill's footprint on Linux
 #     * linux-status-picker-anchor.sh -> status pill pickers anchored at
 #       the pill on native Wayland (status window bounds added in main)
+#     * linux-status-idle-unmap.sh -> native idle Status hide/show
 #   renderer bundles:
 #     * linux-renderer-chrome.sh -> remaps the <html> platform class linux->win32
 #     * linux-renderer-treat-as-windows.sh -> widens each renderer's isWindows
 #       bind so its consumers take the Windows branch on Linux (the bridge's
 #       platform.isWindows stays honest/false; no preload is touched)
+#     * linux-status-surface-report.sh -> semantic surfaces + initial report
 #
 # The .asar container stores the JS bundle as concatenated plaintext, so a
 # byte-level grep over the packed file finds these markers without unpacking.
@@ -69,6 +71,8 @@ MARKERS=(
   "autostart: linux login items backed by an XDG autostart entry|F|WISPR_LINUX_AUTOSTART"
   "status-compact: linux status window shrunk to pill size|F|WISPR_LINUX_STATUS_COMPACT"
   "status-picker-anchor: pickers offset by the status window on Wayland|F|WISPR_LINUX_PICKER_ANCHOR"
+  "status-idle-unmap: linux native Status visibility|F|WISPR_LINUX_STATUS_IDLE_UNMAP"
+  "status-surface-report: linux semantic Status surfaces|F|WISPR_LINUX_STATUS_SURFACE_REPORT"
 )
 
 missing=0
