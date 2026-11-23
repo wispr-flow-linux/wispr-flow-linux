@@ -214,7 +214,7 @@ Linux): `SetAccessibilityGuidance`, `GetSystemSettingsWindowBounds`.
 // ---- HelperAPIError (resp) — use for unsupported/failed commands ----
 { "HelperAPIResponse": { "uuid": "",
   "HelperAPIError": { "payload": {
-    "type": "",                    // HelperAPIErrorType enum (placeholder in this build)
+    "type": "SOME_ERROR_TYPES",    // accepted HelperAPIErrorType enum value
     "description": "",
     "params": { "code": "", "messageType": "" }   // both optional
   } } } }

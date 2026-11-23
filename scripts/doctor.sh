@@ -140,13 +140,8 @@ _doctor_check_input_group() {
 	if id -nG 2>/dev/null | tr ' ' '\n' | grep -qx 'input'; then
 		_pass 'input group: current user is a member'
 	else
-		# Not necessarily a failure: a uaccess ACL may already grant
-		# /dev/uinput access. Only warn so the uinput check stays the
-		# authoritative signal.
-		_warn 'input group: current user is NOT a member'
-		_info 'Harmless if /dev/uinput is already writable above.'
-		# shellcheck disable=SC2016  # literal $USER: copy-paste remedy
-		_info 'Otherwise: sudo usermod -aG input "$USER"  (then re-login)'
+		# The device checks report actual access failures and remedies.
+		_info 'input group: not a member (fallback when ACLs fail)'
 	fi
 }
 

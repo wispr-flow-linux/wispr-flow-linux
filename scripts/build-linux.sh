@@ -375,6 +375,13 @@ step3_patch_bundle() {
     bash "$SCRIPT_DIR/patches/linux-status-compact.sh" "$target_bundle" \
       || die "linux-status-compact.sh failed -- see its output above."
 
+    auto 'Gating unsupported microphone conflict checks on Linux'
+    bash "$SCRIPT_DIR/patches/linux-mic-conflict.sh" "$target_bundle" \
+      || die 'linux-mic-conflict.sh failed -- see its output above.'
+    auto 'Leaving Linux updates to the package manager'
+    bash "$SCRIPT_DIR/patches/linux-package-updates.sh" "$target_bundle" \
+      || die 'linux-package-updates.sh failed -- see its output above.'
+
     # Forward ordinary dictation states to the optional COSMIC Wayland HUD.
     auto "Running linux-cosmic-overlay.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-cosmic-overlay.sh" "$target_bundle" \

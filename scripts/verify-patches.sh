@@ -69,6 +69,8 @@ MARKERS=(
   "xdg-data-dir: linux app data and logs under XDG_CONFIG_HOME|F|WISPR_LINUX_XDG_DATA_DIR"
   "autostart: linux login items backed by an XDG autostart entry|F|WISPR_LINUX_AUTOSTART"
   "status-compact: linux status window shrunk to pill size|F|WISPR_LINUX_STATUS_COMPACT"
+  "mic-conflict: skip unsupported monitor|F|WISPR_LINUX_MIC_CONFLICT"
+  "package-updates: skip vendor update check|F|WISPR_LINUX_PACKAGE_UPDATES"
   "cosmic-overlay: dictation state bridge|F|WISPR_LINUX_COSMIC_OVERLAY"
   "status-picker-anchor: pickers offset by the status window on Wayland|F|WISPR_LINUX_PICKER_ANCHOR"
 )

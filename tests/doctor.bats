@@ -474,3 +474,14 @@ _write_autostart() {
 	run _doctor_check_autostart
 	[[ $output == *"[WARN]"*"which is missing or not executable"* ]]
 }
+
+@test "_doctor_check_input_group: missing membership is informational" {
+	getent() { [[ "$*" == 'group input' ]]; }
+	id() { printf '%s\n' 'users wheel'; }
+
+	run _doctor_check_input_group
+	[[ "$status" -eq 0 ]]
+	[[ "$output" == *'not a member (fallback when ACLs fail)'* ]]
+	[[ "$output" != *'[WARN]'* ]]
+	[[ "$output" != *'usermod'* ]]
+}

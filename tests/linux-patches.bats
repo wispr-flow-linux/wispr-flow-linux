@@ -1578,3 +1578,86 @@ assert.equal(visible, true);
 assert.equal(overlay.deferShow(win.showInactive), false);
 JS
 }
+
+@test "mic-conflict: Linux skips probes and Windows and macOS still run them" {
+	cat > "$FIX" <<'JS'
+const flags$={micConflictDetectionOn:()=>true};
+globalThis.probe=()=>{if(!(0,flags$.micConflictDetectionOn)()||false)return false;return true};
+globalThis.other=()=>{if(!(0,flags$.micConflictDetectionOn)())return false;return true};
+JS
+	run bash "$PATCH_DIR/linux-mic-conflict.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	node - "$FIX" <<'JS'
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const code = fs.readFileSync(process.argv[2], "utf8");
+for (const platform of ["linux", "win32", "darwin"]) {
+    const context = {process: {platform}};
+    vm.runInNewContext(code, context);
+    assert.equal(context.probe(), platform !== "linux");
+    assert.equal(context.other(), true);
+}
+JS
+	assert_idempotent "$PATCH_DIR/linux-mic-conflict.sh" "$FIX"
+}
+
+@test "mic-conflict: a plain feature-flag check is outside the patch site" {
+	echo 'if(!(0,flags$.micConflictDetectionOn)())return;' > "$FIX"
+	run bash "$PATCH_DIR/linux-mic-conflict.sh" "$FIX"
+	[[ "$status" -eq 1 ]]
+	[[ "$output" == *'found 0'* ]]
+	cmp "$FIX" "$FIX.orig"
+}
+
+@test "mic-conflict: an older bundle without the watcher is left intact" {
+	echo 'globalThis.recording = true;' > "$FIX"
+	run bash "$PATCH_DIR/linux-mic-conflict.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'WISPR_LINUX_MIC_CONFLICT: no watcher' "$FIX"
+	[[ "$(head -n 1 "$FIX")" == 'globalThis.recording = true;' ]]
+	assert_idempotent "$PATCH_DIR/linux-mic-conflict.sh" "$FIX"
+}
+
+@test "package-updates: Linux skips the vendor feed and leaves other checks alone" {
+	cat > "$FIX" <<'JS'
+class Other{async checkForUpdates(e=!1){return true}}
+class Vendor{
+    updateState=0;feedRequests=0;
+    async checkForUpdates(e=!1){if(this.updateState!==1){await this.setAutoUpdateUrl()}}
+    async setAutoUpdateUrl(){this.feedRequests++}
+}
+globalThis.vendor=new Vendor;
+globalThis.other=new Other;
+JS
+	run bash "$PATCH_DIR/linux-package-updates.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	node - "$FIX" <<'JS'
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const code = fs.readFileSync(process.argv[2], "utf8");
+(async () => {
+    for (const platform of ["linux", "win32", "darwin"]) {
+        const context = {process: {platform}};
+        vm.runInNewContext(code, context);
+        await context.vendor.checkForUpdates();
+        await context.vendor.checkForUpdates(true);
+        assert.equal(context.vendor.feedRequests, platform === "linux" ? 0 : 2);
+        assert.equal(await context.other.checkForUpdates(), true);
+    }
+})().catch(error => {
+    console.error(error);
+    process.exitCode = 1;
+});
+JS
+	assert_idempotent "$PATCH_DIR/linux-package-updates.sh" "$FIX"
+}
+
+@test "package-updates: a check without vendor feed selection fails closed" {
+	echo 'class Vendor{async checkForUpdates(x=!1){if(this.updateState!==1)return x}}' > "$FIX"
+	run bash "$PATCH_DIR/linux-package-updates.sh" "$FIX"
+	[[ "$status" -eq 1 ]]
+	[[ "$output" == *'found 0'* ]]
+	cmp "$FIX" "$FIX.orig"
+}
