@@ -788,6 +788,43 @@ pad_drawer_body() {
 	cmp -s "$FIX" "$TEST_TMP/before.js"
 }
 
+# 1.6.1568 dropped the fetch-link picker: both of its handlers are gone from
+# main and no renderer names the channel any more.
+drop_fetch_link_picker() {
+	python3 - "$FIX" <<'PY'
+import re, sys
+path = sys.argv[1]
+src = open(path).read()
+src, n = re.subn(
+	r',\(0,g\.Z4\)\(d\.qM\.ShowFetchLinkPicker,!1,.*?d\.qM\.HideFetchLinkPicker\)\}\)',
+	'', src, flags=re.S)
+assert n == 1 and 'FetchLinkPicker' not in src, n
+open(path, 'w').write(src)
+PY
+}
+
+@test "picker-anchor: without the fetch-link picker (1.6.1568) the other three forwards are wrapped" {
+	write_picker_fixture
+	drop_fetch_link_picker
+	run bash "$PATCH_DIR/linux-status-picker-anchor.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	[[ "$output" == *'applied at 5 site(s) (3 picker forwards, 2 DidHide cursor points)'* ]]
+	[[ "$(grep -o 'WISPR_LINUX_PICKER_ANCHOR' "$FIX" | wc -l)" -eq 5 ]]
+	node_check "$FIX"
+}
+
+@test "picker-anchor: a fetch-link handler in an unrecognised shape is not mistaken for a removed one" {
+	write_picker_fixture
+	# Near miss: the handler is still there but forwards something else, so the
+	# site regex finds nothing while the channel name remains in the bundle.
+	sed -i 's/d.qM.ShowFetchLinkPicker,e)}/d.qM.ShowFetchLinkPicker,{})}/' "$FIX"
+	cp "$FIX" "$TEST_TMP/before.js"
+	run bash "$PATCH_DIR/linux-status-picker-anchor.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" == *"'B fetch-link picker' handler not found, but the bundle still names"* ]]
+	cmp -s "$FIX" "$TEST_TMP/before.js"
+}
+
 @test "picker-anchor: idempotent on second run" {
 	write_picker_fixture
 	bash "$PATCH_DIR/linux-status-picker-anchor.sh" "$FIX"

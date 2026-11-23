@@ -26,7 +26,8 @@
 # -----------------------------------------------------
 # The status renderer reads window.screenX seven times, at six sites:
 #   1. auto-polish button  -> ShowAutoPolishPicker     (patched, site A)
-#   2. fetch-link button   -> ShowFetchLinkPicker      (patched, site B)
+#   2. fetch-link button   -> ShowFetchLinkPicker      (patched, site B;
+#      removed upstream by 1.6.1568, so site B is wrapped only if present)
 #   3. extension bubble,   -> ShowExtensionContextMenu (patched, site C)
 #      RegisterExtensionStatusBubble "contextMenu" action
 #   4. shortcut-join       -> ShowShortcutJoinDrawer   (patched, site D)
@@ -99,7 +100,10 @@ sites = [
 		+ Q + r'Showing auto polish picker' + Q + r'[^{}]{0,200}?'
 		+ fwd('contextMenuWindow', 'ShowAutoPolishPicker')
 		+ r'(?P<arg>(?P=p))\)')),
-	("B fetch-link picker", 1, "in", re.compile(
+	# Upstream dropped the fetch-link picker between 1.6.1337 and 1.6.1568.
+	# Zero is accepted only when the channel name is gone from the bundle
+	# altogether (checked below), never because the handler changed shape.
+	("B fetch-link picker", (0, 1), "in", re.compile(
 		r'\.ShowFetchLinkPicker,!1,(?P<p>' + ID + r')=>\{[^{}]{0,300}?'
 		+ fwd('contextMenuWindow', 'ShowFetchLinkPicker')
 		+ r'(?P<arg>(?P=p))\)')),
@@ -127,7 +131,15 @@ sites = [
 found = []
 for label, expected, _, rx in sites:
 	ms = list(rx.finditer(src))
-	if len(ms) != expected:
+	allowed = expected if isinstance(expected, tuple) else (expected,)
+	if not ms and 0 in allowed and "ShowFetchLinkPicker" in src:
+		sys.exit(
+			f"ERROR: '{label}' handler not found, but the bundle "
+			f"still names ShowFetchLinkPicker. The handler changed "
+			f"shape; re-audit it (see this script's header) before "
+			f"patching.")
+	if len(ms) not in allowed:
+		expected = " or ".join(str(n) for n in allowed)
 		sys.exit(
 			f"ERROR: expected exactly {expected} '{label}' site(s), found "
 			f"{len(ms)}. Bundle layout may have changed; re-audit the status "
@@ -164,7 +176,7 @@ for start, end, text in edits:
 with io.open(path, "w", encoding="utf-8", errors="surrogateescape") as f:
 	f.write(src)
 print(f"Patched: status-window offset applied at {len(edits)} site(s) "
-      f"(4 picker forwards, 2 DidHide cursor points).")
+      f"({len(edits) - 2} picker forwards, 2 DidHide cursor points).")
 PY
 
 # --- Verify the result --------------------------------------------------------
