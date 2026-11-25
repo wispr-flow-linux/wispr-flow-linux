@@ -21,7 +21,7 @@ input-method overrides the claude-desktop reference had.
 |---|---|---|
 | `WISPR_USE_WAYLAND` | unset | Set to `1` to force native Wayland (Ozone): pins `--ozone-platform=wayland`, enables the Wayland IME path, and exports `GDK_BACKEND=wayland`. Without it, Electron 42 auto-detects Wayland/X11. |
 | `WISPR_USE_X11` | unset | Set to `1` on a Wayland session to run the app under XWayland (`--ozone-platform=x11`). The status pill then gets X11-style click-through on every compositor, at the cost of blurry HiDPI scaling. Wins over `WISPR_USE_WAYLAND` when both are set; does nothing on an X11 session. The helper is unaffected: it still sees `WAYLAND_DISPLAY` and keeps the `/dev/uinput` injection path. |
-| `WISPR_DISABLE_GPU` | unset | Set to `1` to pass `--disable-gpu --disable-software-rasterizer`. Workaround for blank windows / GPU-process crashes on broken drivers or remote sessions. Also applied automatically inside XRDP sessions. |
+| `WISPR_DISABLE_GPU` | unset | Set to `1` to pass `--disable-gpu --disable-software-rasterizer`. Workaround for blank windows / GPU-process crashes on broken drivers or remote sessions, and for a [choppy status pill](troubleshooting.md#status-pill-waveform-is-choppy-or-nearly-frozen-while-dictating). Also applied automatically inside XRDP sessions. |
 
 ```bash
 # One-off:

@@ -350,6 +350,45 @@ env var needed (it detects XRDP specifically — other RDP backends still need t
 variable). More knobs in
 [configuration.md](configuration.md#environment-variables).
 
+## Status pill waveform is choppy or nearly frozen while dictating
+
+The bars in the status pill stutter, or update about once a second, while
+the rest of the desktop is smooth. Dictation itself works. This has been
+measured under XWayland (`WISPR_USE_X11=1`) on COSMIC with an NVIDIA GPU
+([#134](https://github.com/wispr-flow-linux/wispr-flow-linux/issues/134)).
+The rate there depended on which monitor the pill was on: 60 fps on one,
+about 30 on another and 1 on a third.
+
+### Fix
+
+Turn off GPU compositing. The lighter flag keeps GPU rasterization and was
+enough on the machine in #134:
+
+```bash
+# One-off (the launcher passes extra arguments on to Electron):
+wispr-flow --disable-gpu-compositing
+```
+
+`WISPR_DISABLE_GPU=1` has the same effect on the pill and can be made
+persistent:
+
+```bash
+# One-off:
+WISPR_DISABLE_GPU=1 wispr-flow
+
+# Persistent:
+echo 'export WISPR_DISABLE_GPU=1' >> ~/.profile
+```
+
+Either one moved the pill to a steady 60 fps on every monitor. The cost is
+CPU: on that machine the app used about a quarter more CPU time while the
+pill was animating. If your pill is already smooth, leave GPU compositing
+on.
+
+It has not been measured on native Wayland, in an X11 session, or on a
+machine with only an Intel or AMD GPU. If you see it there, add your setup
+to #134.
+
 ## App won't launch a second time (stale singleton lock)
 
 After a crash or unclean shutdown, the app silently quits on every launch and

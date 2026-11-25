@@ -19,6 +19,9 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   through when it is over a fullscreen app. Log out and back in after
   upgrading so GNOME Shell loads the updated extension. Thanks to
   @crafteraadarsh (helper #16 to #19, #34).
+- `docs/troubleshooting.md` gains a section for a choppy status pill
+  waveform: `--disable-gpu-compositing` or `WISPR_DISABLE_GPU=1` brings it
+  back to 60 fps (#134).
 
 ## [v1.0.5] - 2026-10-28
 
