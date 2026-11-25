@@ -29,7 +29,9 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 ### Fixed
 
 - Notetaker records system audio (the other people in a call) on Linux,
-  not only your mic (#61). Thanks to @ThomasHFWright for the diagnosis.
+  not only your mic (#61). It records the default output device, so
+  Wispr's own sounds are included. Thanks to @ThomasHFWright for the
+  diagnosis.
 
 ## [v1.0.5] - 2026-10-28
 
