@@ -48,9 +48,12 @@ linux-renderer-treat-as-windows	renderer/*	F	1+	the per-renderer isWindows bind	
 # linux-status-compact: the centred-bottom return matches once in 1.6.1209
 # and 1.6.1264 (checked by @Z3roS4n on the shipped bytes, PR #67).
 linux-status-compact	main	P	1	the bottom-centred status-window bounds return	return\{x:[\w$]+\+\([\w$]+-([\w$]+)\)/2,y:[\w$]+\+[\w$]+-([\w$]+),width:\1,height:\2\}
+linux-meeting-loopback	main	F	1	the MeetingDisplayMedia Linux skip log line	[MeetingDisplayMedia] Skipping handler install on Linux (no system loopback path)
+linux-renderer-raw-loopback	renderer/hub	F	2	the system-audio display-media requests	getDisplayMedia({audio:!0,video:!1})
 # upstream: the five Linux reads in 1.6.1337, each audited as needing no
 # patch: a `ps` fallback to /proc/<pid>/stat, a home-dir resolver arm, a
-# longer action timeout, MeetingDisplayMedia skipping its loopback handler,
+# longer action timeout, MeetingDisplayMedia skipping its loopback handler
+# (since patched, #61),
 # and (new since 1.6.1264) the credential store refusing Electron's
 # basic_text safeStorage backend, i.e. no Secret Service keyring
 # (docs/troubleshooting.md).
