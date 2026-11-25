@@ -248,13 +248,14 @@ every database path went through the `~/Library` constant until
 
 Upstream reads `"linux"===process.platform` itself in a handful of places,
 and the `upstream` line in `scripts/patches/tripwires.tsv` counts them so a
-new one stops the nightly bump. In 1.6.1337 there are five, and none needs a
-patch:
+new one stops the nightly bump. In 1.6.1337 there are five, and only the
+MeetingDisplayMedia one is patched:
 
 - a `ps` failure falls back to `/proc/<pid>/stat`
 - the home-dir resolver's Linux arm (`/root` or `/home/<user>`)
 - a longer action-completion timeout (60s instead of 30s)
 - MeetingDisplayMedia skips its loopback capture handler
+  (`linux-meeting-loopback.sh` removes the skip, #61)
 - the extension-connections credential store throws "Secure credential
   storage is unavailable on this device." when Electron's safeStorage fell
   back to `basic_text`, i.e. no Secret Service keyring is running
