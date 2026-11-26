@@ -21,6 +21,7 @@ input-method overrides the claude-desktop reference had.
 |---|---|---|
 | `WISPR_USE_WAYLAND` | unset | Set to `1` to force native Wayland (Ozone): pins `--ozone-platform=wayland`, enables the Wayland IME path, and exports `GDK_BACKEND=wayland`. Without it, Electron 42 auto-detects Wayland/X11. |
 | `WISPR_USE_X11` | unset | Set to `1` on a Wayland session to run the app under XWayland (`--ozone-platform=x11`). The status pill then gets X11-style click-through on every compositor, at the cost of blurry HiDPI scaling. Wins over `WISPR_USE_WAYLAND` when both are set; does nothing on an X11 session. The helper is unaffected: it still sees `WAYLAND_DISPLAY` and keeps the `/dev/uinput` injection path. |
+| `WISPR_COSMIC_OVERLAY` | unset | Set to `0` to use the Electron status window for dictation on native COSMIC Wayland. Normally the helper shows a red recording indicator and processing dots over the active display when layer-shell is available. The launcher also uses the Electron status window with XWayland or a helper without layer-shell support. |
 | `WISPR_DISABLE_GPU` | unset | Set to `1` to pass `--disable-gpu --disable-software-rasterizer`. Workaround for blank windows / GPU-process crashes on broken drivers or remote sessions. Also applied automatically inside XRDP sessions. |
 
 ```bash
@@ -41,6 +42,44 @@ echo 'export WISPR_DISABLE_GPU=1' >> ~/.profile
 > `WISPR_USE_X11=1` is the way back to XWayland when a compositor has no
 > Wayland input-shaping path for the status pill (see
 > [troubleshooting](troubleshooting.md#clicks-near-the-status-pill-are-swallowed-or-the-pills-buttons-dont-respond-on-wayland)).
+
+## COSMIC Wayland
+
+Use the Flow shortcut settings to bind Caps Lock and choose hold or double-tap.
+To keep Caps Lock from changing capitalization, choose **Disabled** for its
+XKB behavior if your COSMIC Settings version offers that option. Older versions
+can set `caps:none` in
+`~/.config/cosmic/com.system76.CosmicComp/v1/xkb_config`. Preserve any existing
+XKB options by adding `caps:none` to the comma-separated options string. Shift
+still capitalizes letters.
+
+The layer-shell indicator follows the focused window's output when COSMIC
+reports one, honors fractional scaling, and stays click-through. The helper
+uses Ctrl+Shift+V in recognized terminal apps and Ctrl+V in other targets.
+Automatic dictation pastes into the window that had focus when dictation
+started. If it loses focus, recover the transcript from Flow History.
+Explicit paste commands use the currently focused window.
+
+```bash
+wispr-flow --doctor
+wispr-flow --clipboard-mode
+wispr-flow --clipboard-mode preserve
+wispr-flow --clipboard-mode keep-transcript
+```
+
+`preserve` temporarily uses the Wayland clipboard for insertion and restores
+its original formats. The restored clipboard can survive a Flow restart.
+If you copy something new before Flow can paste, your newer copy takes
+precedence. When the previous selection cannot be saved safely, use Flow
+History to recover the transcript. Preserve mode reads selections via
+AT-SPI and skips the clipboard-copy fallback. Clipboard history managers can
+still see temporary selections. The helper reads this setting on each paste.
+
+The GlobalShortcuts portal is a prerequisite for reducing raw keyboard access.
+The helper currently uses evdev for hold and double-tap. On systemd desktops
+prefer the active-session udev ACL over permanent `input` group membership.
+`--doctor` reports portal availability and the mute state of the default
+desktop microphone. Flow can select its own microphone in Settings.
 
 ## Where state lives
 

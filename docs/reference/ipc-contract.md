@@ -161,7 +161,10 @@ Linux): `SetAccessibilityGuidance`, `GetSystemSettingsWindowBounds`.
   "PasteText": { "payload": {
     "text": "",                    // plain text to insert
     "htmlText": "",                // HTML variant (set both clipboard formats)
-    "transcriptEntityUUID": ""     // correlation id for analytics
+    "transcriptEntityUUID": "",    // optional correlation id
+    "logAttributes": {
+      "transcriptEntityUuid": ""   // optional correlation id in 1.6.1583
+    }
   } } } }
 
 // ---- SimulateKeyPress (req) ----
@@ -211,7 +214,7 @@ Linux): `SetAccessibilityGuidance`, `GetSystemSettingsWindowBounds`.
 // ---- HelperAPIError (resp) — use for unsupported/failed commands ----
 { "HelperAPIResponse": { "uuid": "",
   "HelperAPIError": { "payload": {
-    "type": "",                    // HelperAPIErrorType enum (placeholder in this build)
+    "type": "SOME_ERROR_TYPES",    // accepted HelperAPIErrorType enum value
     "description": "",
     "params": { "code": "", "messageType": "" }   // both optional
   } } } }
@@ -270,6 +273,13 @@ keys don't corrupt the synthetic chord. Replicate on X11 via `XQueryKeymap` + te
 ---
 
 ## 7. PasteText mechanism
+
+In the 1.6.1583 app, automatic dictation paste carries the transcript ID in
+`logAttributes.transcriptEntityUuid`. The explicit Paste Last Transcript
+command omits that ID. The helper also accepts the top-level
+`transcriptEntityUUID` form. On COSMIC, the helper captures the active
+window on `DictationStart` and uses `RecordingStarted` as a fallback.
+`DictationStop` retains that destination while transcription finishes.
 
 Not per-character typing — **clipboard-based**:
 1. `OpenClipboard` with exponential-backoff retry to ~250 ms (5 ms → ×2, cap 250 ms) to survive

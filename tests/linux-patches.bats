@@ -1410,3 +1410,302 @@ JS
 	[[ "$output" == *'expected 1 status-bounds anchor, found 2'* ]]
 	! grep -q 'WISPR_LINUX_STATUS_COMPACT' "$FIX"
 }
+
+@test "cosmic-overlay: forwards the dictation transition and defers its window show" {
+	cat > "$FIX" <<'JS'
+function status($phase, opts) {
+const win=getWin();opts.skipBubbleIPC?$log().info("updateDictationStatus: skipping bubble DictationStatus IPC",{phase:$phase}):(0,w.send)(win,k.LF.DictationStatus,$phase),(0,w.send)(app.hub,k.LF.DictationStatus,$phase);const prev=session.active.status;session.active.status=$phase;
+}
+function other() {
+$log().info("updateDictationStatus: skipping bubble DictationStatus IPC");
+}
+const $show=($raise=platform.win)=>{const win=app.main.statusWindow;if(!win||win.isDestroyed())return $log().error("Status window is not available or destroyed. Recreating."),void recreate();win.showInactive();};
+const notify=()=>{const win=app.main.statusWindow;if(!win||win.isDestroyed())return $log().error("Status window is not available or destroyed. Recreating.");win.showInactive();};
+const openStatus=()=>{const win=(app.main.statusWindow&&!app.main.statusWindow.isDestroyed()||($log().error("Tried to show/hide status window, but it was destroyed. Rebuilding."),app.main.statusWindow=create()),app.main.statusWindow);win.showInactive();};
+const ready=()=>{report.sendEvent(event.AnalyticsEventKey.AppReady,{timeToOpen:Date.now()-app.main.appReadyTime}),(0,windows.open)()};
+JS
+	run bash "$PATCH_DIR/linux-cosmic-overlay.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'wisprLinuxCosmicOverlay?.update(opts.skipBubbleIPC||session.active.isInstructMode||session.active.matchedRouteName?"idle":$phase,win);' "$FIX"
+	[[ "$(grep -cF 'wisprLinuxCosmicOverlay?.update(' "$FIX")" -eq 1 ]]
+	grep -qF 'if(wisprLinuxCosmicOverlay?.deferShow(()=>$show($raise)))return;' "$FIX"
+	[[ "$(grep -cF 'wisprLinuxCosmicOverlay?.deferShow(' "$FIX")" -eq 1 ]]
+	grep -qF 'const openStatus=(wisprLinuxHiddenStartup)=>{' "$FIX"
+	grep -qF 'if(wisprLinuxHiddenStartup===!0)return $log().info("Prepared hidden COSMIC status window");win.showInactive();' "$FIX"
+	grep -qF '(0,windows.open)(!!wisprLinuxCosmicOverlay)' "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-cosmic-overlay.sh" "$FIX"
+	node - "$FIX" <<'JS'
+const assert = require('node:assert/strict');
+const { readFileSync } = require('node:fs');
+const { runInNewContext } = require('node:vm');
+const bundle = readFileSync(process.argv[2], 'utf8');
+const setup = `
+let shows = 0;
+const app = { main: { appReadyTime: 0 } };
+const report = { sendEvent() {} };
+const event = { AnalyticsEventKey: { AppReady: 'ready' } };
+const windows = { open: flag => openStatus(flag) };
+const $log = () => ({ error() {}, info() {} });
+const create = () => ({
+	isDestroyed: () => false,
+	showInactive() { shows++; },
+});
+`;
+for (const desktop of ['COSMIC', 'GNOME']) {
+	const result = runInNewContext(setup + bundle + `
+		ready();
+		const startup = String(shows) + ':' + !!app.main.statusWindow;
+		openStatus();
+		startup + ':' + shows;
+	`, {
+		process: {
+			platform: 'linux',
+			resourcesPath: '/resources',
+			env: { WAYLAND_DISPLAY: 'wayland-1', XDG_CURRENT_DESKTOP: desktop },
+		},
+		require(name) {
+			if (name !== 'electron') return require(name);
+			return { app: { once() {}, commandLine: { getSwitchValue: () => '' } } };
+		},
+	});
+	assert.equal(result, desktop === 'COSMIC' ? '0:true:1' : '1:true:2');
+}
+JS
+}
+
+@test "cosmic-overlay: fails closed when the status IPC shape drifts" {
+	cat > "$FIX" <<'JS'
+function status(phase, opts) {
+const win=getWin();opts.skipBubbleIPC?log().info("updateDictationStatus: skipping bubble DictationStatus IPC"):(0,w.send)(win,k.LF.OtherStatus,phase),(0,w.send)(app.hub,k.LF.OtherStatus,phase);const prev=session.active.status;session.active.status=phase;
+}
+JS
+	run bash "$PATCH_DIR/linux-cosmic-overlay.sh" "$FIX"
+	[[ "$status" -eq 1 ]]
+	[[ "$output" == *'found 0'* ]]
+	cmp "$FIX" "$FIX.orig"
+}
+
+@test "cosmic-overlay: restores the Electron window only on fallback" {
+	node - "$PATCH_DIR/linux-cosmic-overlay.js" <<'JS'
+const assert = require('node:assert/strict');
+const { EventEmitter } = require('node:events');
+const { readFileSync } = require('node:fs');
+const { PassThrough } = require('node:stream');
+const { runInNewContext } = require('node:vm');
+
+const app = new EventEmitter();
+app.commandLine = { getSwitchValue: () => 'wayland' };
+const children = [];
+const overlay = runInNewContext(
+	readFileSync(process.argv[2], 'utf8') + '\nwisprLinuxCosmicOverlay;',
+	{
+		process: {
+			platform: 'linux',
+			resourcesPath: '/resources',
+			env: { WAYLAND_DISPLAY: 'wayland-1', XDG_CURRENT_DESKTOP: 'COSMIC' },
+		},
+		require(name) {
+			if (name === 'electron') return { app };
+			if (name !== 'node:child_process') return require(name);
+			return { spawn() {
+				const child = new EventEmitter();
+				child.stdin = new PassThrough();
+				child.stdout = new PassThrough();
+				child.kill = () => { child.killed = true; };
+				children.push(child);
+				return child;
+			} };
+		},
+		clearTimeout,
+		setTimeout,
+		console: { warn() {} },
+	},
+);
+
+let visible = true;
+const win = {
+	isDestroyed: () => false,
+	isVisible: () => visible,
+	hide: () => { visible = false; },
+	showInactive: () => { visible = true; },
+};
+overlay.update('listening', win);
+assert.equal(children[0].stdin.read().toString(), '1 listening\n');
+assert.equal(visible, true);
+children[0].stdout.write('1 shown\n');
+assert.equal(visible, false);
+overlay.update('processing', win);
+assert.equal(children[0].stdin.read().toString(), '2 processing\n');
+children[0].stdout.write('2 lost\n');
+assert.equal(visible, true);
+assert.equal(children[0].killed, true);
+overlay.update('processing', win);
+assert.equal(children.length, 1);
+overlay.update('idle', win);
+win.hide();
+overlay.update('listening', win);
+assert.equal(overlay.deferShow(win.showInactive), true);
+assert.equal(visible, false);
+children[1].stdout.write('3 shown\n');
+assert.equal(visible, false);
+overlay.update('processing', win);
+children[1].stdout.write('4 shown\n');
+assert.equal(visible, false);
+overlay.update('idle', win);
+assert.equal(visible, false);
+assert.equal(children[1].killed, true);
+children[1].stdout.write('4 lost\n');
+assert.equal(visible, false);
+
+// If upstream shows a notification or a later status window, keep it visible.
+win.showInactive();
+overlay.update('listening', win);
+children[2].stdout.write('5 shown\n');
+assert.equal(visible, false);
+overlay.update('dismissed', win);
+assert.equal(visible, false);
+win.showInactive();
+overlay.update('idle', win);
+assert.equal(visible, true);
+
+// If the Wayland child fails before its first frame, replay Wispr's show.
+win.hide();
+overlay.update('initializing', win);
+assert.equal(overlay.deferShow(win.showInactive), true);
+assert.equal(visible, false);
+children[3].emit('close', 1);
+assert.equal(visible, true);
+assert.equal(overlay.deferShow(win.showInactive), false);
+JS
+}
+
+@test "mic-conflict: Linux skips probes and Windows and macOS still run them" {
+	cat > "$FIX" <<'JS'
+const flags$={micConflictDetectionOn:()=>true};
+globalThis.probe=()=>{if(!(0,flags$.micConflictDetectionOn)()||false)return false;return true};
+globalThis.other=()=>{if(!(0,flags$.micConflictDetectionOn)())return false;return true};
+JS
+	run bash "$PATCH_DIR/linux-mic-conflict.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	node - "$FIX" <<'JS'
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const code = fs.readFileSync(process.argv[2], "utf8");
+for (const platform of ["linux", "win32", "darwin"]) {
+    const context = {process: {platform}};
+    vm.runInNewContext(code, context);
+    assert.equal(context.probe(), platform !== "linux");
+    assert.equal(context.other(), true);
+}
+JS
+	assert_idempotent "$PATCH_DIR/linux-mic-conflict.sh" "$FIX"
+}
+
+@test "mic-conflict: a plain feature-flag check is outside the patch site" {
+	echo 'if(!(0,flags$.micConflictDetectionOn)())return;' > "$FIX"
+	run bash "$PATCH_DIR/linux-mic-conflict.sh" "$FIX"
+	[[ "$status" -eq 1 ]]
+	[[ "$output" == *'found 0'* ]]
+	cmp "$FIX" "$FIX.orig"
+}
+
+@test "mic-conflict: an older bundle without the watcher is left intact" {
+	echo 'globalThis.recording = true;' > "$FIX"
+	run bash "$PATCH_DIR/linux-mic-conflict.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -qF 'WISPR_LINUX_MIC_CONFLICT: no watcher' "$FIX"
+	[[ "$(head -n 1 "$FIX")" == 'globalThis.recording = true;' ]]
+	assert_idempotent "$PATCH_DIR/linux-mic-conflict.sh" "$FIX"
+}
+
+@test "package-updates: Linux skips the vendor feed and leaves other checks alone" {
+	cat > "$FIX" <<'JS'
+class Other{async checkForUpdates(e=!1){return true}}
+class Vendor{
+    updateState=0;feedRequests=0;
+    async checkForUpdates(e=!1){if(this.updateState!==1){await this.setAutoUpdateUrl()}}
+    async setAutoUpdateUrl(){this.feedRequests++}
+}
+globalThis.vendor=new Vendor;
+globalThis.other=new Other;
+JS
+	run bash "$PATCH_DIR/linux-package-updates.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	node - "$FIX" <<'JS'
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const code = fs.readFileSync(process.argv[2], "utf8");
+(async () => {
+    for (const platform of ["linux", "win32", "darwin"]) {
+        const context = {process: {platform}};
+        vm.runInNewContext(code, context);
+        await context.vendor.checkForUpdates();
+        await context.vendor.checkForUpdates(true);
+        assert.equal(context.vendor.feedRequests, platform === "linux" ? 0 : 2);
+        assert.equal(await context.other.checkForUpdates(), true);
+    }
+})().catch(error => {
+    console.error(error);
+    process.exitCode = 1;
+});
+JS
+	assert_idempotent "$PATCH_DIR/linux-package-updates.sh" "$FIX"
+}
+
+@test "package-updates: a check without vendor feed selection fails closed" {
+	echo 'class Vendor{async checkForUpdates(x=!1){if(this.updateState!==1)return x}}' > "$FIX"
+	run bash "$PATCH_DIR/linux-package-updates.sh" "$FIX"
+	[[ "$status" -eq 1 ]]
+	[[ "$output" == *'found 0'* ]]
+	cmp "$FIX" "$FIX.orig"
+}
+
+# =============================================================================
+# linux-meeting-loopback.sh / linux-renderer-raw-loopback.sh
+# =============================================================================
+
+meeting_handler() {
+	cat <<'JS'
+function inst(){if("linux"===process.platform)return $s().info("[MeetingDisplayMedia] Skipping handler install on Linux (no system loopback path)"),void(_=!0);r.session.defaultSession.setDisplayMediaRequestHandler((e,$t)=>{if("win32"===process.platform)return void $t({audio:"loopback"});$t({})})}
+JS
+}
+
+@test "meeting-loopback: drops the Linux skip and answers linux with the loopback" {
+	meeting_handler > "$FIX"
+	run bash "$PATCH_DIR/linux-meeting-loopback.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	! grep -qF 'Skipping handler install' "$FIX"
+	grep -qF 'if("win32"===process.platform||"linux"===process.platform/*WISPR_LINUX_MEETING_LOOPBACK*/)return void $t({audio:"loopback"})' "$FIX"
+	node_check "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-meeting-loopback.sh" "$FIX"
+}
+
+@test "meeting-loopback: bails without the Linux skip" {
+	meeting_handler | sed 's/if("linux"[^;]*;//' > "$FIX"
+	run bash "$PATCH_DIR/linux-meeting-loopback.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_MEETING_LOOPBACK' "$FIX"
+}
+
+@test "raw-loopback: rewrites every system-audio request, leaves the mic" {
+	cat > "$FIX" <<'JS'
+const a=()=>navigator.mediaDevices.getDisplayMedia({audio:!0,video:!1});
+const b=()=>navigator.mediaDevices.getDisplayMedia({audio:!0,video:!1});
+const c=()=>navigator.mediaDevices.getUserMedia({audio:{echoCancellation:!1}});
+JS
+	run bash "$PATCH_DIR/linux-renderer-raw-loopback.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	[[ "$(grep -c '"linux"===window.electron.platform.os?{echoCancellation:!1,noiseSuppression:!1,autoGainControl:!1}:!0' "$FIX")" -eq 2 ]]
+	grep -qF 'getUserMedia({audio:{echoCancellation:!1}})' "$FIX"
+	node_check "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-renderer-raw-loopback.sh" "$FIX"
+}
+
+@test "raw-loopback: bails when no system-audio request is present" {
+	echo 'navigator.mediaDevices.getDisplayMedia({video:!0,audio:!1});' > "$FIX"
+	run bash "$PATCH_DIR/linux-renderer-raw-loopback.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_RAW_LOOPBACK' "$FIX"
+}
