@@ -38,6 +38,17 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Fixed
 
+- Wispr Flow no longer makes itself the default app for `.html` files at
+  every start (#75). The app registers its `wispr-flow:` link scheme on each
+  launch, which on Linux runs `xdg-settings`, and the GNOME backend of
+  xdg-utils 1.1.3 (Ubuntu 22.04) also sets the `text/html` default as a side
+  effect. `linux-protocol-registration.sh` skips that call on Linux, and the
+  deb, rpm, AppImage and Nix desktop entries declare
+  `MimeType=x-scheme-handler/wispr-flow;` instead. The launcher removes a
+  `text/html=wispr-flow.desktop` line an older build left in
+  `~/.config/mimeapps.list` on the first start after the update, so `.html`
+  files fall back to the desktop's default browser, and `--doctor` warns
+  while the line remains.
 - The status pill's window on Linux is sized to the pill, 200x110 instead
   of upstream's 512x614, so its transparent margin no longer swallows clicks
   meant for the windows around it (#67, refs #44). The new
